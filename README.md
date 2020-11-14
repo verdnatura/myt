@@ -11,6 +11,13 @@ Required applications.
 * Node.js = 12.17.0 LTS
 * Docker
 
+## Installation
+
+It's recommended to install the package globally.
+```
+# npm install -g myvc
+```
+
 ## How to use
 
 Export structure (uses production configuration).
