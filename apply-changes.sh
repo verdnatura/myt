@@ -63,7 +63,7 @@ fi
 # Configuration file
 
 if [ -z "$ENV" ]; then
-    INI_FILE="$DIR/db.ini"
+    INI_FILE="$PWD/db.ini"
 else
     INI_FILE="$PWD/db.$ENV.ini"
 fi
@@ -257,12 +257,12 @@ mysqldump \
     mysql procs_priv > "$PROCS_FILE"
 
 if [[ -z "$DB_COMMIT" ]]; then
-    ROUTINES_CMD="find routines -type f"
+    applyRoutines "find routines -type f"
 else
-    ROUTINES_CMD="git diff --name-only $DB_COMMIT -- routines"
+    applyRoutines "git diff --name-only --diff-filter=D $DB_COMMIT -- routines"
+    applyRoutines "git diff --name-only --diff-filter=d $DB_COMMIT -- routines"
 fi
 
-applyRoutines "$ROUTINES_CMD"
 applyRoutines "git ls-files --others --exclude-standard"
 
 if [ "$ROUTINES_CHANGED" -gt "0" ]; then

@@ -20,36 +20,14 @@ COPY \
     docker/docker-temp-stop.sh \
     docker/docker-dump.sh \
     docker/docker-start.sh \
+    apply-changes.sh \
     /usr/local/bin/
 
 RUN mkdir /mysql-data \
     && chown -R mysql:mysql /mysql-data
 
 WORKDIR /docker-boot
-
-COPY \
-    import-changes.sh \
-    db.ini \
-    dump/structure.local.sql \
-    dump/structure.sql \
-    dump/fixtures.sql \
-    ./
-RUN gosu mysql docker-init.sh \
-    && docker-dump.sh structure.local \
-    && docker-dump.sh structure \
-    && docker-dump.sh fixtures \
-    && gosu mysql docker-temp-stop.sh
-
-COPY changes ./changes
-COPY dump/fixtures.local.sql ./
-ARG STAMP=unknown
-RUN gosu mysql docker-temp-start.sh \
-    && ./import-changes.sh \
-    && docker-dump.sh fixtures.local \
-    && gosu mysql docker-temp-stop.sh
-
-RUN echo "[INFO] -> Import finished" \
-    && rm -rf /docker-boot
+COPY db.ini ./
 
 USER mysql
 ENTRYPOINT ["docker-start.sh"]

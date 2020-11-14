@@ -11,8 +11,6 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
-
-echo "Exporting fixtures"
 echo "" > "$DUMP_FILE"
 
 for SCHEMA in $(jq -r ".fixtures | keys[]" "$CONFIG_FILE"); do

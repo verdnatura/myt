@@ -1,0 +1,28 @@
+FROM myvc/server
+
+USER root
+
+COPY \
+    dump/structure.local.sql \
+    dump/structure.sql \
+    dump/fixtures.sql \
+    myvc.config.json \
+    ./
+RUN gosu mysql docker-init.sh \
+    && docker-dump.sh structure.local \
+    && docker-dump.sh structure \
+    && docker-dump.sh fixtures \
+    && gosu mysql docker-temp-stop.sh
+
+COPY changes ./changes
+COPY dump/fixtures.local.sql ./
+ARG STAMP=unknown
+RUN gosu mysql docker-temp-start.sh \
+    && apply-changes.sh \
+    && docker-dump.sh fixtures.local \
+    && gosu mysql docker-temp-stop.sh
+
+RUN echo "[INFO] -> Import finished" \
+    && rm -rf /docker-boot
+
+USER mysql

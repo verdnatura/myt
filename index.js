@@ -1,26 +1,45 @@
 
+require('colors');
 const getopts = require('getopts');
-const colors = require('colors');
 const package = require('./package.json');
 const dockerRun = require('./docker-run');
+const fs = require('fs-extra');
+
+console.log('MyVC (MySQL Version Control)'.green, `v${package.version}`.blue);
 
 const options = getopts(process.argv.slice(2), {
     alias: {
         dir: 'd',
         env: 'e',
-        help: 'h'
+        help: 'h',
+        version: 'v'
     },
     default: {}
 })
 
-if (options.help) {
-    console.log('usage: myvc [-d|--dir] [-e|--env] [-h|--help] action');
-    process.exit(0)
+function usage() {
+    console.log('Usage:'.gray, 'myvc [-d|--dir] [-e|--env] [-h|--help] action'.magenta);
+    process.exit(0);
 }
 
+if (options.help) usage();
+if (options.version) process.exit(0);
+
+let config;
+let container;
+
 let action = options._[0];
-console.log('MyVC (MySQL Version Control)'.green, `v${package.version}`.blue);
-console.log('Action:'.gray, action.magenta);
+if (action) {
+    console.log('Action:'.gray, action.magenta);
+
+    const configFile = 'myvc.config.json';
+    if (!fs.existsSync(configFile)) {
+        console.error('Error:'.gray, `Config file '${configFile}' not found in working directory`.red);
+        process.exit(1);
+    }
+
+    config = require(`${process.cwd()}/${configFile}`);
+}
 
 switch (action) {
     case 'structure':
@@ -35,4 +54,18 @@ switch (action) {
     case 'apply':
         dockerRun('apply-changes.sh');
         break;
+    case 'run': {
+        const Docker = require('./docker');
+        container = new Docker();
+        container.run();
+        break;
+    }
+    case 'start': {
+        const Docker = require('./docker');
+        container = new Docker();
+        container.start();
+        break;
+    }
+    default:
+        usage();
 }

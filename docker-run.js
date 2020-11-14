@@ -5,7 +5,7 @@ const spawn = require('child_process').spawn;
 module.exports = function(command) {
     const buildArgs = [
         'build',
-        '-t', 'vn-db-client',
+        '-t', 'myvc/client',
         '-f', `${__dirname}/Dockerfile.client`,
         `${__dirname}/`
     ];
@@ -14,7 +14,7 @@ module.exports = function(command) {
     let args = [
         'run',
         '-v', `${process.cwd()}:/workdir`,
-        'vn-db-client',
+        'myvc/client',
         command
     ];
     args = args.concat(process.argv.slice(2));

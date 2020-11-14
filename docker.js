@@ -1,7 +1,9 @@
+
+const cwd = process.cwd();
 const exec = require('child_process').exec;
 const log = require('fancy-log');
-const dataSources = require('../loopback/server/datasources.json');
-const serverImage = require(`${process.cwd()}/myvc.config.json`).serverImage;
+const path = require('path');
+const serverImage = require(`${cwd}/myvc.config.json`).serverImage;
 
 module.exports = class Docker {
     constructor(name) {
@@ -9,7 +11,12 @@ module.exports = class Docker {
             id: name,
             name,
             isRandom: name == null,
-            dbConf: Object.assign({}, dataSources.vn)
+            dbConf: {
+                host: 'localhost',
+                port: '3306',
+                username: 'root',
+                password: 'root'
+            }
         });
     }
 
@@ -22,10 +29,13 @@ module.exports = class Docker {
      * @param {Boolean} ci continuous integration environment argument
      */
     async run(ci) {
+        let dockerfilePath = path.join(__dirname, 'Dockerfile');
+        await this.execP(`docker build -t myvc/server -f ${dockerfilePath}.server ${__dirname}`);
+
         let d = new Date();
         let pad = v => v < 10 ? '0' + v : v;
         let stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        await this.execP(`docker build --build-arg STAMP=${stamp} -t ${serverImage} ./db`);
+        await this.execP(`docker build --build-arg STAMP=${stamp} -f ${dockerfilePath}.dump -t ${serverImage} ${cwd}`);
 
         let dockerArgs;
 
