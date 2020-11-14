@@ -1,0 +1,23 @@
+FROM debian:bullseye-slim
+
+ENV TZ Europe/Madrid
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        mariadb-client \
+        libmariadb3 \
+        git \
+        jq \
+        iputils-ping \
+        dnsutils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY \
+    export-fixtures.sh \
+    export-structure.sh \
+    apply-changes.sh \
+    db.ini \
+    /usr/local/bin/
+
+WORKDIR /workdir

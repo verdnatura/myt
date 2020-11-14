@@ -1,0 +1,5 @@
+CREATE OR REPLACE DEFINER = `root`@`%`
+    SQL SECURITY <%- securityType %>
+    VIEW `<%- schema %>`.`<%- name %>`
+AS <%- definition %><% if (checkOption != 'NONE') { %>
+WITH CASCADED CHECK OPTION<% } %>
