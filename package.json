@@ -1,8 +1,8 @@
 {
   "name": "myvc",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Verdnatura Levante SL",
-  "description": "MySQL version control",
+  "description": "MySQL Version Control",
   "license": "GPL-3.0",
   "bin": {
     "myvc": "myvc.js"
