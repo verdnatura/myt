@@ -6,7 +6,7 @@ const path = require('path');
 const serverImage = require(`${cwd}/myvc.config.json`).serverImage;
 
 module.exports = class Docker {
-    constructor(name) {
+    constructor(name, context) {
         Object.assign(this, {
             id: name,
             name,
@@ -16,7 +16,9 @@ module.exports = class Docker {
                 port: '3306',
                 username: 'root',
                 password: 'root'
-            }
+            },
+            imageTag: name || 'myvc/dump',
+            context
         });
     }
 
@@ -35,7 +37,7 @@ module.exports = class Docker {
         let d = new Date();
         let pad = v => v < 10 ? '0' + v : v;
         let stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        await this.execP(`docker build --build-arg STAMP=${stamp} -f ${dockerfilePath}.dump -t ${serverImage} ${cwd}`);
+        await this.execP(`docker build --build-arg STAMP=${stamp} -f ${dockerfilePath}.dump -t ${this.serverImage} ${this.context}`);
 
         let dockerArgs;
 
@@ -50,7 +52,7 @@ module.exports = class Docker {
 
         let runChown = process.platform != 'linux';
 
-        const container = await this.execP(`docker run --env RUN_CHOWN=${runChown} -d ${dockerArgs} ${serverImage}`);
+        const container = await this.execP(`docker run --env RUN_CHOWN=${runChown} -d ${dockerArgs} ${this.serverImage}`);
         this.id = container.stdout.trim();
 
         try {

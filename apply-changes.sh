@@ -4,11 +4,11 @@ FORCE=FALSE
 IS_USER=FALSE
 
 usage() {
-	echo "[ERROR] Usage: $0 [-f] [-u] [environment]"
+	echo "[ERROR] Usage: $0 [-f] [-u] [-e environment]"
 	exit 1
 }
 
-while getopts ":fu" option
+while getopts ":fue:" option
 do
 	case $option in
 		f)
@@ -17,6 +17,9 @@ do
 		u)
 			IS_USER=TRUE
 			;;
+		e)
+			ENV="$OPTARG"
+			;;
 		\?|:)
 			usage
 			;;
@@ -24,12 +27,11 @@ do
 done
 
 shift $(($OPTIND - 1))
-ENV=$1
 
 CONFIG_FILE="myvc.config.json"
 
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "[ERROR] Config file not found in working directory."
+    echo "[ERROR] Config file not found: $CONFIG_FILE"
     exit 2
 fi
 
@@ -69,11 +71,17 @@ else
 fi
 
 if [ ! -f "$INI_FILE" ]; then
-    echo "[ERROR] DB config file doesn't exists: $INI_FILE"
+    echo "[ERROR] Database config file not found: $INI_FILE"
     exit 2
 fi
 
 echo "[INFO] Using config file: $INI_FILE"
+
+echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
+
+if [ "$?" -ne "0" ]; then
+    exit 3
+fi
 
 # Query functions
 
@@ -107,7 +115,7 @@ echo "[INFO]  -> Commit: $DB_COMMIT"
 
 if [[ ! "$DB_VERSION" =~ ^[0-9]*$ ]]; then
     echo "[ERROR] Wrong database version."
-    exit 3
+    exit 4
 fi
 if [[ -z "$DB_VERSION" ]]; then
     DB_VERSION=10000
@@ -232,7 +240,7 @@ applyRoutines() {
             ACTION="DROP"
         fi
 
-        echo "[INFO]  -> $ROUTINE_TYPE $ROUTINE_NAME: $ACTION"
+        echo "[INFO]  -> $ACTION: $ROUTINE_TYPE $ROUTINE_NAME"
 
         if [ "$ACTION" == "REPLACE" ]; then
             dbExecFromFile "$FILE_PATH" "$SCHEMA"

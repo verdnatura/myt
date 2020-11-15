@@ -1,15 +1,7 @@
 #!/usr/bin/node
 const fs = require('fs-extra');
-const ini = require('ini');
 const mysql = require('mysql2/promise');
 const ejs = require('ejs');
-
-let cwd = process.cwd();
-let env = process.argv[2];
-let iniFile = env ? `db.${env}.ini` : `${__dirname}/db.ini`;
-let dbConf = ini.parse(fs.readFileSync(iniFile, 'utf8')).client;
-let exportDir = `${cwd}/routines`;
-let config = require(`${cwd}/myvc.config.json`);
 
 class Exporter {
     constructor(objectName, callback) {
@@ -17,10 +9,10 @@ class Exporter {
         this.callback = callback;
         this.dstDir = `${objectName}s`;
 
-        let templateDir = `${__dirname}/templates/${objectName}`;
+        const templateDir = `${__dirname}/templates/${objectName}`;
         this.query = fs.readFileSync(`${templateDir}.sql`, 'utf8');
 
-        let templateFile = fs.readFileSync(`${templateDir}.ejs`, 'utf8');
+        const templateFile = fs.readFileSync(`${templateDir}.ejs`, 'utf8');
         this.template = ejs.compile(templateFile);
 
         if (fs.existsSync(`${templateDir}.js`))
@@ -28,10 +20,10 @@ class Exporter {
     }
 
     async export(conn, exportDir, schema) {
-        let res = await conn.execute(this.query, [schema]);
+        const res = await conn.execute(this.query, [schema]);
         if (!res[0].length) return; 
 
-        let routineDir = `${exportDir}/${schema}/${this.dstDir}`;
+        const routineDir = `${exportDir}/${schema}/${this.dstDir}`;
         if (!fs.existsSync(routineDir))
             fs.mkdirSync(routineDir);
 
@@ -46,7 +38,7 @@ class Exporter {
     }
 }
 
-let exporters = [
+const exporters = [
     new Exporter('function'),
     new Exporter('procedure'),
     new Exporter('view'),
@@ -56,27 +48,10 @@ let exporters = [
 
 // Exports objects for all schemas
 
-async function main() {
-    let ssl;
-    if (dbConf.ssl_ca) {
-        ssl = {
-            ca: fs.readFileSync(`${cwd}/${dbConf.ssl_ca}`),
-            rejectUnauthorized: dbConf.ssl_verify_server_cert != undefined
-        }
-    }
+module.exports = async function main(opts, config, dbConf) {
+    const exportDir = `${opts.workdir}/routines`;
 
-    let conn = await mysql.createConnection({
-        host: !env ? 'localhost' : dbConf.host,
-        port: dbConf.port,
-        user: dbConf.user,
-        password: dbConf.password,
-        authPlugins: {
-            mysql_clear_password() {
-                return () => dbConf.password + '\0';
-            }
-        },
-        ssl
-    });
+    const conn = await mysql.createConnection(dbConf);
     conn.queryFromFile = function(file, params) {
         return this.execute(
             fs.readFileSync(`${file}.sql`, 'utf8'),
@@ -104,5 +79,4 @@ async function main() {
     } finally {
         await conn.end();
     }
-}
-main();
+};

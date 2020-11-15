@@ -1,63 +1,74 @@
 # MyVC (MySQL Version Control)
 
-Utilities to ease the maintenance of MySQL database versioning using a Git
-repository.
+Utilities to ease the maintenance of MySQL or MariaDB database versioning using
+a Git repository.
+
+This project is just to bring an idea to life and is still in an early stage of
+development, so it may not be fully functional.
+
+Any help is welcomed! Feel free to contribute.
 
 ## Prerequisites
 
 Required applications.
 
-* Git
 * Node.js = 12.17.0 LTS
+* Git
 * Docker
 
 ## Installation
 
 It's recommended to install the package globally.
-```
+```text
 # npm install -g myvc
+```
+
+You can also install locally and use the *npx* command to execute it.
+```text
+$ npm install myvc
+$ npx myvc [action]
 ```
 
 ## How to use
 
-Export structure (uses production configuration).
+Execute *myvc* with the desired action.
+```text
+$ myvc [-w|--workdir] [-e|--env] [-h|--help] action
 ```
-$ myvc structure
-```
+The default working directory is the current one and unless otherwise indicated,
+the default environment is *production*.
 
-Export fixtures (uses production configuration).
-```
-$ myvc fixtures
-```
+Available actions are:
+ * **structure**: Export the database structure.
+ * **fixtures**: Export the database structure.
+ * **routines**: Export database routines.
+ * **apply**: Apply changes into database, uses *local* environment by default.
+ * **run**: Builds and starts local database server container.
+ * **start**: Starts local database server container.
 
-Export routines.
-```
-$ myvc routines [environment]
-```
-
-Apply changes into database.
-```
-$ myvc apply [-f] [-u] [environment]
-```
+Each action can have its own specific commandline options.
 
 ## Basic information
 
 Create database connection configuration files for each environment at main
-project folder using the standard MySQL parameters. The predefined environment
-names are *production* and *testing*.
-```
+project folder using the standard MySQL *.ini* parameters. The predefined
+environment names are *production* and *testing*.
+```text
 db.[environment].ini
 ```
 
-Structure and fixture dumps are located inside *dump* folder.
+Structure and fixture dumps will be created inside *dump* folder.
 
 * *structure.sql*
 * *fixtures.sql*
 * *fixtures.local.sql*
 
-Routines are located inside *routines* folder. It includes procedures,
-functions, triggers, views and events with the following structure.
-```
+### Routines
+
+Routines should be placed inside *routines* folder. All objects that have
+PL/SQL code are considered routines. It includes functions, triggers, views and 
+events with the following structure.
+```text
   routines
   `- schema
      |- events
@@ -72,10 +83,10 @@ functions, triggers, views and events with the following structure.
         `- viewName.sql
 ```
 
-## Versions
+### Versions
 
-Place your versions inside *changes* folder with the following structure.
-```
+Versions should be placed inside *changes* folder with the following structure.
+```text
   changes
   |- 00001-firstVersionCodeName
   |  |- 00-firstExecutedScript.sql

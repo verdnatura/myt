@@ -2,7 +2,7 @@
 const execFileSync = require('child_process').execFileSync;
 const spawn = require('child_process').spawn;
 
-module.exports = function(command) {
+module.exports = function(command, workdir, ...args) {
     const buildArgs = [
         'build',
         '-t', 'myvc/client',
@@ -11,15 +11,15 @@ module.exports = function(command) {
     ];
     execFileSync('docker', buildArgs);
 
-    let args = [
+    let runArgs = [
         'run',
-        '-v', `${process.cwd()}:/workdir`,
+        '-v', `${workdir}:/workdir`,
         'myvc/client',
         command
     ];
-    args = args.concat(process.argv.slice(2));
+    runArgs = runArgs.concat(args);
 
-    const child = spawn('docker', args, {
+    const child = spawn('docker', runArgs, {
         stdio: [
             process.stdin,
             process.stdout,

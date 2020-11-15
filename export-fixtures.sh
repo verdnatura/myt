@@ -1,14 +1,9 @@
 #!/bin/bash
 set -e
 
-CONFIG_FILE="myvc.config.json"
+CONFIG_FILE=$1
+INI_FILE=$2
 DUMP_FILE="dump/fixtures.sql"
-INI_FILE="db.production.ini"
-
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Config file not found in working directory."
-    exit 1
-fi
 
 echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
 echo "" > "$DUMP_FILE"
