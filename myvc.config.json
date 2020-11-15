@@ -1,0 +1,17 @@
+{
+  "code": "my-app",
+  "structure": [
+    "schema1",
+    "schema2"
+  ],
+  "fixtures": {
+    "schema1": [
+      "table1.1",
+      "table2.1"
+    ],
+    "schema2": [
+      "table2.1",
+      "table2.2"
+    ]
+  }
+}

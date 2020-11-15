@@ -39,8 +39,8 @@ The default working directory is the current one and unless otherwise indicated,
 the default environment is *production*.
 
 Available actions are:
- * **structure**: Export the database structure.
- * **fixtures**: Export the database structure.
+ * **structure**: Export database structure.
+ * **fixtures**: Export database fixtures.
  * **routines**: Export database routines.
  * **apply**: Apply changes into database, uses *local* environment by default.
  * **run**: Builds and starts local database server container.
@@ -50,9 +50,17 @@ Each action can have its own specific commandline options.
 
 ## Basic information
 
-Create database connection configuration files for each environment at main
-project folder using the standard MySQL *.ini* parameters. The predefined
-environment names are *production* and *testing*.
+First of of you have to import *structure.sql* into your database. This script
+includes the tables where MyVC stores information about applied versions.
+
+Then, create *myvc.config.json* main configuration file at the root of your 
+project folder, this file should include the project codename and schemas/tables
+wich are exported when you use *structure*, *fixtures* or *routines* actions. 
+you have an example of a configuration file in the root folder of this project.
+
+Also, create database connection configuration files for each environment at
+main project folder using standard MySQL *.ini*. The predefined environment 
+names are *production* and *testing*.
 ```text
 db.[environment].ini
 ```
