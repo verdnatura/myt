@@ -1,4 +1,4 @@
-#!/usr/bin/node
+
 const fs = require('fs-extra');
 const mysql = require('mysql2/promise');
 const ejs = require('ejs');
@@ -48,9 +48,7 @@ const exporters = [
 
 // Exports objects for all schemas
 
-module.exports = async function main(opts, config, dbConf) {
-    const exportDir = `${opts.workdir}/routines`;
-
+module.exports = async function main(workdir, schemas, dbConf) {
     const conn = await mysql.createConnection(dbConf);
     conn.queryFromFile = function(file, params) {
         return this.execute(
@@ -60,12 +58,12 @@ module.exports = async function main(opts, config, dbConf) {
     }
 
     try {
+        const exportDir = `${workdir}/routines`;
         if (fs.existsSync(exportDir))
             fs.removeSync(exportDir, {recursive: true});
-        
         fs.mkdirSync(exportDir);
 
-        for (let schema of config.structure) {
+        for (let schema of schemas) {
             let schemaDir = `${exportDir}/${schema}`;
 
             if (!fs.existsSync(schemaDir))

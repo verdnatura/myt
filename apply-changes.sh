@@ -212,7 +212,7 @@ applyRoutines() {
         ROUTINE_TYPE=${SPLIT[1]}
         case "$ROUTINE_TYPE" in
             events)
-                ROUTINE_TYPE=EVENTS
+                ROUTINE_TYPE=EVENT
                 ;;
             functions)
                 ROUTINE_TYPE=FUNCTION

@@ -5,7 +5,8 @@ CONFIG_FILE=$1
 INI_FILE=$2
 DUMP_FILE="dump/structure.sql"
 
-SCHEMAS=( $(jq -r ".structure[]" "$CONFIG_FILE") )
+echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
+SCHEMAS=( $(jq -r ".schemas[]" "$CONFIG_FILE") )
 
 mysqldump \
     --defaults-file="$INI_FILE" \

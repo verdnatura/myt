@@ -1,17 +1,17 @@
 {
   "code": "my-app",
-  "structure": [
-    "schema1",
-    "schema2"
+  "schemas": [
+    "util",
+    "my_app"
   ],
   "fixtures": {
-    "schema1": [
-      "table1.1",
-      "table2.1"
+    "util": [
+      "version",
+      "versionUser"
     ],
-    "schema2": [
-      "table2.1",
-      "table2.2"
+    "my_app": [
+      "table1",
+      "table2"
     ]
   }
 }

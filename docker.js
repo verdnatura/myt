@@ -1,9 +1,7 @@
 
-const cwd = process.cwd();
-const exec = require('child_process').exec;
+const execFile = require('child_process').execFile;
 const log = require('fancy-log');
 const path = require('path');
-const serverImage = require(`${cwd}/myvc.config.json`).serverImage;
 
 module.exports = class Docker {
     constructor(name, context) {
@@ -32,33 +30,52 @@ module.exports = class Docker {
      */
     async run(ci) {
         let dockerfilePath = path.join(__dirname, 'Dockerfile');
-        await this.execP(`docker build -t myvc/server -f ${dockerfilePath}.server ${__dirname}`);
+    
+        await this.execFile('docker', [
+            'build',
+            '-t',  'myvc/server',
+            '-f', `${dockerfilePath}.server`,
+            __dirname
+        ]);
 
         let d = new Date();
         let pad = v => v < 10 ? '0' + v : v;
         let stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        await this.execP(`docker build --build-arg STAMP=${stamp} -f ${dockerfilePath}.dump -t ${this.serverImage} ${this.context}`);
+
+        await this.execFile('docker', [
+            'build',
+            '-t', this.imageTag,
+            '-f', `${dockerfilePath}.dump`,
+            '--build-arg', `STAMP=${stamp}`,
+            this.context
+        ]);
 
         let dockerArgs;
 
         if (this.isRandom)
-            dockerArgs = '-p 3306';
+            dockerArgs = ['-p', '3306'];
         else {
             try {
                 await this.rm();
             } catch (e) {}
-            dockerArgs = `--name ${this.name} -p 3306:${this.dbConf.port}`;
+            dockerArgs = ['--name', this.name, '-p', `3306:${this.dbConf.port}`];
         }
 
         let runChown = process.platform != 'linux';
-
-        const container = await this.execP(`docker run --env RUN_CHOWN=${runChown} -d ${dockerArgs} ${this.serverImage}`);
+        const container = await this.execFile('docker', [
+            'run',
+            '--env', `RUN_CHOWN=${runChown}`,
+            '-d',
+            ...dockerArgs,
+            this.imageTag
+        ]);
         this.id = container.stdout.trim();
 
         try {
             if (this.isRandom) {
-                let inspect = await this.execP(`docker inspect -f "{{json .NetworkSettings}}" ${this.id}`);
-                let netSettings = JSON.parse(inspect.stdout);
+                let netSettings = await this.execJson('docker', [
+                    'inspect', '-f', '{{json .NetworkSettings}}', this.id
+                ]);
 
                 if (ci)
                     this.dbConf.host = netSettings.Gateway;
@@ -83,8 +100,9 @@ module.exports = class Docker {
     async start() {
         let state;
         try {
-            let result = await this.execP(`docker inspect -f "{{json .State}}" ${this.id}`);
-            state = JSON.parse(result.stdout);
+            state = await this.execJson('docker', [
+                'inspect', '-f', '{{json .State}}', this.id
+            ]);
         } catch (err) {
             return await this.run();
         }
@@ -93,7 +111,7 @@ module.exports = class Docker {
         case 'running':
             return;
         case 'exited':
-            await this.execP(`docker start ${this.id}`);
+            await this.execFile('docker', ['start', this.id]);
             await this.wait();
             return;
         default:
@@ -107,15 +125,17 @@ module.exports = class Docker {
             let elapsedTime = 0;
             let maxInterval = 4 * 60 * 1000;
 
-            log('Waiting for MySQL init process...');
+            log('Waiting for container to be ready...');
 
             async function checker() {
                 elapsedTime += interval;
                 let status;
 
                 try {
-                    let result = await this.execP(`docker inspect -f "{{.State.Health.Status}}" ${this.id}`);
-                    status = result.stdout.trimEnd();
+                    let status = await this.execJson('docker', [
+                        'inspect', '-f', '{{.State.Health.Status}}', this.id
+                    ]);
+                    status = status.trimEnd();
                 } catch (err) {
                     return reject(new Error(err.message));
                 }
@@ -124,12 +144,12 @@ module.exports = class Docker {
                     return reject(new Error('Docker exited, please see the docker logs for more info'));
 
                 if (status == 'healthy') {
-                    log('MySQL process ready.');
+                    log('Container ready.');
                     return resolve();
                 }
 
                 if (elapsedTime >= maxInterval)
-                    reject(new Error(`MySQL not initialized whithin ${elapsedTime / 1000} secs`));
+                    reject(new Error(`Container initialized whithin ${elapsedTime / 1000} secs`));
                 else
                     setTimeout(bindedChecker, interval);
             }
@@ -160,8 +180,9 @@ module.exports = class Docker {
                 let state;
 
                 try {
-                    let result = await this.execP(`docker inspect -f "{{json .State}}" ${this.id}`);
-                    state = JSON.parse(result.stdout);
+                    state = await this.execJson('docker', [
+                        'inspect', '-f', '{{json .State}}', this.id
+                    ]);
                 } catch (err) {
                     return reject(new Error(err.message));
                 }
@@ -189,19 +210,23 @@ module.exports = class Docker {
         });
     }
 
-    rm() {
-        return this.execP(`docker stop ${this.id} && docker rm -v ${this.id}`);
+    async rm() {
+        try {
+            await this.execFile('docker', ['stop', this.id]);
+            await this.execFile('docker', ['rm', '-v', this.id]);
+        } catch (e) {}
     }
 
     /**
-     * Promisified version of exec().
+     * Promisified version of execFile().
      *
      * @param {String} command The exec command
+     * @param {Array} args The command arguments
      * @return {Promise} The promise
      */
-    execP(command) {
+    execFile(command, args) {
         return new Promise((resolve, reject) => {
-            exec(command, (err, stdout, stderr) => {
+            execFile(command, args, (err, stdout, stderr) => {
                 if (err)
                     reject(err);
                 else {
@@ -212,5 +237,17 @@ module.exports = class Docker {
                 }
             });
         });
+    }
+
+    /**
+     * Executes a command whose return is json.
+     *
+     * @param {String} command The exec command
+     * @param {Array} args The command arguments
+     * @return {Object} The parsed JSON
+     */
+    async execJson(command, args) {
+        const result = await this.execFile(command, args);
+        return JSON.parse(result.stdout);
     }
 };

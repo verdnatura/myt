@@ -1,15 +1,22 @@
-#!/bin/node
-const execFileSync = require('child_process').execFileSync;
+
+const path = require('path');
+const execFile = require('child_process').execFile;
 const spawn = require('child_process').spawn;
 
-module.exports = function(command, workdir, ...args) {
+module.exports = async function(command, workdir, ...args) {
     const buildArgs = [
         'build',
         '-t', 'myvc/client',
-        '-f', `${__dirname}/Dockerfile.client`,
-        `${__dirname}/`
+        '-f', path.join(__dirname, 'Dockerfile.client'),
+        __dirname
     ];
-    execFileSync('docker', buildArgs);
+    await new Promise((resolve, reject) => {
+        execFile('docker', buildArgs, (err, stdout, stderr) => {
+            if (err)
+                return reject(err);
+            resolve({stdout, stderr});
+        });
+    })
 
     let runArgs = [
         'run',
@@ -19,12 +26,14 @@ module.exports = function(command, workdir, ...args) {
     ];
     runArgs = runArgs.concat(args);
 
-    const child = spawn('docker', runArgs, {
-        stdio: [
-            process.stdin,
-            process.stdout,
-            process.stderr
-        ]
-    });
-    child.on('exit', code => process.exit(code));
+    await new Promise((resolve, reject) => {
+        const child = spawn('docker', runArgs, {
+            stdio: [
+                process.stdin,
+                process.stdout,
+                process.stderr
+            ]
+        });
+        child.on('exit', code => resolve(code));
+    })
 };
