@@ -21,6 +21,7 @@ Required applications.
 It's recommended to install the package globally.
 ```text
 # npm install -g myvc
+$ myvc [action]
 ```
 
 You can also install locally and use the *npx* command to execute it.
@@ -50,32 +51,42 @@ Each action can have its own specific commandline options.
 
 ## Basic information
 
-First of of you have to import *structure.sql* into your database. This script
+First of all you have to import *structure.sql* into your database. This script
 includes the tables where MyVC stores information about applied versions.
 
-Then, create *myvc.config.json* main configuration file at the root of your 
-project folder, this file should include the project codename and schemas/tables
-wich are exported when you use *structure*, *fixtures* or *routines* actions. 
-you have an example of a configuration file in the root folder of this project.
+Create *myvc.config.json* main configuration file at the root of your project 
+folder, this file should include the project codename and schemas/tables wich 
+are exported when you use *structure*, *fixtures* or *routines* actions. You 
+have an example of a configuration file in the root folder of this project.
 
-Also, create database connection configuration files for each environment at
-main project folder using standard MySQL *.ini*. The predefined environment 
-names are *production* and *testing*.
+### Environments
+
+Create database connection configuration files for each environment at main 
+project folder using standard MySQL *.ini*. The predefined environment names 
+are *production* and *testing*.
 ```text
 db.[environment].ini
 ```
+
+### Dumps
 
 Structure and fixture dumps will be created inside *dump* folder.
 
 * *structure.sql*
 * *fixtures.sql*
+
+### Local
+
+You can also create your local fixture and structure files inside *dump* folder.
+
+* *structure.local.sql*
 * *fixtures.local.sql*
 
 ### Routines
 
 Routines should be placed inside *routines* folder. All objects that have
-PL/SQL code are considered routines. It includes functions, triggers, views and 
-events with the following structure.
+PL/SQL code are considered routines. It includes events, functions, procedures,
+triggers and views with the following structure.
 ```text
   routines
   `- schema

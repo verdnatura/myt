@@ -1,12 +1,10 @@
 {
   "name": "myvc",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "Verdnatura Levante SL",
   "description": "MySQL Version Control",
   "license": "GPL-3.0",
-  "bin": {
-    "myvc": "myvc.js"
-  },
+  "bin": "myvc.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/verdnatura/myvc.git"
@@ -26,5 +24,11 @@
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-  }
+  },
+  "keywords": [
+    "mysql",
+    "mariadb",
+    "version",
+    "control"
+  ]
 }
