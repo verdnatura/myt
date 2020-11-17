@@ -43,10 +43,13 @@ $ myvc [-w|--workspace] [-e|--env] [-h|--help] command
 The default working directory is the current one and unless otherwise indicated,
 the default environment is *production*.
 
-Available commands are:
+Commands for database versioning:
 
  * **pull**: Exports database routines into workspace.
  * **push**: Apply changes into database, uses *test* environment by default.
+
+Commands for local server management:
+
  * **dump**: Export database structure and fixtures.
  * **run**: Builds and starts local database server container.
  * **start**: Starts local database server container.
@@ -118,6 +121,12 @@ Versions should be placed inside *changes* folder with the following structure.
      `- 00-sameNumbers.sql
 ```
 
+### Local server
+
+The local server will be created as a MariaDB Docker container using the base
+dump created with the *dump* command plus pushing local versions and changed
+routines.
+
 ## Why
 
 The main reason for starting this project it's because there are no fully free 
@@ -134,7 +143,7 @@ Pending improvements.
 * Improve the pull command to, instead of completely overwriting the routines
 directory, merge the database changes with the local SQL files. It is possible
 using a library that allows to manipulate git repositories (nodegit) and running
-thefollowing steps:
+the following steps:
 
   1. Save the current git HEAD
   2. Check out to the last database push commit (saved versioning datatables)
