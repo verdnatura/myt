@@ -40,8 +40,8 @@ Execute *myvc* with the desired command.
 $ myvc [-w|--workspace] [-e|--env] [-h|--help] command
 ```
 
-The default working directory is the current one and unless otherwise indicated,
-the default environment is *production*.
+The default workspace directory is the current working directory and unless 
+otherwise indicated, the default environment is *production*.
 
 Commands for database versioning:
 
@@ -68,9 +68,9 @@ configuration file in the root folder of this project.
 
 ### Environments
 
-Create database connection configuration files for each environment at main 
-project folder using standard MySQL *.ini*. The predefined environment names 
-are *production* and *testing*.
+Create database connection configuration for each environment at main project
+folder using standard MySQL *ini* configuration files. The predefined
+environment names are *production* and *test*.
 
 ```text
 db.[environment].ini
