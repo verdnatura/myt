@@ -95,7 +95,7 @@ module.exports = class Docker {
      * Does the minium effort to start the database container, if it doesn't
      * exists calls the 'docker' task, if it is started does nothing. Keep in 
      * mind that when you do not rebuild the docker you may be using an outdated 
-     * version of it. See the 'docker' task for more info.
+     * version of it.
      */
     async start() {
         let state;

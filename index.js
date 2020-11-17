@@ -35,8 +35,10 @@ if (!command) {
 const commandArgs = {
     push: {
         alias: {
+            env: 'e',
             force: 'f',
-            user: 'u'
+            user: 'u',
+            applyUncommited: 'a'
         },
         default: {
             force: false,
@@ -127,6 +129,7 @@ class MyVC {
         let args = [];
         if (opts.force) args.push('-f');
         if (opts.user) args.push('-u');
+        if (opts.applyUncommited) args.push('-a');
         if (opts.env) args = args.concat(['-e', opts.env]);
 
         await dockerRun('myvc-push.sh',

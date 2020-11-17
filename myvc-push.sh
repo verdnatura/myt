@@ -2,13 +2,15 @@
 
 FORCE=FALSE
 IS_USER=FALSE
+APPLY_UNCOMMITED=FALSE
+WORKSPACE="$PWD"
 
 usage() {
-	echo "[ERROR] Usage: $0 [-f] [-u] [-e environment]"
+	echo "[ERROR] Usage: $0 [-f] [-u] [-a] [-e environment]"
 	exit 1
 }
 
-while getopts ":fue:" option
+while getopts ":fuae:" option
 do
 	case $option in
 		f)
@@ -20,6 +22,9 @@ do
 		e)
 			ENV="$OPTARG"
 			;;
+		a)
+			APPLY_UNCOMMITED=TRUE
+			;;
 		\?|:)
 			usage
 			;;
@@ -27,6 +32,8 @@ do
 done
 
 shift $(($OPTIND - 1))
+
+# Load configuration
 
 CONFIG_FILE="myvc.config.json"
 
@@ -38,36 +45,12 @@ fi
 DIR="$(dirname "${BASH_SOURCE[0]}")"
 CODE=$(jq -r ".code" "$CONFIG_FILE")
 
-# Production protection
-
-if [ "$ENV" == "production" ]; then
-    echo ""
-    echo " (   (       ) (                       (       )     ) "
-    echo " )\ ))\ ) ( /( )\ )          (        ))\ ) ( /(  ( /( "
-    echo "(()/(()/( )\()|()/(     (    )\   )  /(()/( )\()) )\())"
-    echo " /(_))(_)|(_)\ /(_))    )\ (((_) ( )(_))(_)|(_)\ ((_)\ "
-    echo "(_))(_))   ((_|_))_  _ ((_))\___(_(_()|__)) ((_)  _((_)"
-    echo "| _ \ _ \ / _ \|   \| | | ((/ __|_   _|_ _| / _ \| \| |"
-    echo "|  _/   /| (_) | |) | |_| || (__  | |  | | | (_) | .  |"
-    echo "|_| |_|_\ \___/|___/ \___/  \___| |_| |___| \___/|_|\_|"
-    echo ""
-
-    if [ "$FORCE" != "TRUE" ]; then
-        read -p "[INTERACTIVE] Are you sure? (Default: no) [yes|no]: " ANSWER
-
-        if [ "$ANSWER" != "yes" ]; then
-            echo "[INFO] Aborting changes."
-            exit
-        fi
-    fi
-fi
-
-# Configuration file
+# Load database configuration
 
 if [ -z "$ENV" ]; then
-    INI_FILE="$PWD/db.ini"
+    INI_FILE="$WORKSPACE/db.ini"
 else
-    INI_FILE="$PWD/db.$ENV.ini"
+    INI_FILE="$WORKSPACE/db.$ENV.ini"
 fi
 
 if [ ! -f "$INI_FILE" ]; then
@@ -82,6 +65,28 @@ echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
 if [ "$?" -ne "0" ]; then
     exit 3
 fi
+
+# Fetch git information
+
+git diff-index --quiet --cached HEAD --
+STAGED=$?
+
+git diff-files --quiet
+CHANGED=$?
+
+UNTRACKED=`git ls-files --others --exclude-standard`
+
+if [ $STAGED ] || [ $CHANGED ] || [ -n "$UNTRACKED" ]; then
+    if [ "$APPLY_UNCOMMITED" == "TRUE" ]; then
+        echo "[WARN] You are applying uncommited changes."
+    else
+        echo "[ERROR] You have uncommited changes, commit them before pushing or use -a option."
+        exit 2
+    fi
+fi
+
+COMMIT_SHA=$(git rev-parse HEAD)
+echo "[INFO] HEAD: $COMMIT_SHA"
 
 # Query functions
 
@@ -99,10 +104,7 @@ dbExecFromFile() {
     mysql --defaults-file="$INI_FILE" --default-character-set=utf8 --comments "$SCHEMA" < $FILE_PATH
 }
 
-# Fetches database version
-
-COMMIT_SHA=$(git rev-parse HEAD)
-echo "[INFO] Commit: $COMMIT_SHA"
+# Fetch database version
 
 dbQuery "SELECT number, gitCommit FROM util.version WHERE code = '$CODE'"
 RETVAL=($RETVAL)
@@ -144,49 +146,77 @@ if [ "$IS_USER" == "TRUE" ]; then
     fi
 fi
 
-# Applies changes
+# Production protection
+
+if [ "$ENV" == "production" ]; then
+    echo ""
+    echo " (   (       ) (                       (       )     ) "
+    echo " )\ ))\ ) ( /( )\ )          (        ))\ ) ( /(  ( /( "
+    echo "(()/(()/( )\()|()/(     (    )\   )  /(()/( )\()) )\())"
+    echo " /(_))(_)|(_)\ /(_))    )\ (((_) ( )(_))(_)|(_)\ ((_)\ "
+    echo "(_))(_))   ((_|_))_  _ ((_))\___(_(_()|__)) ((_)  _((_)"
+    echo "| _ \ _ \ / _ \|   \| | | ((/ __|_   _|_ _| / _ \| \| |"
+    echo "|  _/   /| (_) | |) | |_| || (__  | |  | | | (_) | .  |"
+    echo "|_| |_|_\ \___/|___/ \___/  \___| |_| |___| \___/|_|\_|"
+    echo ""
+
+    if [ "$FORCE" != "TRUE" ]; then
+        read -p "[INTERACTIVE] Are you sure? (Default: no) [yes|no]: " ANSWER
+
+        if [ "$ANSWER" != "yes" ]; then
+            echo "[INFO] Aborting changes."
+            exit
+        fi
+    fi
+fi
+
+# Apply changes
 
 N_CHANGES=0
-LAST_APPLIED_VERSION=$DB_VERSION
+CHANGES_DIR="$WORKSPACE/changes"
 
-for DIR_PATH in "$PWD/changes/"*; do
-    DIR_NAME=$(basename $DIR_PATH)
-    DIR_VERSION=${DIR_NAME:0:5}
+if [ -d "$CHANGES_DIR" ]; then
+    LAST_APPLIED_VERSION=$DB_VERSION
 
-    if [ "$DIR_NAME" == "README.md" ]; then
-        continue
-    fi
-    if [[ ! "$DIR_NAME" =~ ^[0-9]{5}(-[a-zA-Z0-9]+)?$ ]]; then
-        echo "[WARN] Ignoring wrong directory name: $DIR_NAME"
-        continue
-    fi
-    if [ "$DB_VERSION" -ge "$DIR_VERSION" ]; then
-        echo "[INFO] Ignoring already applied version: $DIR_NAME"
-        continue
-    fi
+    for DIR_PATH in "$CHANGES_DIR/"*; do
+        DIR_NAME=$(basename $DIR_PATH)
+        DIR_VERSION=${DIR_NAME:0:5}
 
-    echo "[INFO] Applying version: $DIR_NAME"
-
-    for FILE in "$DIR_PATH/"*; do
-        FILE_NAME=$(basename "$FILE")
-
-        if [ "$FILE_NAME" == "*" ]; then
+        if [ "$DIR_NAME" == "README.md" ]; then
             continue
         fi
-        if [[ ! "$FILE_NAME" =~ ^[0-9]{2}-[a-zA-Z0-9_]+\.sql$ ]]; then
-            echo "[WARN] Ignoring wrong file name: $FILE_NAME"
+        if [[ ! "$DIR_NAME" =~ ^[0-9]{5}(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "[WARN] Ignoring wrong directory name: $DIR_NAME"
+            continue
+        fi
+        if [ "$DB_VERSION" -ge "$DIR_VERSION" ]; then
+            echo "[INFO] Ignoring already applied version: $DIR_NAME"
             continue
         fi
 
-        echo "[INFO]  -> $FILE_NAME"
-        dbExecFromFile "$FILE"
-        N_CHANGES=$((N_CHANGES + 1))
+        echo "[INFO] Applying version: $DIR_NAME"
+
+        for FILE in "$DIR_PATH/"*; do
+            FILE_NAME=$(basename "$FILE")
+
+            if [ "$FILE_NAME" == "*" ]; then
+                continue
+            fi
+            if [[ ! "$FILE_NAME" =~ ^[0-9]{2}-[a-zA-Z0-9_]+\.sql$ ]]; then
+                echo "[WARN] Ignoring wrong file name: $FILE_NAME"
+                continue
+            fi
+
+            echo "[INFO]  -> $FILE_NAME"
+            dbExecFromFile "$FILE"
+            N_CHANGES=$((N_CHANGES + 1))
+        done
+
+        LAST_APPLIED_VERSION=$DIR_VERSION
     done
+fi
 
-    LAST_APPLIED_VERSION=$DIR_VERSION
-done
-
-# Applies routines
+# Apply routines
 
 applyRoutines() {
     FILES_CMD=$1
@@ -252,46 +282,47 @@ applyRoutines() {
     done
 }
 
-echo "[INFO] Applying changed routines."
-
 ROUTINES_CHANGED=0
+ROUTINES_DIR="$WORKSPACE/routines"
 
-PROCS_FILE=.procs-priv.sql
-mysqldump \
-    --defaults-file="$INI_FILE" \
-    --no-create-info \
-    --skip-triggers \
-    --insert-ignore \
-    mysql procs_priv > "$PROCS_FILE"
+if [ -d "$ROUTINES_DIR" ]; then
+    echo "[INFO] Applying changed routines."
 
-if [[ -z "$DB_COMMIT" ]]; then
-    applyRoutines "find routines -type f"
-else
-    applyRoutines "git diff --name-only --diff-filter=D $DB_COMMIT -- routines"
-    applyRoutines "git diff --name-only --diff-filter=d $DB_COMMIT -- routines"
-fi
+    PROCS_FILE=.procs-priv.sql
+    mysqldump \
+        --defaults-file="$INI_FILE" \
+        --no-create-info \
+        --skip-triggers \
+        --insert-ignore \
+        mysql procs_priv > "$PROCS_FILE"
 
-applyRoutines "git ls-files --others --exclude-standard"
-
-if [ "$ROUTINES_CHANGED" -gt "0" ]; then
-    dbExecFromFile "$PROCS_FILE" "mysql"
-
-    if [ "$?" -eq "0" ]; then
-        dbExec "FLUSH PRIVILEGES"
-        rm "$PROCS_FILE"
+    if [[ -z "$DB_COMMIT" ]]; then
+        applyRoutines "find routines -type f"
     else
-        echo "[WARN] An error ocurred when restoring routine privileges, backup saved at $PROCS_FILE"
+        applyRoutines "git diff --name-only --diff-filter=D $DB_COMMIT -- routines"
+        applyRoutines "git diff --name-only --diff-filter=d $DB_COMMIT -- routines"
     fi
 
-    echo "[INFO]  -> $ROUTINES_CHANGED routines have changed."
-else
-    echo "[INFO]  -> No routines changed."
-    rm "$PROCS_FILE"
+    if [ "$ROUTINES_CHANGED" -gt "0" ]; then
+        dbExecFromFile "$PROCS_FILE" "mysql"
+
+        if [ "$?" -eq "0" ]; then
+            dbExec "FLUSH PRIVILEGES"
+            rm "$PROCS_FILE"
+        else
+            echo "[WARN] An error ocurred when restoring routine privileges, backup saved at $PROCS_FILE"
+        fi
+
+        echo "[INFO]  -> $ROUTINES_CHANGED routines have changed."
+    else
+        echo "[INFO]  -> No routines changed."
+        rm "$PROCS_FILE"
+    fi
 fi
 
 N_CHANGES=$((N_CHANGES + ROUTINES_CHANGED))
 
-# Displaying summary
+# Display summary
 
 if [ "$N_CHANGES" -gt "0" ]; then
     if [ "$IS_USER" == "TRUE" ]; then
