@@ -14,10 +14,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY \
-    export-fixtures.sh \
-    export-structure.sh \
-    apply-changes.sh \
+    myvc-dump.sh \
+    myvc-push.sh \
     db.ini \
     /usr/local/bin/
 
-WORKDIR /workdir
+WORKDIR /workspace

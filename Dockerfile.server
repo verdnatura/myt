@@ -20,7 +20,7 @@ COPY \
     docker/docker-temp-stop.sh \
     docker/docker-dump.sh \
     docker/docker-start.sh \
-    apply-changes.sh \
+    myvc-push.sh \
     /usr/local/bin/
 
 RUN mkdir /mysql-data \

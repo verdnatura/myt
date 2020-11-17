@@ -21,33 +21,33 @@ Required applications.
 It's recommended to install the package globally.
 ```text
 # npm install -g myvc
-$ myvc [action]
+$ myvc [command]
 ```
 
 You can also install locally and use the *npx* command to execute it.
 ```text
 $ npm install myvc
-$ npx myvc [action]
+$ npx myvc [command]
 ```
 
 ## How to use
 
-Execute *myvc* with the desired action.
+Execute *myvc* with the desired command.
 ```text
-$ myvc [-w|--workdir] [-e|--env] [-h|--help] action
+$ myvc [-w|--workspace] [-e|--env] [-h|--help] command
 ```
 The default working directory is the current one and unless otherwise indicated,
 the default environment is *production*.
 
-Available actions are:
- * **structure**: Export database structure.
- * **fixtures**: Export database fixtures.
- * **routines**: Export database routines.
- * **apply**: Apply changes into database, uses *local* environment by default.
+Available commands are:
+
+ * **pull**: Exports database routines into workspace.
+ * **push**: Apply changes into database, uses *test* environment by default.
+ * **dump**: Export database structure and fixtures.
  * **run**: Builds and starts local database server container.
  * **start**: Starts local database server container.
 
-Each action can have its own specific commandline options.
+Each command can have its own specific commandline options.
 
 ## Basic information
 
@@ -56,8 +56,8 @@ includes the tables where MyVC stores information about applied versions.
 
 Create *myvc.config.json* main configuration file at the root of your project 
 folder, this file should include the project codename and schemas/tables wich 
-are exported when you use *structure*, *fixtures* or *routines* actions. You 
-have an example of a configuration file in the root folder of this project.
+are exported when you use *pull*or *dump* commands. You have an example of a 
+configuration file in the root folder of this project.
 
 ### Environments
 
@@ -70,17 +70,11 @@ db.[environment].ini
 
 ### Dumps
 
-Structure and fixture dumps will be created inside *dump* folder.
+Structure and fixture dumps will be created into hidden file *.dump.sql*. You
+can also create your local fixture and structure files.
 
-* *structure.sql*
-* *fixtures.sql*
-
-### Local
-
-You can also create your local fixture and structure files inside *dump* folder.
-
-* *structure.local.sql*
-* *fixtures.local.sql*
+* *myvc.structure.sql*
+* *myvc.fixtures.sql*
 
 ### Routines
 

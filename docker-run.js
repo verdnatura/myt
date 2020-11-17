@@ -3,7 +3,7 @@ const path = require('path');
 const execFile = require('child_process').execFile;
 const spawn = require('child_process').spawn;
 
-module.exports = async function(command, workdir, ...args) {
+module.exports = async function(command, workspace, ...args) {
     const buildArgs = [
         'build',
         '-t', 'myvc/client',
@@ -20,7 +20,7 @@ module.exports = async function(command, workdir, ...args) {
 
     let runArgs = [
         'run',
-        '-v', `${workdir}:/workdir`,
+        '-v', `${workspace}:/workspace`,
         'myvc/client',
         command
     ];

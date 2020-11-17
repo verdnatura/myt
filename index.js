@@ -13,12 +13,12 @@ const argv = process.argv.slice(2);
 const cliOpts = getopts(argv, {
     alias: {
         env: 'e',
-        workdir: 'w',
+        workspace: 'w',
         help: 'h',
         version: 'v'
     },
     default: {
-        workdir: process.cwd(),
+        workspace: process.cwd(),
         env: 'production'
     }
 })
@@ -26,14 +26,14 @@ const cliOpts = getopts(argv, {
 if (cliOpts.version)
     process.exit(0);
 
-const action = cliOpts._[0];
-if (!action) {
-    console.log('Usage:'.gray, '[npx] myvc [-w|--workdir] [-e|--env] [-h|--help] action'.blue);
+const command = cliOpts._[0];
+if (!command) {
+    console.log('Usage:'.gray, '[npx] myvc [-w|--workspace] [-e|--env] [-h|--help] command'.blue);
     process.exit(0);
 }
 
-const actionArgs = {
-    apply: {
+const commandArgs = {
+    push: {
         alias: {
             force: 'f',
             user: 'u'
@@ -45,8 +45,8 @@ const actionArgs = {
         }
     }
 };
-const actionOpts = getopts(argv, actionArgs[action]);
-Object.assign(cliOpts, actionOpts);
+const commandOpts = getopts(argv, commandArgs[command]);
+Object.assign(cliOpts, commandOpts);
 
 const opts = {};
 for (let opt in cliOpts) {
@@ -59,15 +59,15 @@ function parameter(parameter, value) {
 }
 
 parameter('Environment:', opts.env);
-parameter('Workdir:', opts.workdir);
-parameter('Action:', action);
+parameter('Workspace:', opts.workspace);
+parameter('Command:', command);
 
 class MyVC {
     async init(opts) {
         // Configuration file
         
         const configFile = 'myvc.config.json';
-        const configPath = path.join(opts.workdir, configFile);
+        const configPath = path.join(opts.workspace, configFile);
         if (!await fs.pathExists(configPath)) 
             throw new Error(`Config file not found: ${configFile}`);
         const config = require(configPath);
@@ -81,7 +81,7 @@ class MyVC {
         let iniDir = __dirname;
         if (opts.env) {
             iniFile = `db.${opts.env}.ini`;
-            iniDir = opts.workdir;
+            iniDir = opts.workspace;
         }
         const iniPath = path.join(iniDir, iniFile);
         
@@ -103,7 +103,7 @@ class MyVC {
         
         if (iniConfig.ssl_ca) {
             dbConfig.ssl = {
-                ca: await fs.readFile(`${opts.workdir}/${iniConfig.ssl_ca}`),
+                ca: await fs.readFile(`${opts.workspace}/${iniConfig.ssl_ca}`),
                 rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
             }
         }
@@ -114,52 +114,44 @@ class MyVC {
         });
     }
 
-    async structure (opts) {
-        await dockerRun('export-structure.sh',
-            opts.workdir,
-            opts.configFile,
-            opts.iniFile
-        );
-    }
-
-    async fixtures(opts) {
-        await dockerRun('export-fixtures.sh',
-            opts.workdir,
-            opts.configFile,
-            opts.iniFile
-        );
-    }
-
-    async routines(opts) {
-        const exportRoutines = require('./export-routines');
-        await exportRoutines(
-            opts.workdir,
+    async pull(opts) {
+        const pull = require('./myvc-pull');
+        await pull(
+            opts.workspace,
             opts.schemas,
             opts.dbConfig
         );
     }
 
-    async apply(opts) {
+    async push(opts) {
         let args = [];
         if (opts.force) args.push('-f');
         if (opts.user) args.push('-u');
         if (opts.env) args = args.concat(['-e', opts.env]);
 
-        await dockerRun('apply-changes.sh',
-            opts.workdir,
+        await dockerRun('myvc-push.sh',
+            opts.workspace,
             ...args
+        );
+    }
+
+    async dump (opts) {
+        await dockerRun('myvc-dump.sh',
+            opts.workspace,
+            opts.configFile,
+            opts.iniFile
         );
     }
 
     async run(opts) {
         const Docker = require('./docker');
-        const container = new Docker(opts.code, opts.workdir);
+        const container = new Docker(opts.code, opts.workspace);
         await container.run();
     }
 
     async start(opts) {
         const Docker = require('./docker');
-        const container = new Docker(opts.code, opts.workdir);
+        const container = new Docker(opts.code, opts.workspace);
         await container.start();
     }
 }
@@ -168,11 +160,11 @@ class MyVC {
     try {
         const myvc = new MyVC();
 
-        if (myvc[action]) {
+        if (myvc[command]) {
             await myvc.init(opts);
-            await myvc[action](opts);
+            await myvc[command](opts);
         } else
-            throw new Error (`Unknown action '${action}'`);
+            throw new Error (`Unknown command '${command}'`);
     } catch (err) {
         if (err.name == 'Error')
             console.error('Error:'.gray, err.message.red);

@@ -149,7 +149,7 @@ module.exports = class Docker {
                 }
 
                 if (elapsedTime >= maxInterval)
-                    reject(new Error(`Container initialized whithin ${elapsedTime / 1000} secs`));
+                    reject(new Error(`Container not initialized whithin ${elapsedTime / 1000} secs`));
                 else
                     setTimeout(bindedChecker, interval);
             }

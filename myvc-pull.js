@@ -48,7 +48,7 @@ const exporters = [
 
 // Exports objects for all schemas
 
-module.exports = async function main(workdir, schemas, dbConf) {
+module.exports = async function main(workspace, schemas, dbConf) {
     const conn = await mysql.createConnection(dbConf);
     conn.queryFromFile = function(file, params) {
         return this.execute(
@@ -58,7 +58,7 @@ module.exports = async function main(workdir, schemas, dbConf) {
     }
 
     try {
-        const exportDir = `${workdir}/routines`;
+        const exportDir = `${workspace}/routines`;
         if (fs.existsSync(exportDir))
             fs.removeSync(exportDir, {recursive: true});
         fs.mkdirSync(exportDir);

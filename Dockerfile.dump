@@ -3,23 +3,22 @@ FROM myvc/server
 USER root
 
 COPY \
-    dump/structure.local.sql \
-    dump/structure.sql \
-    dump/fixtures.sql \
     myvc.config.json \
+    myvc.structure.sql \
+    .dump.sql \
     ./
 RUN gosu mysql docker-init.sh \
-    && docker-dump.sh structure.local \
-    && docker-dump.sh structure \
-    && docker-dump.sh fixtures \
+    && docker-dump.sh myvc.structure \
+    && docker-dump.sh .dump \
     && gosu mysql docker-temp-stop.sh
 
+COPY routines ./routines
 COPY changes ./changes
-COPY dump/fixtures.local.sql ./
+COPY myvc.fixtures.sql ./
 ARG STAMP=unknown
 RUN gosu mysql docker-temp-start.sh \
-    && apply-changes.sh \
-    && docker-dump.sh fixtures.local \
+    && myvc-push.sh \
+    && docker-dump.sh myvc.fixtures \
     && gosu mysql docker-temp-stop.sh
 
 RUN echo "[INFO] -> Import finished" \
