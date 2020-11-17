@@ -138,23 +138,23 @@ a small project.
 
 ## Todo
 
-Pending improvements.
-
-* Improve the pull command to, instead of completely overwriting the routines
+Improve the pull command to, instead of completely overwriting the routines
 directory, merge the database changes with the local SQL files. It is possible
 using a library that allows to manipulate git repositories (nodegit) and running
 the following steps:
 
-  1. Save the current git HEAD
-  2. Check out to the last database push commit (saved versioning datatables)
-  3. Create a new branch
-  4. Export routines
-  5. Commit the new changes 
-  6. Merge the new branch with the initial HEAD branch.
+1. Save the current HEAD.
+2. Check out to the last database push commit (saved in versioning tables).
+3. Create and checkout to a new branch.
+4. Export database routines.
+5. Commit the new changes.
+5. Checkout to the original HEAD.
+6. Merge the new branch into.
+7. Let the user deal with merge conflicts.
 
-* Migrate all possible tools and code from shell scripts to native Javascript,
-dealing with dependencies and compatibility issues between various OS that this 
-may cause.
+Furthermore, migrate all possible tools and code from shell scripts to native
+Javascript, dealing with dependencies and compatibility issues between various
+OS that this may cause.
 
 ## Built With
 
