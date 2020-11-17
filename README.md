@@ -19,12 +19,14 @@ Required applications.
 ## Installation
 
 It's recommended to install the package globally.
+
 ```text
 # npm install -g myvc
 $ myvc [command]
 ```
 
 You can also install locally and use the *npx* command to execute it.
+
 ```text
 $ npm install myvc
 $ npx myvc [command]
@@ -33,9 +35,11 @@ $ npx myvc [command]
 ## How to use
 
 Execute *myvc* with the desired command.
+
 ```text
 $ myvc [-w|--workspace] [-e|--env] [-h|--help] command
 ```
+
 The default working directory is the current one and unless otherwise indicated,
 the default environment is *production*.
 
@@ -56,7 +60,7 @@ includes the tables where MyVC stores information about applied versions.
 
 Create *myvc.config.json* main configuration file at the root of your project 
 folder, this file should include the project codename and schemas/tables wich 
-are exported when you use *pull*or *dump* commands. You have an example of a 
+are exported when you use *pull* or *dump* commands. You have an example of a 
 configuration file in the root folder of this project.
 
 ### Environments
@@ -64,6 +68,7 @@ configuration file in the root folder of this project.
 Create database connection configuration files for each environment at main 
 project folder using standard MySQL *.ini*. The predefined environment names 
 are *production* and *testing*.
+
 ```text
 db.[environment].ini
 ```
@@ -81,6 +86,7 @@ can also create your local fixture and structure files.
 Routines should be placed inside *routines* folder. All objects that have
 PL/SQL code are considered routines. It includes events, functions, procedures,
 triggers and views with the following structure.
+
 ```text
   routines
   `- schema
@@ -99,6 +105,8 @@ triggers and views with the following structure.
 ### Versions
 
 Versions should be placed inside *changes* folder with the following structure.
+!Don't place your PL/SQL objects here, use the routines folder!
+
 ```text
   changes
   |- 00001-firstVersionCodeName
@@ -109,6 +117,36 @@ Versions should be placed inside *changes* folder with the following structure.
      |- 00-firstExecutedScript.sql
      `- 00-sameNumbers.sql
 ```
+
+## Why
+
+The main reason for starting this project it's because there are no fully free 
+and opensource migration tools available that allow versioning database routines
+with an standard CVS system as if they were normal application code.
+
+Also, the existing tools are too complex and require too much knowledge to start
+a small project.
+
+## Todo
+
+Pending improvements.
+
+* Improve the pull command to, instead of completely overwriting the routines
+directory, merge the database changes with the local SQL files. It is possible
+using a library that allows to manipulate git repositories (nodegit) and running
+thefollowing steps:
+
+  1. Save the current git HEAD
+  2. Check out to the last database push commit (saved versioning datatables)
+  3. Create a new branch
+  4. Export routines
+  5. Commit the new changes 
+  6. Merge the new branch with the initial HEAD branch.
+
+* Migrate all possible tools and code from shell scripts to native Javascript,
+dealing with dependencies and compatibility issues between various OS that this 
+may cause.
+
 ## Built With
 
 * [Git](https://git-scm.com/)
