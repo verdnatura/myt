@@ -76,8 +76,6 @@ CHANGED=$?
 
 UNTRACKED=`git ls-files --others --exclude-standard`
 
-echo S$STAGED C$CHANGED U$UNTRACKED
-
 if [ "$STAGED" == "1" ] || [ "$CHANGED" == "1" ] || [ -n "$UNTRACKED" ]; then
     if [ "$APPLY_UNCOMMITED" == "TRUE" ]; then
         echo "[WARN] You are applying uncommited changes."
