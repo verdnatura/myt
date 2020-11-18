@@ -90,8 +90,6 @@ fi
 COMMIT_SHA=$(git rev-parse HEAD)
 echo "[INFO] HEAD: $COMMIT_SHA"
 
-exit
-
 # Query functions
 
 dbQuery() {
