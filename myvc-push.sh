@@ -76,7 +76,9 @@ CHANGED=$?
 
 UNTRACKED=`git ls-files --others --exclude-standard`
 
-if [ $STAGED ] || [ $CHANGED ] || [ -n "$UNTRACKED" ]; then
+echo S$STAGED C$CHANGED U$UNTRACKED
+
+if [ "$STAGED" == "1" ] || [ "$CHANGED" == "1" ] || [ -n "$UNTRACKED" ]; then
     if [ "$APPLY_UNCOMMITED" == "TRUE" ]; then
         echo "[WARN] You are applying uncommited changes."
     else
@@ -87,6 +89,8 @@ fi
 
 COMMIT_SHA=$(git rev-parse HEAD)
 echo "[INFO] HEAD: $COMMIT_SHA"
+
+exit
 
 # Query functions
 
@@ -120,7 +124,7 @@ if [[ ! "$DB_VERSION" =~ ^[0-9]*$ ]]; then
     exit 4
 fi
 if [[ -z "$DB_VERSION" ]]; then
-    DB_VERSION=10000
+    DB_VERSION=00000
 fi
 
 if [ "$IS_USER" == "TRUE" ]; then
