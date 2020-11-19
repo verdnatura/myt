@@ -9,7 +9,7 @@ class Exporter {
         this.callback = callback;
         this.dstDir = `${objectName}s`;
 
-        const templateDir = `${__dirname}/templates/${objectName}`;
+        const templateDir = `${__dirname}/exporters/${objectName}`;
         this.query = fs.readFileSync(`${templateDir}.sql`, 'utf8');
 
         const templateFile = fs.readFileSync(`${templateDir}.ejs`, 'utf8');

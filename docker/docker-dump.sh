@@ -1,6 +1,9 @@
 #!/bin/bash
 
-export MYSQL_PWD=root
-FILE="/docker-boot/$1.sql"
-echo "[INFO] -> Importing $FILE"
-mysql -u root --default-character-set=utf8 --comments -f < "$FILE"
+FILE="$1.sql"
+
+if [ -f "$FILE" ]; then
+    echo "[LOG] -> Importing $FILE"
+    export MYSQL_PWD=root
+    mysql -u root --default-character-set=utf8 --comments -f < "$FILE"
+fi

@@ -5,9 +5,18 @@ IS_USER=FALSE
 APPLY_UNCOMMITED=FALSE
 WORKSPACE="$PWD"
 
-usage() {
-	echo "[ERROR] Usage: $0 [-f] [-u] [-a] [-e environment]"
-	exit 1
+error() {
+    local MESSAGE=$1
+    >&2 echo "[ERR] $MESSAGE"
+    exit 1
+}
+warn() {
+    local MESSAGE=$1
+    >&2 echo "[WAR] $MESSAGE"
+}
+log() {
+    local MESSAGE=$1
+    echo "[LOG] $MESSAGE"
 }
 
 while getopts ":fuae:" option
@@ -26,7 +35,7 @@ do
 			APPLY_UNCOMMITED=TRUE
 			;;
 		\?|:)
-			usage
+			error "Usage: $0 [-f] [-u] [-a] [-e environment]"
 			;;
 	esac
 done
@@ -38,8 +47,7 @@ shift $(($OPTIND - 1))
 CONFIG_FILE="myvc.config.json"
 
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "[ERROR] Config file not found: $CONFIG_FILE"
-    exit 2
+    error "Config file not found: $CONFIG_FILE"
 fi
 
 DIR="$(dirname "${BASH_SOURCE[0]}")"
@@ -48,25 +56,35 @@ CODE=$(jq -r ".code" "$CONFIG_FILE")
 # Load database configuration
 
 if [ -z "$ENV" ]; then
-    INI_FILE="$WORKSPACE/db.ini"
+    INI_FILE="$DIR/db.ini"
 else
-    INI_FILE="$WORKSPACE/db.$ENV.ini"
+    INI_FILE="$WORKSPACE/remotes/$ENV.ini"
 fi
 
 if [ ! -f "$INI_FILE" ]; then
-    echo "[ERROR] Database config file not found: $INI_FILE"
-    exit 2
+    error "Database config file not found: $INI_FILE"
 fi
 
-echo "[INFO] Using config file: $INI_FILE"
-
+log "Using config file: $INI_FILE"
 echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
 
 if [ "$?" -ne "0" ]; then
-    exit 3
+    error "Cannot connect to database."
 fi
 
 # Fetch git information
+
+if [ ! -d "$WORKSPACE/.git" ]; then
+    error "Git directory not initialized."
+fi
+
+COMMIT_SHA=$(git rev-parse HEAD)
+
+if [ "$?" -ne "0" ]; then
+    error "Cannot fetch Git HEAD."
+fi
+
+log "HEAD: $COMMIT_SHA"
 
 git diff-index --quiet --cached HEAD --
 STAGED=$?
@@ -78,65 +96,86 @@ UNTRACKED=`git ls-files --others --exclude-standard`
 
 if [ "$STAGED" == "1" ] || [ "$CHANGED" == "1" ] || [ -n "$UNTRACKED" ]; then
     if [ "$APPLY_UNCOMMITED" == "TRUE" ]; then
-        echo "[WARN] You are applying uncommited changes."
+        warn "You are applying uncommited changes."
     else
-        echo "[ERROR] You have uncommited changes, commit them before pushing or use -a option."
-        exit 2
+        error "You have uncommited changes, commit them before pushing or use -a option."
     fi
 fi
-
-COMMIT_SHA=$(git rev-parse HEAD)
-echo "[INFO] HEAD: $COMMIT_SHA"
 
 # Query functions
 
 dbQuery() {
-    SQL=$1
-    RETVAL=`echo "$SQL" | mysql --defaults-file="$INI_FILE" --silent --raw`
+    local SQL=$1
+    local SCHEMA=$2
+    RETVAL=`echo "$SQL" | mysql --defaults-file="$INI_FILE" --silent --raw "$SCHEMA"`
 }
 dbExec() {
-    SQL=$1
-    echo "$SQL" | mysql --defaults-file="$INI_FILE"
+    local SQL=$1
+    local SCHEMA=$2
+    echo "$SQL" | mysql --defaults-file="$INI_FILE" "$SCHEMA"
 }
 dbExecFromFile() {
-    FILE_PATH=$1
-    SCHEMA=$2
+    local FILE_PATH=$1
+    local SCHEMA=$2
     mysql --defaults-file="$INI_FILE" --default-character-set=utf8 --comments "$SCHEMA" < $FILE_PATH
 }
 
 # Fetch database version
 
-dbQuery "SELECT number, gitCommit FROM util.version WHERE code = '$CODE'"
+VERSION_SCHEMA=$(jq -r ".versionSchema" "$CONFIG_FILE")
+
+if [ "$VERSION_SCHEMA" == "null" ]; then
+    VERSION_SCHEMA="myvc"
+fi
+
+read -r -d '' SQL << EOM
+    SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE TABLE_SCHEMA = '$VERSION_SCHEMA'
+            AND TABLE_NAME = 'version'
+EOM
+
+dbQuery "$SQL"
+TABLE_EXISTS=$RETVAL
+
+SCHEMA="\`$VERSION_SCHEMA\`"
+
+if [ "$TABLE_EXISTS" -eq "0" ]; then
+    dbExec "CREATE DATABASE IF NOT EXISTS $SCHEMA"
+    dbExecFromFile "$DIR/structure.sql" "$VERSION_SCHEMA"
+    log "Version tables created into $SCHEMA schema."
+fi
+
+dbQuery "SELECT number, gitCommit FROM $SCHEMA.version WHERE code = '$CODE'"
 RETVAL=($RETVAL)
 DB_VERSION=${RETVAL[0]}
 DB_COMMIT=${RETVAL[1]}
 
-echo "[INFO] Database information:"
-echo "[INFO]  -> Version: $DB_VERSION"
-echo "[INFO]  -> Commit: $DB_COMMIT"
+log "Database information:"
+log " -> Version: $DB_VERSION"
+log " -> Commit: $DB_COMMIT"
 
 if [[ ! "$DB_VERSION" =~ ^[0-9]*$ ]]; then
-    echo "[ERROR] Wrong database version."
-    exit 4
+    error "Wrong database version."
 fi
-if [[ -z "$DB_VERSION" ]]; then
+if [ -z "$DB_VERSION" ]; then
     DB_VERSION=00000
 fi
 
 if [ "$IS_USER" == "TRUE" ]; then
-    echo "[INFO] User information:"
+    log "User information:"
 
     dbQuery "SELECT LEFT(USER(), INSTR(USER(), '@') - 1)"
     DB_USER=$RETVAL
-    echo "[INFO]  -> Name: $DB_USER"
+    log " -> Name: $DB_USER"
 
-    dbQuery "SELECT number, gitCommit FROM util.versionUser WHERE code = '$CODE' AND user = '$DB_USER'"
+    dbQuery "SELECT number, gitCommit FROM $SCHEMA.versionUser WHERE code = '$CODE' AND user = '$DB_USER'"
     RETVAL=($RETVAL)
     USER_VERSION=${RETVAL[0]}
     USER_COMMIT=${RETVAL[1]}
 
-    echo "[INFO]  -> Version: $USER_VERSION"
-    echo "[INFO]  -> Commit: $USER_COMMIT"
+    log " -> Version: $USER_VERSION"
+    log " -> Commit: $USER_COMMIT"
     
     if [ ! -z "$USER_VERSION" ]; then
         if [ "$USER_VERSION" -gt "$DB_VERSION" ]; then
@@ -161,24 +200,24 @@ if [ "$ENV" == "production" ]; then
     echo ""
 
     if [ "$FORCE" != "TRUE" ]; then
-        read -p "[INTERACTIVE] Are you sure? (Default: no) [yes|no]: " ANSWER
+        read -p "[INT] Are you sure? (Default: no) [yes|no]: " ANSWER
 
         if [ "$ANSWER" != "yes" ]; then
-            echo "[INFO] Aborting changes."
+            log "Aborting changes."
             exit
         fi
     fi
 fi
 
-# Apply changes
+# Apply versions
 
 N_CHANGES=0
-CHANGES_DIR="$WORKSPACE/changes"
+VERSIONS_DIR="$WORKSPACE/versions"
 
-if [ -d "$CHANGES_DIR" ]; then
+if [ -d "$VERSIONS_DIR" ]; then
     LAST_APPLIED_VERSION=$DB_VERSION
 
-    for DIR_PATH in "$CHANGES_DIR/"*; do
+    for DIR_PATH in "$VERSIONS_DIR/"*; do
         DIR_NAME=$(basename $DIR_PATH)
         DIR_VERSION=${DIR_NAME:0:5}
 
@@ -186,15 +225,15 @@ if [ -d "$CHANGES_DIR" ]; then
             continue
         fi
         if [[ ! "$DIR_NAME" =~ ^[0-9]{5}(-[a-zA-Z0-9]+)?$ ]]; then
-            echo "[WARN] Ignoring wrong directory name: $DIR_NAME"
+            warn "Ignoring wrong directory name: $DIR_NAME"
             continue
         fi
         if [ "$DB_VERSION" -ge "$DIR_VERSION" ]; then
-            echo "[INFO] Ignoring already applied version: $DIR_NAME"
+            log "Ignoring already applied version: $DIR_NAME"
             continue
         fi
 
-        echo "[INFO] Applying version: $DIR_NAME"
+        log "Applying version: $DIR_NAME"
 
         for FILE in "$DIR_PATH/"*; do
             FILE_NAME=$(basename "$FILE")
@@ -203,11 +242,11 @@ if [ -d "$CHANGES_DIR" ]; then
                 continue
             fi
             if [[ ! "$FILE_NAME" =~ ^[0-9]{2}-[a-zA-Z0-9_]+\.sql$ ]]; then
-                echo "[WARN] Ignoring wrong file name: $FILE_NAME"
+                warn "Ignoring wrong file name: $FILE_NAME"
                 continue
             fi
 
-            echo "[INFO]  -> $FILE_NAME"
+            log " -> $FILE_NAME"
             dbExecFromFile "$FILE"
             N_CHANGES=$((N_CHANGES + 1))
         done
@@ -228,7 +267,7 @@ applyRoutines() {
             continue
         fi
         if [[ ! "$FILE_NAME" =~ ^[a-zA-Z0-9_]+\.sql$ ]]; then
-            echo "[WARN] Ignoring wrong file name: $FILE_NAME"
+            warn "Ignoring wrong file name: $FILE_NAME"
             continue
         fi
 
@@ -257,7 +296,7 @@ applyRoutines() {
                 ROUTINE_TYPE=VIEW
                 ;;
             *)
-                echo "[WARN] Ignoring unknown routine type: $ROUTINE_TYPE"
+                warn "Ignoring unknown routine type: $ROUTINE_TYPE"
                 continue
                 ;;
         esac
@@ -270,7 +309,7 @@ applyRoutines() {
             ACTION="DROP"
         fi
 
-        echo "[INFO]  -> $ACTION: $ROUTINE_TYPE $ROUTINE_NAME"
+        log " -> $ACTION: $ROUTINE_TYPE $ROUTINE_NAME"
 
         if [ "$ACTION" == "REPLACE" ]; then
             dbExecFromFile "$FILE_PATH" "$SCHEMA"
@@ -286,7 +325,7 @@ ROUTINES_CHANGED=0
 ROUTINES_DIR="$WORKSPACE/routines"
 
 if [ -d "$ROUTINES_DIR" ]; then
-    echo "[INFO] Applying changed routines."
+    log "Applying changed routines."
 
     PROCS_FILE=.procs-priv.sql
     mysqldump \
@@ -296,7 +335,7 @@ if [ -d "$ROUTINES_DIR" ]; then
         --insert-ignore \
         mysql procs_priv > "$PROCS_FILE"
 
-    if [[ -z "$DB_COMMIT" ]]; then
+    if [ -z "$DB_COMMIT" ]; then
         applyRoutines "find routines -type f"
     else
         applyRoutines "git diff --name-only --diff-filter=D $DB_COMMIT -- routines"
@@ -310,12 +349,12 @@ if [ -d "$ROUTINES_DIR" ]; then
             dbExec "FLUSH PRIVILEGES"
             rm "$PROCS_FILE"
         else
-            echo "[WARN] An error ocurred when restoring routine privileges, backup saved at $PROCS_FILE"
+            warn "An error ocurred when restoring routine privileges, backup saved at $PROCS_FILE"
         fi
 
-        echo "[INFO]  -> $ROUTINES_CHANGED routines have changed."
+        log " -> $ROUTINES_CHANGED routines have changed."
     else
-        echo "[INFO]  -> No routines changed."
+        log " -> No routines changed."
         rm "$PROCS_FILE"
     fi
 fi
@@ -327,7 +366,7 @@ N_CHANGES=$((N_CHANGES + ROUTINES_CHANGED))
 if [ "$N_CHANGES" -gt "0" ]; then
     if [ "$IS_USER" == "TRUE" ]; then
         SQL=(
-            "INSERT INTO util.versionUser SET "
+            "INSERT INTO $SCHEMA.versionUser SET "
                 "code = '$CODE', "
                 "user = '$DB_USER', "
                 "number = '$LAST_APPLIED_VERSION', "
@@ -338,7 +377,7 @@ if [ "$N_CHANGES" -gt "0" ]; then
         )
     else
         SQL=(
-            "INSERT INTO util.version SET "
+            "INSERT INTO $SCHEMA.version SET "
                 "code = '$CODE', "
                 "number = '$LAST_APPLIED_VERSION', "
                 "gitCommit = '$COMMIT_SHA' "
@@ -349,7 +388,7 @@ if [ "$N_CHANGES" -gt "0" ]; then
     fi
 
     dbExec "${SQL[*]}"
-    echo "[INFO] Changes applied succesfully."
+    log "Changes applied succesfully."
 else
-    echo "[INFO] No changes applied."
+    log "No changes applied."
 fi

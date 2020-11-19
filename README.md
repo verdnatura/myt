@@ -45,7 +45,8 @@ otherwise indicated, the default environment is *production*.
 
 Commands for database versioning:
 
- * **pull**: Exports database routines into workspace.
+ * **init**: Initialize an empty workspace.
+ * **pull**: Export database routines into workspace.
  * **push**: Apply changes into database, uses *test* environment by default.
 
 Commands for local server management:
@@ -58,31 +59,33 @@ Each command can have its own specific commandline options.
 
 ## Basic information
 
-First of all you have to import *structure.sql* into your database. This script
-includes the tables where MyVC stores information about applied versions.
+First of all you have to initalize your workspace.
 
-Create *myvc.config.json* main configuration file at the root of your project 
-folder, this file should include the project codename and schemas/tables wich 
-are exported when you use *pull* or *dump* commands. You have an example of a 
-configuration file in the root folder of this project.
+```text
+$ myvc init
+```
+
+Now yoy can configure MyVC using *myvc.config.json* file, located at the root of
+your workspace. This file should include the project codename and schemas/tables
+wich are exported when you use *pull* or *dump* commands.
 
 ### Environments
 
-Create database connection configuration for each environment at main project
+Create database connection configuration for each environment at *remotes*
 folder using standard MySQL *ini* configuration files. The predefined
 environment names are *production* and *test*.
 
 ```text
-db.[environment].ini
+remotes/[environment].ini
 ```
 
 ### Dumps
 
-Structure and fixture dumps will be created into hidden file *.dump.sql*. You
-can also create your local fixture and structure files.
+Structure and fixture dumps will be created into hidden file *dump/.dump.sql*.
+You can also create your local fixture and structure files.
 
-* *myvc.structure.sql*
-* *myvc.fixtures.sql*
+* *dump/structure.sql*
+* *dump/fixtures.sql*
 
 ### Routines
 
@@ -107,11 +110,11 @@ triggers and views with the following structure.
 
 ### Versions
 
-Versions should be placed inside *changes* folder with the following structure.
-!Don't place your PL/SQL objects here, use the routines folder!
+Versions should be placed inside *versions* folder with the following structure.
+Don't place your PL/SQL objects here, use the routines folder!
 
 ```text
-  changes
+  versions
   |- 00001-firstVersionCodeName
   |  |- 00-firstExecutedScript.sql
   |  |- 01-secondScript.sql

@@ -16,7 +16,11 @@ RUN apt-get update \
 COPY \
     myvc-dump.sh \
     myvc-push.sh \
-    db.ini \
+    structure.sql \
     /usr/local/bin/
+
+COPY \
+    workspace/remotes/local.ini \
+    /usr/local/bin/db.ini
 
 WORKDIR /workspace

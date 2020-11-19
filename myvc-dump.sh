@@ -3,10 +3,13 @@ set -e
 
 CONFIG_FILE=$1
 INI_FILE=$2
-DUMP_FILE=".dump.sql"
+DUMP_DIR="dump"
+DUMP_FILE="$DUMP_DIR/.dump.sql"
 
 echo "SELECT 1;" | mysql --defaults-file="$INI_FILE" >> /dev/null
 SCHEMAS=( $(jq -r ".schemas[]" "$CONFIG_FILE") )
+
+mkdir -p "$DUMP_DIR"
 
 mysqldump \
     --defaults-file="$INI_FILE" \

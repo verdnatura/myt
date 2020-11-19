@@ -41,8 +41,6 @@ const commandArgs = {
             applyUncommited: 'a'
         },
         default: {
-            force: false,
-            user: false,
             env: 'test'
         }
     }
@@ -65,7 +63,7 @@ parameter('Workspace:', opts.workspace);
 parameter('Command:', command);
 
 class MyVC {
-    async init(opts) {
+    async load(opts) {
         // Configuration file
         
         const configFile = 'myvc.config.json';
@@ -82,7 +80,7 @@ class MyVC {
         let iniFile = 'db.ini';
         let iniDir = __dirname;
         if (opts.env) {
-            iniFile = `db.${opts.env}.ini`;
+            iniFile = `remotes/${opts.env}.ini`;
             iniDir = opts.workspace;
         }
         const iniPath = path.join(iniDir, iniFile);
@@ -114,6 +112,16 @@ class MyVC {
             iniFile,
             dbConfig
         });
+    }
+
+    async init(opts) {
+        const templateDir = `${__dirname}/workspace`;
+        const templates = await fs.readdir(templateDir);
+        for (let template of templates){
+            const dst = `${opts.workspace}/${template}`;
+            if (!await fs.pathExists(dst))
+                await fs.copy(`${templateDir}/${template}`, dst);
+        }
     }
 
     async pull(opts) {
@@ -163,8 +171,8 @@ class MyVC {
     try {
         const myvc = new MyVC();
 
-        if (myvc[command]) {
-            await myvc.init(opts);
+        if (command != 'load' && myvc[command]) {
+            await myvc.load(opts);
             await myvc[command](opts);
         } else
             throw new Error (`Unknown command '${command}'`);

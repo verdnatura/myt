@@ -1,15 +1,15 @@
 {
-  "code": "my-app",
+  "code": "my-db",
   "schemas": [
-    "util",
-    "my_app"
+    "myvc",
+    "my_db"
   ],
   "fixtures": {
-    "util": [
+    "myvc": [
       "version",
       "versionUser"
     ],
-    "my_app": [
+    "my_db": [
       "table1",
       "table2"
     ]

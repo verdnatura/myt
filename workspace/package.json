@@ -1,0 +1,16 @@
+{
+    "name": "my-db",
+    "version": "1.0.0",
+    "author": "Me",
+    "description": "My database project",
+    "license": "GPL-3.0",
+    "repository": {
+        "type": "git"
+    },
+    "devDependencies": {
+        "myvc": "^1.0.17"
+    },
+    "scripts": {
+        "myvc": "myvc"
+    }
+}
