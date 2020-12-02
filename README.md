@@ -8,13 +8,11 @@ development, so it may not be fully functional.
 
 Any help is welcomed! Feel free to contribute.
 
-## Prerequisites
+## Requirements
 
-Required applications.
-
-* Node.js = 12.17.0 LTS
+* Node.js <= 12.0
 * Git
-* Docker
+* Docker (Only to setup a local server)
 
 ## Installation
 
@@ -41,19 +39,19 @@ $ myvc [-w|--workspace] [-e|--env] [-h|--help] command
 ```
 
 The default workspace directory is the current working directory and unless 
-otherwise indicated, the default environment is *production*.
+otherwise indicated, the default environment is *local*.
 
 Commands for database versioning:
 
  * **init**: Initialize an empty workspace.
  * **pull**: Export database routines into workspace.
- * **push**: Apply changes into database, uses *test* environment by default.
+ * **push**: Apply changes into database.
 
 Commands for local server management:
 
- * **dump**: Export database structure and fixtures.
- * **run**: Builds and starts local database server container.
- * **start**: Starts local database server container.
+ * **dump**: Export database structure and fixtures from *production*.
+ * **run**: Build and starts local database server container.
+ * **start**: Start local database server container.
 
 Each command can have its own specific commandline options.
 
@@ -65,7 +63,7 @@ First of all you have to initalize your workspace.
 $ myvc init
 ```
 
-Now yoy can configure MyVC using *myvc.config.json* file, located at the root of
+Now you can configure MyVC using *myvc.config.yml* file, located at the root of
 your workspace. This file should include the project codename and schemas/tables
 wich are exported when you use *pull* or *dump* commands.
 

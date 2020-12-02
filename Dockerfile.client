@@ -1,26 +1,11 @@
 FROM debian:bullseye-slim
 
-ENV TZ Europe/Madrid
-
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         mariadb-client \
         libmariadb3 \
-        git \
-        jq \
-        iputils-ping \
-        dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
-COPY \
-    myvc-dump.sh \
-    myvc-push.sh \
-    structure.sql \
-    /usr/local/bin/
-
-COPY \
-    workspace/remotes/local.ini \
-    /usr/local/bin/db.ini
-
+COPY myvc-dump.sh /usr/local/bin/
 WORKDIR /workspace

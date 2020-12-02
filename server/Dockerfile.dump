@@ -4,20 +4,26 @@ USER root
 
 COPY \
     dump/.dump.sql  \
-    dump/structure.sql  \
-    myvc.config.json \
+    dump/structure.sql \
+    dump/
+COPY myvc.config.yml \
     ./
+
 RUN gosu mysql docker-init.sh \
     && docker-dump.sh dump/structure \
     && docker-dump.sh dump/.dump \
     && gosu mysql docker-temp-stop.sh
 
-COPY routines ./routines
-COPY versions ./versions
-COPY dump/fixtures.sql ./
+COPY routines routines
+COPY versions versions
+COPY \
+    dump/fixtures.sql \
+    dump/.changes \
+    dump/
+
 ARG STAMP=unknown
 RUN gosu mysql docker-temp-start.sh \
-    && myvc-push.sh -a \
+    && myvc push \
     && docker-dump.sh dump/fixtures \
     && gosu mysql docker-temp-stop.sh
 

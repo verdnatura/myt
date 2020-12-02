@@ -1,0 +1,7 @@
+versionSchema: myvc
+schemas:
+  - myvc
+fixtures:
+  myvc:
+    - version
+    - versionUser

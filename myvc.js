@@ -1,3 +1,4 @@
 #!/usr/bin/env node
 
-require('./');
+const MyVC = require('./');
+new MyVC().run();
