@@ -1,6 +1,7 @@
 
-const MyVC = require('./index');
+const MyVC = require('./myvc');
 const docker = require('./docker');
+const Container = require('./docker').Container;
 const fs = require('fs-extra');
 const path = require('path');
 const Server = require('./server/server');
@@ -37,7 +38,7 @@ class Run {
             const changes = await myvc.changedRoutines(version.gitCommit);
 
             let isEqual = false;
-            if (cache && changes && cache.length == changes.lenth)
+            if (cache && changes && cache.length == changes.length)
                 for (let i = 0; i < changes.length; i++) {
                     isEqual = cache[i].path == changes[i].path
                         && cache[i].mark == changes[i].mark;
@@ -45,6 +46,7 @@ class Run {
                 }
 
             if (!isEqual) {
+                console.log('not equal');
                 const fd = await fs.open(`${dumpDir}/.changes`, 'w+');
                 for (const change of changes)
                     fs.write(fd, change.mark + change.path + '\n');
@@ -85,7 +87,8 @@ class Run {
                 publish: `3306:${dbConfig.port}`
             };
             try {
-                await this.rm();
+                const server = new Server(new Container(opts.code));
+                await server.rm();
             } catch (e) {}
         }
 

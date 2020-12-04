@@ -12,7 +12,7 @@ Any help is welcomed! Feel free to contribute.
 
 * Node.js <= 12.0
 * Git
-* Docker (Only to setup a local server)
+* Docker (Local server)
 
 ## Installation
 
@@ -35,19 +35,19 @@ $ npx myvc [command]
 Execute *myvc* with the desired command.
 
 ```text
-$ myvc [-w|--workspace] [-e|--env] [-h|--help] command
+$ myvc [-w|--workspace] [-r|--remote] [-d|--debug] [-h|--help] command
 ```
 
 The default workspace directory is the current working directory and unless 
-otherwise indicated, the default environment is *local*.
+otherwise indicated, the default remote is *local*.
 
-Commands for database versioning:
+Database versioning commands:
 
  * **init**: Initialize an empty workspace.
  * **pull**: Export database routines into workspace.
  * **push**: Apply changes into database.
 
-Commands for local server management:
+Local server management commands:
 
  * **dump**: Export database structure and fixtures from *production*.
  * **run**: Build and starts local database server container.
@@ -67,14 +67,14 @@ Now you can configure MyVC using *myvc.config.yml* file, located at the root of
 your workspace. This file should include the project codename and schemas/tables
 wich are exported when you use *pull* or *dump* commands.
 
-### Environments
+### Remotes
 
 Create database connection configuration for each environment at *remotes*
-folder using standard MySQL *ini* configuration files. The predefined
-environment names are *production* and *test*.
+folder using standard MySQL *ini* configuration files. The convention remote 
+names are *production* and *test*.
 
 ```text
-remotes/[environment].ini
+remotes/[remote].ini
 ```
 
 ### Dumps

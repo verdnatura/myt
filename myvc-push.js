@@ -1,5 +1,5 @@
 
-const MyVC = require('./index');
+const MyVC = require('./myvc');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 
@@ -58,7 +58,7 @@ class Push {
                 version = userVersion;
         }
 
-        if (opts.env == 'production') {
+        if (opts.remote == 'production') {
             console.log(
                 '\n (   (       ) (                       (       )     ) '
                 + '\n )\\ ))\\ ) ( /( )\\ )          (        ))\\ ) ( /(  ( /( '

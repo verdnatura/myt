@@ -1,5 +1,5 @@
 
-const MyVC = require('./index');
+const MyVC = require('./myvc');
 const Container = require('./docker').Container;
 const Server = require('./server/server');
 const Run = require('./myvc-run');

@@ -1,5 +1,5 @@
 
-const MyVC = require('./index');
+const MyVC = require('./myvc');
 const fs = require('fs-extra');
 
 class Init {

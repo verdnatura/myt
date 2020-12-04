@@ -1,5 +1,5 @@
 
-const MyVC = require('./index');
+const MyVC = require('./myvc');
 const fs = require('fs-extra');
 const path = require('path');
 const docker = require('./docker');
@@ -11,10 +11,10 @@ class Dump {
     get myOpts() {
         return {
             alias: {
-                env: 'e'
+                remote: 'r'
             },
             default: {
-                env: 'production'
+                remote: 'production'
             }
         };
     }
@@ -38,7 +38,7 @@ class Dump {
 
         await docker.build(__dirname, {
             tag: 'myvc/client',
-            file: path.join(__dirname, 'Dockerfile.client')
+            file: path.join(__dirname, 'server', 'Dockerfile')
         }, opts.debug);
 
         let dumpArgs = [
@@ -84,7 +84,8 @@ class Dump {
     async dockerRun(command, args, execOptions) {
         const commandArgs = [command].concat(args);
         await docker.run('myvc/client', commandArgs, {
-            volume: `${this.opts.workspace}:/workspace`
+            volume: `${this.opts.workspace}:/workspace`,
+            rm: true
         }, execOptions);
     }
 }
