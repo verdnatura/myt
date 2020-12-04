@@ -2,7 +2,7 @@
 const MyVC = require('./index');
 const fs = require('fs-extra');
 const path = require('path');
-const docker = require('./docker').docker;
+const docker = require('./docker');
 
 /**
  * Dumps structure and fixtures from remote.

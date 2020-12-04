@@ -1,7 +1,7 @@
 
 const MyVC = require('./index');
 const fs = require('fs-extra');
-const path = require('path');
+const nodegit = require('nodegit');
 
 /**
  * Pushes changes to remote.
@@ -132,7 +132,7 @@ class Push {
                     nChanges++;
                 }
 
-                //await this.updateVersion(nChanges, 'number', dirVersion);
+                await this.updateVersion(nChanges, 'number', dirVersion);
             }
         }
 
@@ -205,8 +205,11 @@ class Push {
         await pushConn.end();
 
         if (nRoutines > 0) {
+            const repo = await nodegit.Repository.open(this.opts.workspace);
+            const head = await repo.getHeadCommit();
+
             await conn.query('FLUSH PRIVILEGES');
-            //await this.updateVersion(nRoutines, 'gitCommit', version.gitCommit);
+            await this.updateVersion(nRoutines, 'gitCommit', head.sha());
 
             console.log(` -> ${nRoutines} routines have changed.`);
         } else
