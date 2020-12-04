@@ -88,6 +88,7 @@ class Push {
         }
 
         console.log('Applying versions.');
+        const pushConn = await myvc.createConnection();
 
         let nChanges = 0;
         const versionsDir = `${opts.workspace}/versions`;
@@ -135,8 +136,6 @@ class Push {
                 await this.updateVersion(nChanges, 'number', dirVersion);
             }
         }
-
-        const pushConn = await myvc.createConnection();
 
         console.log('Applying changed routines.');
 
