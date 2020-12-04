@@ -2,8 +2,11 @@
 const MyVC = require('./index');
 const fs = require('fs-extra');
 const path = require('path');
-const docker = require('./docker');
+const docker = require('./docker').docker;
 
+/**
+ * Dumps structure and fixtures from remote.
+ */
 class Dump {
     get myOpts() {
         return {
@@ -36,7 +39,7 @@ class Dump {
         await docker.build(__dirname, {
             tag: 'myvc/client',
             file: path.join(__dirname, 'Dockerfile.client')
-        }, !!this.opts.debug);
+        }, opts.debug);
 
         let dumpArgs = [
             `--defaults-file=${opts.iniFile}`,

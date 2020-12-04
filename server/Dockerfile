@@ -34,6 +34,7 @@ COPY \
     structure.sql \
     index.js \
     myvc.js \
+    myvc-push.js \
     myvc.default.yml \
     db.ini \
     ./

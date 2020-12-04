@@ -1,94 +1,20 @@
 
 const MyVC = require('./index');
 const fs = require('fs-extra');
+const path = require('path');
 
-const typeMap = {
-    events: {
-        name: 'EVENT',
-        abbr: 'EVNT',
-        color: 'cyan'
-    },
-    functions: {
-        name: 'FUNCTION',
-        abbr: 'FUNC',
-        color: 'cyan'
-    },
-    procedures: {
-        name: 'PROCEDURE',
-        abbr: 'PROC',
-        color: 'yellow'
-    },
-    triggers: {
-        name: 'TRIGGER',
-        abbr: 'TRIG',
-        color: 'blue'
-    },
-    views: {
-        name: 'VIEW',
-        abbr: 'VIEW',
-        color: 'magenta'
-    },
-};
-
-class Routine {
-    construct(path, mark) {
-        const path = path
-        const split = path.split('/');
-
-        const fullPath = `${this.opts.workspace}/routines/${path}.sql`;
-        const schema = split[0];
-        const type = typeMap[split[1]];
-        const name = split[2];
-
-        Object.assign(this, {
-            path,
-            mark: mark,
-            exists: await fs.pathExists(fullPath),
-            type,
-            schema,
-            name,
-            fullName: `${schema}.${name}`,
-            isRoutine: ['FUNC', 'PROC'].indexOf(type.abbr) !== -1
-        });
-    }
-}
-
-const tokens = {
-    string: {
-        start: '\'',
-        end: '\'',
-        escape: char => char == '\'' || char == '\\'
-    },
-    id: {
-        start: '`',
-        end: '`',
-        escape: char => char == '`'
-    },
-    multiComment: {
-        start: '/*',
-        end: '*/',
-        escape: () => false
-    },
-    singleComment: {
-        start: '-- ',
-        end: '\n',
-        escape: () => false
-    }
-};
-
-const tokenIndex = new Map();
-for (const tokenId in tokens) {
-    const token = tokens[tokenId];
-    tokenIndex.set(token.start[0], token);
-}
-
+/**
+ * Pushes changes to remote.
+ *
+ * @property {Boolean} force Answer yes to all questions
+ * @property {Boolean} user Whether to change current user version
+ */
 class Push {
     get myOpts() {
         return {
             alias: {
                 force: 'f',
-                user: 'u',
-                applyUncommited: 'a'
+                user: 'u'
             }
         };
     }
@@ -218,7 +144,7 @@ class Push {
         let changes = await fs.pathExists(`${opts.workspace}/.git`)
             ? await myvc.changedRoutines(version.gitCommit)
             : await myvc.cachedChanges();
-        changes = await this.parseChanges(changes);
+        changes = this.parseChanges(changes);
 
         await conn.query(
             `CREATE TEMPORARY TABLE tProcsPriv
@@ -245,12 +171,14 @@ class Push {
         }
 
         for (const change of changes) {
-            const actionMsg = change.exists ? '[+]'.green : '[-]'.red;
+            const fullPath = `${opts.workspace}/routines/${change.path}.sql`;
+            const exists = await fs.pathExists(fullPath);
+            const actionMsg = exists ? '[+]'.green : '[-]'.red;
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
 
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
-            if (change.exists)
+            if (exists)
                 await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
             else {
                 const escapedName =
@@ -285,7 +213,7 @@ class Push {
             console.log(` -> No routines changed.`);
     }
 
-    async parseChanges(changes) {
+    parseChanges(changes) {
         const routines = [];
         for (const change of changes)
             routines.push(new Routine(change));
@@ -411,6 +339,84 @@ class Push {
 
         return stmts;
     }
+}
+
+const typeMap = {
+    events: {
+        name: 'EVENT',
+        abbr: 'EVNT',
+        color: 'cyan'
+    },
+    functions: {
+        name: 'FUNCTION',
+        abbr: 'FUNC',
+        color: 'cyan'
+    },
+    procedures: {
+        name: 'PROCEDURE',
+        abbr: 'PROC',
+        color: 'yellow'
+    },
+    triggers: {
+        name: 'TRIGGER',
+        abbr: 'TRIG',
+        color: 'blue'
+    },
+    views: {
+        name: 'VIEW',
+        abbr: 'VIEW',
+        color: 'magenta'
+    },
+};
+
+class Routine {
+    constructor(change) {
+        const path = change.path;
+        const split = path.split('/');
+
+        const schema = split[0];
+        const type = typeMap[split[1]];
+        const name = split[2];
+
+        Object.assign(this, {
+            path,
+            mark: change.mark,
+            type,
+            schema,
+            name,
+            fullName: `${schema}.${name}`,
+            isRoutine: ['FUNC', 'PROC'].indexOf(type.abbr) !== -1
+        });
+    }
+}
+
+const tokens = {
+    string: {
+        start: '\'',
+        end: '\'',
+        escape: char => char == '\'' || char == '\\'
+    },
+    id: {
+        start: '`',
+        end: '`',
+        escape: char => char == '`'
+    },
+    multiComment: {
+        start: '/*',
+        end: '*/',
+        escape: () => false
+    },
+    singleComment: {
+        start: '-- ',
+        end: '\n',
+        escape: () => false
+    }
+};
+
+const tokenIndex = new Map();
+for (const tokenId in tokens) {
+    const token = tokens[tokenId];
+    tokenIndex.set(token.start[0], token);
 }
 
 module.exports = Push;

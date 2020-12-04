@@ -1,7 +1,8 @@
 
 const MyVC = require('./index');
-const docker = require('./docker');
+const Container = require('./docker').Container;
 const Server = require('./server/server');
+const Run = require('./myvc-run');
 
 /**
  * Does the minium effort to start the database container, if it doesn't
@@ -11,28 +12,31 @@ const Server = require('./server/server');
  */
 class Start {
     async run(myvc, opts) {
-        const server = new Server(opts.code, opts.workspace);
-        await server.start();
-
+        const ct = new Container(opts.code);
         let status;
+
         try {
-            status = await docker.inspect(opts.code, {
-                filter: '{{json .State.Status}}'
+            status = await ct.inspect({
+                format: '{{json .State.Status}}'
             });
         } catch (err) {
-            return await this.run();
+            const run = new Run()
+            return await run.run(myvc, opts);
         }
 
         switch (status) {
         case 'running':
-            return;
+            break;
         case 'exited':
-            await docker.start(opts.code);
-            await this.wait();
-            return;
+            await ct.start();
+            break;
         default:
             throw new Error(`Unknown docker status: ${status}`);
         }
+
+        const server = new Server(ct, opts.dbConfig);
+        await server.wait();
+        return server;
     }
 }
 

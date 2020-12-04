@@ -1,22 +1,11 @@
 
-const log = require('fancy-log');
-const path = require('path');
-const docker = require('../docker');
+const mysql = require('mysql2/promise');
 
 module.exports = class Server {
-    constructor(name, context) {
+    constructor(ct, dbConfig) {
         Object.assign(this, {
-            id: name,
-            name,
-            isRandom: name == null,
-            dbConf: {
-                host: 'localhost',
-                port: '3306',
-                username: 'root',
-                password: 'root'
-            },
-            imageTag: name || 'myvc/dump',
-            context
+            ct,
+            dbConfig
         });
     }
 
@@ -28,22 +17,23 @@ module.exports = class Server {
             let elapsedTime = 0;
             let maxInterval = 4 * 60 * 1000;
 
+            const dbConfig = this.dbConfig;
             let myConf = {
-                user: this.dbConf.username,
-                password: this.dbConf.password,
-                host: this.dbConf.host,
-                port: this.dbConf.port
+                user: dbConfig.user,
+                password: dbConfig.password,
+                host: dbConfig.host,
+                port: dbConfig.port
             };
 
-            log('Waiting for MySQL init process...');
+            console.log('Waiting for MySQL init process...');
 
             async function checker() {
                 elapsedTime += interval;
                 let status;
 
                 try {
-                    status =  await docker.inspect(this.id, {
-                        filter: '{{json .State.Status}}'
+                    status =  await this.ct.inspect({
+                        format: '{{json .State.Status}}'
                     });
                 } catch (err) {
                     return reject(new Error(err.message));
@@ -52,12 +42,12 @@ module.exports = class Server {
                 if (status === 'exited')
                     return reject(new Error('Docker exited, please see the docker logs for more info'));
 
-                let conn = mysql.createConnection(myConf);
+                const conn = mysql.createConnection(myConf);
                 conn.on('error', () => {});
                 conn.connect(err => {
                     conn.destroy();
                     if (!err) {
-                        log('MySQL process ready.');
+                        console.log('MySQL process ready.');
                         return resolve();
                     }
 
@@ -67,15 +57,15 @@ module.exports = class Server {
                         setTimeout(bindedChecker, interval);
                 });
             }
-            let bindedChecker = checker.bind(this);
+            const bindedChecker = checker.bind(this);
             bindedChecker();
         });
     }
 
     async rm() {
         try {
-            await docker.stop(this.id);
-            await docker.rm(this.id, {volumes: true});
+            await this.ct.stop();
+            await this.ct.rm({volumes: true});
         } catch (e) {}
     }
 };

@@ -23,7 +23,7 @@ COPY \
 
 ARG STAMP=unknown
 RUN gosu mysql docker-temp-start.sh \
-    && myvc push \
+    && myvc push --socket \
     && docker-dump.sh dump/fixtures \
     && gosu mysql docker-temp-stop.sh
 

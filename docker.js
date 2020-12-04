@@ -79,7 +79,7 @@ const docker = {
                 child.on('exit', code => {
                     if (code !== 0) {
                         const args = JSON.stringify(execArgs);
-                        reject(new Error(`'docker' ${args}: Exit code: ${code}`));
+                        reject(new Error(`docker: ${args}: exit code ${code}`));
                     } else
                         resolve(code);
                 });
@@ -96,7 +96,9 @@ const docker = {
 };
 
 class Container {
-    construct(id) {
+    constructor(id) {
+        if (!id)
+            throw new Error('Container id argument is required');
         this.id = id;
     }
 
@@ -123,3 +125,4 @@ function camelToSnake(str) {
 }
 
 module.exports = docker;
+module.exports.Container = Container;

@@ -21,6 +21,7 @@ class MyVC {
             alias: {
                 env: 'e',
                 workspace: 'w',
+                socket: 's',
                 debug: 'd',
                 version: 'v',
                 help: 'h'
@@ -141,7 +142,7 @@ class MyVC {
                 rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
             }
         }
-        if (!opts.env)
+        if (opts.socket)
             dbConfig.socketPath = '/var/run/mysqld/mysqld.sock';
 
         Object.assign(opts, {
