@@ -31,10 +31,10 @@ class Push {
             + `\n -> Commit: ${version.gitCommit}`
         );
 
-        if (!/^[0-9]*$/.test(version.number))
-            throw new Error('Wrong database version');
         if (!version.number)
             version.number = '00000';
+        if (!/^[0-9]*$/.test(version.number))
+            throw new Error('Wrong database version');
 
         if (opts.user) {
             const [[user]] = conn.query(
@@ -217,8 +217,9 @@ class Push {
 
     parseChanges(changes) {
         const routines = [];
-        for (const change of changes)
-            routines.push(new Routine(change));
+        if (changes)
+            for (const change of changes)
+                routines.push(new Routine(change));
         return routines;
     }
 

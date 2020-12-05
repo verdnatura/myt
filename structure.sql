@@ -1,8 +1,8 @@
 
 CREATE TABLE `version` (
     `code` varchar(255) NOT NULL,
-    `number` char(11) NOT NULL,
-    `gitCommit` varchar(255) NOT NULL,
+    `number` char(11) NULL,
+    `gitCommit` varchar(255) NULL,
     `updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -12,8 +12,8 @@ ALTER TABLE `version`
 CREATE TABLE `versionUser` (
     `code` varchar(255) NOT NULL,
     `user` varchar(255) NOT NULL,
-    `number` char(11) NOT NULL,
-    `gitCommit` varchar(255) NOT NULL,
+    `number` char(11) NULL,
+    `gitCommit` varchar(255) NULL,
     `updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 

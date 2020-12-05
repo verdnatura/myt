@@ -131,6 +131,7 @@ class MyVC {
             user: iniConfig.user,
             password: iniConfig.password,
             database: opts.versionSchema,
+            multipleStatements: true,
             authPlugins: {
                 mysql_clear_password() {
                     return () => iniConfig.password + '\0';
@@ -194,28 +195,34 @@ class MyVC {
         return version;
     }
 
-    async changedRoutines(commit) {
-        const repo = await nodegit.Repository.open(this.opts.workspace);
+    async changedRoutines(commitSha) {
+        const {opts} = this;
 
-        const from = await repo.getCommit(commit);
-        const fromTree = await from.getTree();
-
-        const to = await repo.getHeadCommit();
-        const toTree = await to.getTree();
-
-        const diff = await toTree.diff(fromTree);
-        const patches = await diff.patches();
+        if (!await fs.pathExists(`${opts.workspace}/.git`))
+            throw new Error ('Git not initialized');
 
         const changes = [];
-        for (const patch of patches) {
-            const path = patch.newFile().path();
-            const match = path.match(/^routines\/(.+)\.sql$/);
-            if (!match) continue;
+        const repo = await nodegit.Repository.open(opts.workspace);
+        const head = await repo.getHeadCommit();
 
-            changes.push({
-                mark: patch.isDeleted() ? '-' : '+',
-                path: match[1]
-            });
+        if (head && commitSha) {
+            const commit = await repo.getCommit(commitSha);
+            const commitTree = await commit.getTree();
+
+            const headTree = await head.getTree();
+            const diff = await headTree.diff(commitTree);
+            const patches = await diff.patches();
+
+            for (const patch of patches) {
+                const path = patch.newFile().path();
+                const match = path.match(/^routines\/(.+)\.sql$/);
+                if (!match) continue;
+
+                changes.push({
+                    mark: patch.isDeleted() ? '-' : '+',
+                    path: match[1]
+                });
+            }
         }
         
         return changes.sort(
@@ -224,7 +231,6 @@ class MyVC {
     }
 
     async cachedChanges() {
-        const changes = [];
         const dumpDir = `${this.opts.workspace}/dump`;
         const dumpChanges = `${dumpDir}/.changes`;
 
@@ -238,13 +244,13 @@ class MyVC {
             console: false
         });
 
+        const changes = [];
         for await (const line of rl) {
             changes.push({
                 mark: line.charAt(0),
                 path: line.substr(1)
             });
         }
-
         return changes;
     }
 }

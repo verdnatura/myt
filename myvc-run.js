@@ -27,6 +27,10 @@ class Run {
 
     async run(myvc, opts) {
         const dumpDir = `${opts.workspace}/dump`;
+
+        if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
+            throw new Error('To run local database you have to create a dump first');
+
         const dumpInfo = `${dumpDir}/.dump.json`;
 
         if (await fs.pathExists(dumpInfo)) {
@@ -46,7 +50,6 @@ class Run {
                 }
 
             if (!isEqual) {
-                console.log('not equal');
                 const fd = await fs.open(`${dumpDir}/.changes`, 'w+');
                 for (const change of changes)
                     fs.write(fd, change.mark + change.path + '\n');

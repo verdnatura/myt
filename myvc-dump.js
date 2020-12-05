@@ -38,7 +38,7 @@ class Dump {
 
         await docker.build(__dirname, {
             tag: 'myvc/client',
-            file: path.join(__dirname, 'server', 'Dockerfile')
+            file: path.join(__dirname, 'server', 'Dockerfile.client')
         }, opts.debug);
 
         let dumpArgs = [
