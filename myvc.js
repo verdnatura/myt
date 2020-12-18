@@ -202,15 +202,11 @@ class MyVC {
             throw new Error ('Git not initialized');
 
         const changes = [];
+        const changesMap = new Map();
         const repo = await nodegit.Repository.open(opts.workspace);
         const head = await repo.getHeadCommit();
 
-        if (head && commitSha) {
-            const commit = await repo.getCommit(commitSha);
-            const commitTree = await commit.getTree();
-
-            const headTree = await head.getTree();
-            const diff = await headTree.diff(commitTree);
+        async function pushChanges(diff) {
             const patches = await diff.patches();
 
             for (const patch of patches) {
@@ -218,11 +214,47 @@ class MyVC {
                 const match = path.match(/^routines\/(.+)\.sql$/);
                 if (!match) continue;
 
-                changes.push({
-                    mark: patch.isDeleted() ? '-' : '+',
-                    path: match[1]
-                });
+                let change = changesMap.get(match[1]);
+                if (!change) {
+                    change = {path: match[1]};
+                    changes.push(change);
+                    changesMap.set(match[1], change);
+                }
+                change.mark = patch.isDeleted() ? '-' : '+';
             }
+        }
+
+        // Committed
+
+        if (head && commitSha) {
+            const commit = await repo.getCommit(commitSha);
+            const commitTree = await commit.getTree();
+
+            const headTree = await head.getTree();
+            const diff = await headTree.diff(commitTree);
+            await pushChanges(diff);
+        }
+
+        // Unstaged
+
+        const diff = await nodegit.Diff.indexToWorkdir(repo, null, {
+            flags: nodegit.Diff.OPTION.SHOW_UNTRACKED_CONTENT
+                | nodegit.Diff.OPTION.RECURSE_UNTRACKED_DIRS
+        });
+        await pushChanges(diff);
+
+        // Staged
+
+        try {
+            const emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+            const headTree = await (head
+                ? head.getTree()
+                : nodegit.Tree.lookup(repo, emptyTree)
+            );
+            const stagedDiff = await nodegit.Diff.treeToIndex(repo, headTree, null);
+            await pushChanges(stagedDiff);
+        } catch (err) {
+            console.warn('Cannot fetch staged changes:', err.message);
         }
         
         return changes.sort(
