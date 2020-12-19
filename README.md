@@ -153,9 +153,11 @@ the following steps:
 6. Merge the new branch into.
 7. Let the user deal with merge conflicts.
 
-Furthermore, migrate all possible tools and code from shell scripts to native
-Javascript, dealing with dependencies and compatibility issues between various
-OS that this may cause.
+Use a custom *Dockerfile* for local database container.
+
+Allow to specify a custom workspece subdirectory inside project directory.
+
+Create a lock during push to avoid collisions.
 
 ## Built With
 

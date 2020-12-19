@@ -11,9 +11,14 @@ class Pull {
             await exporter.init();
 
         const exportDir = `${opts.workspace}/routines`;
-        if (await fs.pathExists(exportDir))
-            await fs.remove(exportDir, {recursive: true});
-        await fs.mkdir(exportDir);
+        if (!await fs.pathExists(exportDir))
+            await fs.mkdir(exportDir);
+
+        const schemas = await fs.readdir(exportDir);
+        for (const schema of schemas) {
+            if (opts.schemas.indexOf(schema) == -1)
+                await fs.remove(`${exportDir}/${schema}`, {recursive: true});
+        }
 
         for (const schema of opts.schemas) {
             let schemaDir = `${exportDir}/${schema}`;
@@ -52,13 +57,34 @@ class Exporter {
         if (!await fs.pathExists(routineDir))
             await fs.mkdir(routineDir);
 
+        const routineSet = new Set();
+        for (const params of res)
+            routineSet.add(params.name);
+
+        const routines = await fs.readdir(routineDir);
+        for (const routineFile of routines) {
+            const match = routineFile.match(/^(.*)\.sql$/);
+            if (!match) continue;
+            const routine = match[1];
+            if (!routineSet.has(routine))
+                await fs.remove(`${routineDir}/${routine}.sql`);
+        }
+
         for (const params of res) {
             if (this.formatter)
                 this.formatter(params, schema)
 
             params.schema = schema;
-            let sql = this.template(params);
-            await fs.writeFile(`${routineDir}/${params.name}.sql`, sql);
+            const sql = this.template(params);
+            const routineFile = `${routineDir}/${params.name}.sql`;
+            let changed = true;
+
+            if (await fs.pathExists(routineFile)) {
+                const currentSql = await fs.readFile(routineFile, 'utf8');
+                changed = currentSql !== sql;
+            }
+            if (changed)
+                await fs.writeFile(routineFile, sql);
         }
     }
 }
