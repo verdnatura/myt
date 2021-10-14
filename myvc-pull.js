@@ -2,11 +2,27 @@
 const MyVC = require('./myvc');
 const fs = require('fs-extra');
 const ejs = require('ejs');
+const nodegit = require('nodegit');
 
 class Pull {
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
+/*
+        const version = await myvc.fetchDbVersion();
+        let repo;
 
+        if (version && version.gitCommit) {
+            console.log(version);
+            repo = await nodegit.Repository.open(opts.workspace);
+            const commit = await repo.getCommit(version.gitCommit);
+            const now = parseInt(new Date().getTime() / 1000);
+            const branch = await nodegit.Branch.create(repo,
+                `myvc_${now}`, commit, () => {});
+            await repo.checkoutBranch(branch);
+        }
+
+        return;
+*/
         for (const exporter of exporters)
             await exporter.init();
 
