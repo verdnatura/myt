@@ -37,9 +37,7 @@ class Push {
             throw new Error('Wrong database version');
 
         if (opts.user) {
-            const [[user]] = conn.query(
-                `SELECT LEFT(USER(), INSTR(USER(), '@') - 1)`
-            );
+            const user = await this.getDbUser();
             let [[userVersion]] = await conn.query(
                 `SELECT number, gitCommit
                     FROM versionUser
@@ -55,7 +53,9 @@ class Push {
             );
 
             if (userVersion.number > version.number)
-                version = userVersion;
+                version.number = userVersion.number;
+            if (userVersion.gitCommit && userVersion.gitCommit !== version.gitCommit)
+                version.gitCommit = userVersion.gitCommit;
         }
 
         if (opts.remote == 'production') {
@@ -204,15 +204,17 @@ class Push {
         await pushConn.end();
 
         if (nRoutines > 0) {
-            const repo = await nodegit.Repository.open(this.opts.workspace);
-            const head = await repo.getHeadCommit();
-
             await conn.query('FLUSH PRIVILEGES');
-            await this.updateVersion(nRoutines, 'gitCommit', head.sha());
 
             console.log(` -> ${nRoutines} routines have changed.`);
         } else
             console.log(` -> No routines changed.`);
+
+        const repo = await nodegit.Repository.open(this.opts.workspace);
+        const head = await repo.getHeadCommit();
+
+        if (version.gitCommit !== head.sha())
+            await this.updateVersion(nRoutines, 'gitCommit', head.sha());
     }
 
     parseChanges(changes) {
@@ -223,6 +225,11 @@ class Push {
         return routines;
     }
 
+    async getDbUser() {
+        const [[row]] = await this.conn.query('SELECT USER() `user`');
+        return row.user.substr(0, row.user.indexOf('@'));
+    }
+
     async updateVersion(nChanges, column, value) {
         if (nChanges == 0) return;
         const {opts} = this;
@@ -230,6 +237,7 @@ class Push {
         column = this.conn.escapeId(column, true);
 
         if (opts.user) {
+            const user = await this.getDbUser();
             await this.conn.query(
                 `INSERT INTO versionUser
                     SET code = ?, 

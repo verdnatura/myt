@@ -10,7 +10,7 @@ Any help is welcomed! Feel free to contribute.
 
 ## Requirements
 
-* Node.js >= 12.0
+* Node.js >= 14.0
 * Git
 * Docker (Local server)
 
