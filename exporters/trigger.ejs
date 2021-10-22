@@ -1,6 +1,6 @@
-DROP TRIGGER IF EXISTS `<%- schema %>`.`<%- name %>`;
+DROP TRIGGER IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
-CREATE DEFINER=`root`@`%` TRIGGER `<%- schema %>`.`<%- name %>`
+CREATE DEFINER=<%- definer %> TRIGGER <%- schema %>.<%- name %>
 	<%- actionTiming %> <%- actionType %> ON `<%- table %>`
 	FOR EACH ROW
 <%- body %>$$

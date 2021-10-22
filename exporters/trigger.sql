@@ -1,11 +1,12 @@
 
 SELECT
-		TRIGGER_NAME `name`,
-		DEFINER `definer`,
-		ACTION_TIMING `actionTiming`,
-		EVENT_MANIPULATION `actionType`,
-		EVENT_OBJECT_TABLE `table`,
-		ACTION_STATEMENT `body`,
-		CREATED `modified`
-	FROM information_schema.TRIGGERS
-		WHERE TRIGGER_SCHEMA = ?
+		`TRIGGER_NAME` AS `name`,
+		`DEFINER` AS `definer`,
+		`ACTION_TIMING` AS `actionTiming`,
+		`EVENT_MANIPULATION` AS `actionType`,
+		`EVENT_OBJECT_TABLE` AS `table`,
+		`ACTION_STATEMENT` AS `body`,
+		`CREATED` AS `modified`
+	FROM `information_schema`.`TRIGGERS`
+	WHERE `TRIGGER_SCHEMA` = ?
+	ORDER BY `name`

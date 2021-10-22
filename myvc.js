@@ -196,15 +196,9 @@ class MyVC {
     }
 
     async changedRoutines(commitSha) {
-        const {opts} = this;
-
-        if (!await fs.pathExists(`${opts.workspace}/.git`))
-            throw new Error ('Git not initialized');
-
+        const repo = await this.openRepo();
         const changes = [];
         const changesMap = new Map();
-        const repo = await nodegit.Repository.open(opts.workspace);
-        const head = await repo.getHeadCommit();
 
         async function pushChanges(diff) {
             const patches = await diff.patches();
@@ -224,7 +218,7 @@ class MyVC {
             }
         }
 
-        // Committed
+        const head = await repo.getHeadCommit();
 
         if (head && commitSha) {
             const commit = await repo.getCommit(commitSha);
@@ -235,15 +229,30 @@ class MyVC {
             await pushChanges(diff);
         }
 
-        // Unstaged
+        await pushChanges(await this.getUnstaged(repo));
 
-        const diff = await nodegit.Diff.indexToWorkdir(repo, null, {
-            flags: nodegit.Diff.OPTION.SHOW_UNTRACKED_CONTENT
-                | nodegit.Diff.OPTION.RECURSE_UNTRACKED_DIRS
+        const stagedDiff = await this.getStaged(repo);
+        if (stagedDiff) await pushChanges(stagedDiff);
+
+        return changes.sort((a, b) => {
+            if (b.mark != a.mark)
+                return b.mark == '-' ? 1 : -1;
+            return a.path.localeCompare(b.path);
+            
         });
-        await pushChanges(diff);
+    }
 
-        // Staged
+    async openRepo() {
+        const {opts} = this;
+
+        if (!await fs.pathExists(`${opts.workspace}/.git`))
+            throw new Error ('Git not initialized');
+
+        return await nodegit.Repository.open(opts.workspace);
+    }
+
+    async getStaged(repo) {
+        const head = await repo.getHeadCommit();
 
         try {
             const emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -251,15 +260,17 @@ class MyVC {
                 ? head.getTree()
                 : nodegit.Tree.lookup(repo, emptyTree)
             );
-            const stagedDiff = await nodegit.Diff.treeToIndex(repo, headTree, null);
-            await pushChanges(stagedDiff);
+            return await nodegit.Diff.treeToIndex(repo, headTree, null);
         } catch (err) {
             console.warn('Cannot fetch staged changes:', err.message);
         }
-        
-        return changes.sort(
-            (a, b) => b.mark == '-' && b.mark != a.mark ? 1 : -1
-        );
+    }
+
+    async getUnstaged(repo) {
+        return await nodegit.Diff.indexToWorkdir(repo, null, {
+            flags: nodegit.Diff.OPTION.SHOW_UNTRACKED_CONTENT
+                | nodegit.Diff.OPTION.RECURSE_UNTRACKED_DIRS
+        });
     }
 
     async cachedChanges() {

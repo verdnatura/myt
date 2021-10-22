@@ -1,6 +1,6 @@
-DROP FUNCTION IF EXISTS `<%- schema %>`.`<%- name %>`;
+DROP FUNCTION IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
-CREATE DEFINER='root'@'%' FUNCTION `<%- schema %>`.`<%- name %>`(<%- paramList %>)
+CREATE DEFINER=<%- definer %> FUNCTION <%- schema %>.<%- name %>(<%- paramList %>)
 	RETURNS <%- returns %>
 	<% if (isDeterministic != 'NO') { %>DETERMINISTIC<% } else { %>NOT DETERMINISTIC<% } %>
 <%- body %>$$

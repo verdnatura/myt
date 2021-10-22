@@ -1,6 +1,6 @@
-DROP EVENT IF EXISTS `<%- schema %>`.`<%- name %>`;
+DROP EVENT IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
-CREATE DEFINER=`root`@`%` EVENT `<%- schema %>`.`<%- name %>`
+CREATE DEFINER=<%- definer %> EVENT <%- schema %>.<%- name %>
 	ON SCHEDULE EVERY <%- intervalValue %> <%- intervalField %>
 	ON COMPLETION <%- onCompletion %>
 	<% if (status == 'ENABLED') { %>ENABLE<% } else { %>DISABLE<% } %>

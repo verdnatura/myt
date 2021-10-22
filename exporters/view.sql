@@ -1,10 +1,11 @@
 
 SELECT
-		TABLE_NAME `name`,
-		VIEW_DEFINITION `definition`,
-		CHECK_OPTION `checkOption`,
-		IS_UPDATABLE `isUpdatable`,
-		DEFINER `definer`,
-		SECURITY_TYPE `securityType`
-	FROM information_schema.VIEWS
-		WHERE TABLE_SCHEMA = ?
+		`TABLE_NAME` AS `name`,
+		`VIEW_DEFINITION` AS `definition`,
+		`CHECK_OPTION` AS `checkOption`,
+		`IS_UPDATABLE` AS `isUpdatable`,
+		`DEFINER` AS `definer`,
+		`SECURITY_TYPE` AS `securityType`
+	FROM `information_schema`.`VIEWS`
+	WHERE `TABLE_SCHEMA` = ?
+	ORDER BY `name`

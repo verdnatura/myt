@@ -44,7 +44,7 @@ otherwise indicated, the default remote is *local*.
 Database versioning commands:
 
  * **init**: Initialize an empty workspace.
- * **pull**: Export database routines into workspace.
+ * **pull**: Incorporates database routines changes into workspace.
  * **push**: Apply changes into database.
 
 Local server management commands:
@@ -163,4 +163,5 @@ Create a lock during push to avoid collisions.
 
 * [Git](https://git-scm.com/)
 * [nodejs](https://nodejs.org/)
+* [NodeGit](https://www.nodegit.org/)
 * [docker](https://www.docker.com/)

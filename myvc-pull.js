@@ -2,27 +2,72 @@
 const MyVC = require('./myvc');
 const fs = require('fs-extra');
 const ejs = require('ejs');
+const shajs = require('sha.js');
 const nodegit = require('nodegit');
 
 class Pull {
+    get myOpts() {
+        return {
+            alias: {
+                force: 'f',
+                checkout: 'c'
+            }
+        };
+    }
+
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
-/*
-        const version = await myvc.fetchDbVersion();
-        let repo;
+        const repo = await myvc.openRepo();
 
-        if (version && version.gitCommit) {
-            console.log(version);
-            repo = await nodegit.Repository.open(opts.workspace);
-            const commit = await repo.getCommit(version.gitCommit);
-            const now = parseInt(new Date().getTime() / 1000);
-            const branch = await nodegit.Branch.create(repo,
-                `myvc_${now}`, commit, () => {});
-            await repo.checkoutBranch(branch);
+        if (!opts.force) {
+            async function hasChanges(diff) {
+                if (diff)
+                for (const patch of await diff.patches()) {
+                    const match = patch
+                        .newFile()
+                        .path()
+                        .match(/^routines\/(.+)\.sql$/);
+                    if (match) return true;
+                }
+
+                return false;
+            }
+
+            // Check for unstaged changes
+
+            const unstagedDiff = await myvc.getUnstaged(repo);
+
+            if (await hasChanges(unstagedDiff))
+                throw new Error('You have unstaged changes, save them before pull');
+
+            // Check for staged changes
+
+            const stagedDiff = await myvc.getStaged(repo);
+ 
+            if (await hasChanges(stagedDiff))
+                throw new Error('You have staged changes, save them before pull');
         }
 
-        return;
-*/
+        // Checkout to remote commit
+
+        if (opts.checkout) {
+            const version = await myvc.fetchDbVersion();
+
+            if (version && version.gitCommit) {
+                const now = parseInt(new Date().toJSON());
+                const branchName = `myvc-pull_${now}`;
+                console.log(`Creating branch '${branchName}' from database commit.`);
+                const commit = await repo.getCommit(version.gitCommit);
+                const branch = await nodegit.Branch.create(repo,
+                    `myvc-pull_${now}`, commit, () => {});
+                await repo.checkoutBranch(branch);
+            }
+        }
+
+        // Export routines to SQL files
+
+        console.log(`Incorporating routine changes.`);
+
         for (const exporter of exporters)
             await exporter.init();
 
@@ -36,26 +81,45 @@ class Pull {
                 await fs.remove(`${exportDir}/${schema}`, {recursive: true});
         }
 
+        let shaSums;
+        const shaFile = `${opts.workspace}/.shasums.json`;
+
+        if (await fs.pathExists(shaFile))
+            shaSums = JSON.parse(await fs.readFile(shaFile, 'utf8'));
+        else
+            shaSums = {};
+
         for (const schema of opts.schemas) {
             let schemaDir = `${exportDir}/${schema}`;
 
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
 
-            for (const exporter of exporters)
-                await exporter.export(conn, exportDir, schema);
+            let schemaSums = shaSums[schema];
+            if (!schemaSums) schemaSums = shaSums[schema] = {};
+
+            for (const exporter of exporters) {
+                const objectType = exporter.objectType;
+
+                let objectSums = schemaSums[objectType];
+                if (!objectSums) objectSums = schemaSums[objectType] = {};
+
+                await exporter.export(conn, exportDir, schema, objectSums);
+            }
         }
+
+        await fs.writeFile(shaFile, JSON.stringify(shaSums, null, '  '));
     }
 }
 
 class Exporter {
-    constructor(objectName) {
-        this.objectName = objectName;
-        this.dstDir = `${objectName}s`;
+    constructor(objectType) {
+        this.objectType = objectType;
+        this.dstDir = `${objectType}s`;
     }
 
     async init() {
-        const templateDir = `${__dirname}/exporters/${this.objectName}`;
+        const templateDir = `${__dirname}/exporters/${this.objectType}`;
         this.query = await fs.readFile(`${templateDir}.sql`, 'utf8');
 
         const templateFile = await fs.readFile(`${templateDir}.ejs`, 'utf8');
@@ -65,7 +129,7 @@ class Exporter {
             this.formatter = require(`${templateDir}.js`);
     }
 
-    async export(conn, exportDir, schema) {
+    async export(conn, exportDir, schema, shaSums) {
         const [res] = await conn.query(this.query, [schema]);
         if (!res.length) return; 
 
@@ -90,17 +154,31 @@ class Exporter {
             if (this.formatter)
                 this.formatter(params, schema)
 
-            params.schema = schema;
+            const routineName = params.name;
+            const split = params.definer.split('@');
+            params.schema = conn.escapeId(schema);
+            params.name = conn.escapeId(routineName, true);
+            params.definer =
+                `${conn.escapeId(split[0], true)}@${conn.escapeId(split[1], true)}`;
+
             const sql = this.template(params);
-            const routineFile = `${routineDir}/${params.name}.sql`;
+            const routineFile = `${routineDir}/${routineName}.sql`;
+
+            const shaSum = shajs('sha256')
+                .update(JSON.stringify(sql))
+                .digest('hex');
+            shaSums[routineName] = shaSum;
+
             let changed = true;
 
             if (await fs.pathExists(routineFile)) {
                 const currentSql = await fs.readFile(routineFile, 'utf8');
-                changed = currentSql !== sql;
+                changed = shaSums[routineName] !== shaSum;;
             }
-            if (changed)
+            if (changed) {
                 await fs.writeFile(routineFile, sql);
+                shaSums[routineName] = shaSum;
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS `<%- schema %>`.`<%- name %>`;
+DROP PROCEDURE IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
-CREATE DEFINER='root'@'%' PROCEDURE `<%- schema %>`.`<%- name %>`(<%- paramList %>)
+CREATE DEFINER=<%- definer %> PROCEDURE <%- schema %>.<%- name %>(<%- paramList %>)
 <%- body %>$$
 DELIMITER ;

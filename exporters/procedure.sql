@@ -2,8 +2,9 @@
 SELECT
 		`name`,
 		`definer`,
-		`param_list` paramList,
+		`param_list` AS `paramList`,
 		`body`,
 		`modified`
-	FROM mysql.proc
-		WHERE db = ? AND type = 'PROCEDURE'
+	FROM `mysql`.`proc`
+	WHERE `db` = ? AND `type` = 'PROCEDURE'
+	ORDER BY `name`

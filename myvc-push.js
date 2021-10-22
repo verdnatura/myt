@@ -177,15 +177,25 @@ class Push {
 
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
-            if (exists)
-                await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
-            else {
-                const escapedName =
-                    conn.escapeId(change.schema, true) + '.' +
-                    conn.escapeId(change.name, true);
+            try {
+                const scapedSchema = pushConn.escapeId(change.schema, true);
 
-                const query = `DROP ${change.type.name} IF EXISTS ${escapedName}`;
-                await conn.query(query);
+                if (exists) {
+                    await pushConn.query(`USE ${scapedSchema}`);
+                    await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
+                } else {
+                    const escapedName =
+                        scapedSchema + '.' +
+                        pushConn.escapeId(change.name, true);
+
+                    const query = `DROP ${change.type.name} IF EXISTS ${escapedName}`;
+                    await pushConn.query(query);
+                }
+            } catch (err) {
+                if (err.sqlState)
+                    console.warn('Warning:'.yellow, err.message);
+                else
+                    throw err;
             }
 
             nRoutines++;
