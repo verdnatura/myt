@@ -8,8 +8,9 @@ const docker = require('./docker');
  * Dumps structure and fixtures from remote.
  */
 class Dump {
-    get myOpts() {
+    get localOpts() {
         return {
+            operand: 'remote',
             alias: {
                 remote: 'r'
             },

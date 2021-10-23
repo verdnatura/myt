@@ -1,20 +1,21 @@
 
 CREATE TABLE `version` (
-    `code` varchar(255) NOT NULL,
-    `number` char(11) NULL DEFAULT NULL,
-    `gitCommit` varchar(255) NULL DEFAULT NULL,
-    `updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    `code` VARCHAR(255) NOT NULL,
+    `number` CHAR(11) NULL DEFAULT NULL,
+    `gitCommit` VARCHAR(255) NULL DEFAULT NULL,
+    `updated` DATETIME NOT NULL DEFAULT NULL
 ) ENGINE=InnoDB;
 
 ALTER TABLE `version`
     ADD PRIMARY KEY (`code`);
 
 CREATE TABLE `versionUser` (
-    `code` varchar(255) NOT NULL,
-    `user` varchar(255) NOT NULL,
-    `number` char(11) NULL DEFAULT NULL,
-    `gitCommit` varchar(255) NULL DEFAULT NULL,
-    `updated` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    `code` VARCHAR(255) NOT NULL,
+    `user` VARCHAR(255) NOT NULL,
+    `number` CHAR(11) NULL DEFAULT NULL,
+    `gitCommit` VARCHAR(255) NULL DEFAULT NULL,
+    `updated` DATETIME NOT NULL DEFAULT NULL,
+    `lastNumber` CHAR(11) NULL DEFAULT NULL,
 ) ENGINE=InnoDB;
 
 ALTER TABLE `versionUser`

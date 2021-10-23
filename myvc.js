@@ -57,6 +57,7 @@ class MyVC {
                     'init',
                     'pull',
                     'push',
+                    'version',
                     'dump',
                     'start',
                     'run'
@@ -69,13 +70,16 @@ class MyVC {
                 command = new Klass();
             }
     
-            const commandOpts = getopts(argv, command.myOpts);
+            const commandOpts = getopts(argv, command.localOpts);
             Object.assign(cliOpts, commandOpts);
     
-            for (const opt in cliOpts) {
+            for (const opt in cliOpts)
                 if (opt.length > 1 || opt == '_')
                     opts[opt] = cliOpts[opt];
-            }
+
+            const operandToOpt = command.localOpts.operand;
+            if (opts._.length >= 2 && operandToOpt)
+                opts[operandToOpt] = opts._[1];
     
             parameter('Workspace:', opts.workspace);
             parameter('Remote:', opts.remote || 'local');
@@ -155,6 +159,11 @@ class MyVC {
         this.opts = opts;
     }
 
+    async unload() {
+        if (this.conn)
+            await this.conn.end();
+    }
+
     async dbConnect() {
         if (!this.conn)
             this.conn = await this.createConnection();
@@ -163,11 +172,6 @@ class MyVC {
 
     async createConnection() {
         return await mysql.createConnection(this.opts.dbConfig);
-    }
-
-    async unload() {
-        if (this.conn)
-            await this.conn.end();
     }
 
     async fetchDbVersion() {
@@ -201,6 +205,7 @@ class MyVC {
         const changesMap = new Map();
 
         async function pushChanges(diff) {
+            if (!diff) return;
             const patches = await diff.patches();
 
             for (const patch of patches) {
@@ -230,9 +235,7 @@ class MyVC {
         }
 
         await pushChanges(await this.getUnstaged(repo));
-
-        const stagedDiff = await this.getStaged(repo);
-        if (stagedDiff) await pushChanges(stagedDiff);
+        await pushChanges(await this.getStaged(repo));
 
         return changes.sort((a, b) => {
             if (b.mark != a.mark)

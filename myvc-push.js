@@ -10,8 +10,9 @@ const nodegit = require('nodegit');
  * @property {Boolean} user Whether to change current user version
  */
 class Push {
-    get myOpts() {
+    get localOpts() {
         return {
+            operand: 'remote',
             alias: {
                 force: 'f',
                 user: 'u'
@@ -252,9 +253,11 @@ class Push {
                 `INSERT INTO versionUser
                     SET code = ?, 
                         user = ?, 
-                        ${column} = ?
+                        ${column} = ?,
+                        updated = NOW()
                     ON DUPLICATE KEY UPDATE 
-                        ${column} = VALUES(${column})`,
+                        ${column} = VALUES(${column}),
+                        updated = VALUES(updated)`,
                 [
                     opts.code,
                     user,
@@ -265,9 +268,11 @@ class Push {
             await this.conn.query(
                 `INSERT INTO version
                     SET code = ?,
-                        ${column} = ?
+                        ${column} = ?,
+                        updated = NOW()
                     ON DUPLICATE KEY UPDATE 
-                        ${column} = VALUES(${column})`,
+                        ${column} = VALUES(${column}),
+                        updated = VALUES(updated)`,
                 [
                     opts.code,
                     value

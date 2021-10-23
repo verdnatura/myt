@@ -46,6 +46,7 @@ Database versioning commands:
  * **init**: Initialize an empty workspace.
  * **pull**: Incorporates database routines changes into workspace.
  * **push**: Apply changes into database.
+ * **version**: Creates a new version.
 
 Local server management commands:
 

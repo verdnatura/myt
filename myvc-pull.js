@@ -6,8 +6,9 @@ const shajs = require('sha.js');
 const nodegit = require('nodegit');
 
 class Pull {
-    get myOpts() {
+    get localOpts() {
         return {
+            operand: 'remote',
             alias: {
                 force: 'f',
                 checkout: 'c'
@@ -68,6 +69,14 @@ class Pull {
 
         console.log(`Incorporating routine changes.`);
 
+        const exporters = [
+            new Exporter('function'),
+            new Exporter('procedure'),
+            new Exporter('view'),
+            new Exporter('trigger'),
+            new Exporter('event')
+        ];
+
         for (const exporter of exporters)
             await exporter.init();
 
@@ -75,40 +84,47 @@ class Pull {
         if (!await fs.pathExists(exportDir))
             await fs.mkdir(exportDir);
 
+        // Initialize SHA data
+
+        let newShaSums = {};
+        let oldShaSums;
+        const shaFile = `${opts.workspace}/.shasums.json`;
+
+        if (await fs.pathExists(shaFile))
+            oldShaSums = JSON.parse(await fs.readFile(shaFile, 'utf8'));
+
+        // Delete old schemas
+
         const schemas = await fs.readdir(exportDir);
         for (const schema of schemas) {
             if (opts.schemas.indexOf(schema) == -1)
                 await fs.remove(`${exportDir}/${schema}`, {recursive: true});
         }
 
-        let shaSums;
-        const shaFile = `${opts.workspace}/.shasums.json`;
-
-        if (await fs.pathExists(shaFile))
-            shaSums = JSON.parse(await fs.readFile(shaFile, 'utf8'));
-        else
-            shaSums = {};
+        // Export objects to SQL files
 
         for (const schema of opts.schemas) {
-            let schemaDir = `${exportDir}/${schema}`;
+            newShaSums[schema] = {};
 
+            let schemaDir = `${exportDir}/${schema}`;
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
 
-            let schemaSums = shaSums[schema];
-            if (!schemaSums) schemaSums = shaSums[schema] = {};
-
             for (const exporter of exporters) {
                 const objectType = exporter.objectType;
+                const newSums = newShaSums[schema][objectType] = {};
+                let oldSums = {};
+                try {
+                    oldSums = oldShaSums[schema][objectType];
+                } catch (e) {}
 
-                let objectSums = schemaSums[objectType];
-                if (!objectSums) objectSums = schemaSums[objectType] = {};
-
-                await exporter.export(conn, exportDir, schema, objectSums);
+                await exporter.export(conn, exportDir, schema, newSums, oldSums);
             }
         }
 
-        await fs.writeFile(shaFile, JSON.stringify(shaSums, null, '  '));
+        // Save SHA data
+
+        await fs.writeFile(shaFile, JSON.stringify(newShaSums, null, '  '));
     }
 }
 
@@ -129,7 +145,7 @@ class Exporter {
             this.formatter = require(`${templateDir}.js`);
     }
 
-    async export(conn, exportDir, schema, shaSums) {
+    async export(conn, exportDir, schema, newSums, oldSums) {
         const [res] = await conn.query(this.query, [schema]);
         if (!res.length) return; 
 
@@ -167,29 +183,13 @@ class Exporter {
             const shaSum = shajs('sha256')
                 .update(JSON.stringify(sql))
                 .digest('hex');
-            shaSums[routineName] = shaSum;
+            newSums[routineName] = shaSum;
 
-            let changed = true;
-
-            if (await fs.pathExists(routineFile)) {
-                const currentSql = await fs.readFile(routineFile, 'utf8');
-                changed = shaSums[routineName] !== shaSum;;
-            }
-            if (changed) {
+            if (oldSums[routineName] !== shaSum)
                 await fs.writeFile(routineFile, sql);
-                shaSums[routineName] = shaSum;
-            }
         }
     }
 }
-
-const exporters = [
-    new Exporter('function'),
-    new Exporter('procedure'),
-    new Exporter('view'),
-    new Exporter('trigger'),
-    new Exporter('event')
-];
 
 module.exports = Pull;
 

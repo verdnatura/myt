@@ -16,7 +16,7 @@ const Server = require('./server/server');
  * @property {Boolean} random Whether to use a random container name
  */
 class Run {
-    get myOpts() {
+    get localOpts() {
         return {
             alias: {
                 ci: 'c',
