@@ -75,7 +75,6 @@ class Version {
                     throw new Error('Version name can only contain letters or numbers');
                 if (versionNames.has(versionName))
                     throw new Error('Version with same name already exists');
-
             }
 
             // Create version

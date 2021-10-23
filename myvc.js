@@ -89,9 +89,10 @@ class MyVC {
             await command.run(this, opts);
             await this.unload();
         } catch (err) {
-            if (err.name == 'Error' && !opts.debug)
+            if (err.name == 'Error' && !opts.debug) {
                 console.error('Error:'.gray, err.message.red);
-            else
+                process.exit(1);
+            } else
                 throw err;
         }
 

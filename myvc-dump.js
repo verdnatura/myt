@@ -11,9 +11,6 @@ class Dump {
     get localOpts() {
         return {
             operand: 'remote',
-            alias: {
-                remote: 'r'
-            },
             default: {
                 remote: 'production'
             }

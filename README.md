@@ -4,9 +4,7 @@ Utilities to ease the maintenance of MySQL or MariaDB database versioning using
 a Git repository.
 
 This project is just to bring an idea to life and is still in an early stage of
-development, so it may not be fully functional.
-
-Any help is welcomed! Feel free to contribute.
+development, so any help is welcomed! Feel free to contribute.
 
 ## Requirements
 
@@ -35,7 +33,7 @@ $ npx myvc [command]
 Execute *myvc* with the desired command.
 
 ```text
-$ myvc [-w|--workspace] [-r|--remote] [-d|--debug] [-h|--help] command
+$ myvc [-w|--workspace] [-r|--remote] [-d|--debug] [-h|--help] command [args]
 ```
 
 The default workspace directory is the current working directory and unless 
@@ -44,7 +42,7 @@ otherwise indicated, the default remote is *local*.
 Database versioning commands:
 
  * **init**: Initialize an empty workspace.
- * **pull**: Incorporates database routines changes into workspace.
+ * **pull**: Incorporate database routine changes into workspace.
  * **push**: Apply changes into database.
  * **version**: Creates a new version.
 
@@ -55,6 +53,84 @@ Local server management commands:
  * **start**: Start local database server container.
 
 Each command can have its own specific commandline options.
+
+## Versioning commands
+
+### init
+
+Initializes an empty workspace.
+
+```text
+$ myvc init
+```
+
+### pull
+
+Incorporates database routine changes into workspace.
+
+```text
+$ myvc pull [remote] [-f|--force] [-c|--checkout]
+```
+
+When *checkout* option is provided, it does the following steps:
+
+1. Saves the current HEAD.
+2. Check out to the last database push commit (saved in versioning tables).
+3. Creates and checkout to a new branch.
+4. Exports database routines.
+5. Commits the new changes.
+6. Checkout to the original HEAD.
+7. Merge the new branch into.
+8. Let the user deal with merge conflicts.
+
+### push
+
+Applies versions and routine changes into database.
+
+```text
+$ myvc push [remote] [-f|--force] [-u|--user]
+```
+
+### version
+
+Creates a new version folder, when name is not specified it generates a random 
+name mixing color with plant name.
+
+```text
+$ myvc version [name]
+```
+
+## Local server commands
+
+### dump
+
+Exports database structure and fixtures from remote into hidden files located
+in *dump* folder.
+
+```text
+$ myvc dump [remote]
+```
+
+### run
+
+Builds and starts local database server container. It only rebuilds the image 
+when fixtures have been modified or when the day on which the image was built 
+is different to today.
+
+```text
+$ myvc run [-c|--ci] [-r|--random]
+```
+
+### start
+
+Starts local database server container. It does the minium effort, if it 
+doesn't exists calls the run command, if it is started does nothing. Keep in 
+mind that when you do not rebuild the docker you may be using an outdated 
+version of it.
+
+```text
+$ myvc start
+```
 
 ## Basic information
 
@@ -77,14 +153,6 @@ names are *production* and *test*.
 ```text
 remotes/[remote].ini
 ```
-
-### Dumps
-
-Structure and fixture dumps will be created into hidden file *dump/.dump.sql*.
-You can also create your local fixture and structure files.
-
-* *dump/structure.sql*
-* *dump/fixtures.sql*
 
 ### Routines
 
@@ -109,7 +177,7 @@ triggers and views with the following structure.
 
 ### Versions
 
-Versions should be placed inside *versions* folder with the following structure.
+Versions are placed inside *versions* folder with the following structure.
 Don't place your PL/SQL objects here, use the routines folder!
 
 ```text
@@ -125,9 +193,15 @@ Don't place your PL/SQL objects here, use the routines folder!
 
 ### Local server
 
-The local server will be created as a MariaDB Docker container using the base
-dump created with the *dump* command plus pushing local versions and changed
+The local server is created as a MariaDB Docker container using the base dump created with the *dump* command plus pushing local versions and changed
 routines.
+
+## Dumps
+
+You can create your local fixture and structure files.
+
+* *dump/structure.sql*
+* *dump/fixtures.sql*
 
 ## Why
 
@@ -140,25 +214,10 @@ a small project.
 
 ## Todo
 
-Improve the pull command to, instead of completely overwriting the routines
-directory, merge the database changes with the local SQL files. It is possible
-using a library that allows to manipulate git repositories (nodegit) and running
-the following steps:
-
-1. Save the current HEAD.
-2. Check out to the last database push commit (saved in versioning tables).
-3. Create and checkout to a new branch.
-4. Export database routines.
-5. Commit the new changes.
-5. Checkout to the original HEAD.
-6. Merge the new branch into.
-7. Let the user deal with merge conflicts.
-
-Use a custom *Dockerfile* for local database container.
-
-Allow to specify a custom workspece subdirectory inside project directory.
-
-Create a lock during push to avoid collisions.
+* Improve *help* option for commands.
+* Allow to specify a custom workspace subdirectory inside project directory.
+* Create a lock during push to avoid collisions.
+* Use a custom *Dockerfile* for local database container.
 
 ## Built With
 
