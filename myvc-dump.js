@@ -4,13 +4,16 @@ const fs = require('fs-extra');
 const path = require('path');
 const docker = require('./docker');
 
-/**
- * Dumps structure and fixtures from remote.
- */
 class Dump {
+    get usage() {
+        return {
+            description: 'Dumps structure and fixtures from remote',
+            operand: 'remote'
+        };
+    }
+
     get localOpts() {
         return {
-            operand: 'remote',
             default: {
                 remote: 'production'
             }
@@ -20,7 +23,7 @@ class Dump {
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
 
-        const dumpDir = `${opts.workspace}/dump`;
+        const dumpDir = `${opts.myvcDir}/dump`;
         if (!await fs.pathExists(dumpDir))
             await fs.mkdir(dumpDir);
 
@@ -82,7 +85,7 @@ class Dump {
     async dockerRun(command, args, execOptions) {
         const commandArgs = [command].concat(args);
         await docker.run('myvc/client', commandArgs, {
-            volume: `${this.opts.workspace}:/workspace`,
+            volume: `${this.opts.myvcDir}:/workspace`,
             rm: true
         }, execOptions);
     }

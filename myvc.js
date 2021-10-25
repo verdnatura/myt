@@ -9,6 +9,7 @@ const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
+const camelToSnake = require('./lib').camelToSnake;
 
 class MyVC {
     async run(command) {
@@ -17,12 +18,23 @@ class MyVC {
             `v${packageJson.version}`.magenta
         );
 
-        const opts = {};
-        const argv = process.argv.slice(2);
-        const cliOpts = getopts(argv, {
+        const usage = {
+            description: 'Utility for database versioning',
+            params: {
+                remote: 'Name of remote to use',
+                workspace: 'The base directory of the project',
+                socket: 'Wether to connect to database via socket',
+                debug: 'Wether to enable debug mode',
+                version: 'Display the version number and exit',
+                help: 'Display this help message'
+            }
+        };
+        const baseOpts = {
             alias: {
                 remote: 'r',
-                workspace: 'w',
+                workspace: 'w'
+            },
+            boolean: {
                 socket: 's',
                 debug: 'd',
                 version: 'v',
@@ -31,28 +43,12 @@ class MyVC {
             default: {
                 workspace: process.cwd()
             }
-        })
-
-        if (cliOpts.version)
-            process.exit(0);
+        };
+        const opts = this.getopts(baseOpts);
 
         try {
-            if (!command) {
-                const commandName = cliOpts._[0];
-                if (!commandName) {
-                    console.log(
-                        'Usage:'.gray,
-                        '[npx] myvc'
-                            + '[-w|--workspace]'
-                            + '[-r|--remote]'
-                            + '[-d|--debug]'
-                            + '[-h|--help]'
-                            + '[-v|--version]'
-                            + 'command'.blue
-                    );
-                    process.exit(0);
-                }
-
+            const commandName = opts._[0];
+            if (!command && commandName) {
                 const commands = [
                     'init',
                     'pull',
@@ -69,18 +65,54 @@ class MyVC {
                 const Klass = require(`./myvc-${commandName}`);
                 command = new Klass();
             }
-    
-            const commandOpts = getopts(argv, command.localOpts);
-            Object.assign(cliOpts, commandOpts);
-    
-            for (const opt in cliOpts)
-                if (opt.length > 1 || opt == '_')
-                    opts[opt] = cliOpts[opt];
 
-            const operandToOpt = command.localOpts.operand;
+            if (!command) {
+                this.showHelp(baseOpts, usage);
+                process.exit(0);
+            }
+    
+            const commandOpts = this.getopts(command.localOpts);
+            Object.assign(opts, commandOpts);
+
+            const operandToOpt = command.usage.operand;
             if (opts._.length >= 2 && operandToOpt)
                 opts[operandToOpt] = opts._[1];
     
+            if (opts.version)
+                process.exit(0);
+
+            if (opts.help) {
+                this.showHelp(command.localOpts, command.usage, commandName);
+                process.exit(0);
+            }
+
+            // Check version
+
+            let depVersion;
+            const versionRegex = /^[^~]?([0-9]+)\.([0-9]+).([0-9]+)$/;
+            const wsPackageFile = path.join(opts.workspace, 'package.json');
+
+            if (await fs.pathExists(wsPackageFile)) {
+                const wsPackageJson = require(wsPackageFile);
+                try {
+                    depVersion = wsPackageJson
+                        .dependencies
+                        .myvc.match(versionRegex);
+                } catch (e) {}
+            }
+
+            if (depVersion) {
+                const myVersion = packageJson.version.match(versionRegex);
+                const isSameVersion =
+                    depVersion[1] === myVersion[1] &&
+                    depVersion[2] === myVersion[2];
+
+                if (!isSameVersion)
+                    throw new Error(`This version of MyVC differs from your package.json`)
+            }
+
+            // Load method
+
             parameter('Workspace:', opts.workspace);
             parameter('Remote:', opts.remote || 'local');
 
@@ -115,19 +147,23 @@ class MyVC {
 
         Object.assign(opts, config);
         opts.configFile = configFile;
-        
+
+        if (!opts.myvcDir)
+            opts.myvcDir = path.join(opts.workspace, opts.subdir || '');
+
         // Database configuration
         
-        let iniFile = 'db.ini';
         let iniDir = __dirname;
+        let iniFile = 'db.ini';
+
         if (opts.remote) {
-            iniFile = `remotes/${opts.remote}.ini`;
-            iniDir = opts.workspace;
+            iniDir = `${opts.myvcDir}/remotes`;
+            iniFile = `${opts.remote}.ini`;
         }
         const iniPath = path.join(iniDir, iniFile);
         
         if (!await fs.pathExists(iniPath))
-            throw new Error(`Database config file not found: ${iniFile}`);
+            throw new Error(`Database config file not found: ${iniPath}`);
         
         const iniConfig = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
         const dbConfig = {
@@ -135,7 +171,6 @@ class MyVC {
             port: iniConfig.port,
             user: iniConfig.user,
             password: iniConfig.password,
-            database: opts.versionSchema,
             multipleStatements: true,
             authPlugins: {
                 mysql_clear_password() {
@@ -146,7 +181,7 @@ class MyVC {
 
         if (iniConfig.ssl_ca) {
             dbConfig.ssl = {
-                ca: await fs.readFile(`${opts.workspace}/${iniConfig.ssl_ca}`),
+                ca: await fs.readFile(`${opts.myvcDir}/${iniConfig.ssl_ca}`),
                 rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
             }
         }
@@ -165,9 +200,46 @@ class MyVC {
             await this.conn.end();
     }
 
+    getopts(opts) {
+        const argv = process.argv.slice(2);
+        const values = getopts(argv, opts);
+        const cleanValues = {};
+        for (const opt in values)
+            if (opt.length > 1 || opt == '_')
+                cleanValues[opt] = values[opt];
+        return cleanValues;
+    }
+
     async dbConnect() {
-        if (!this.conn)
-            this.conn = await this.createConnection();
+        const {opts} = this;
+
+        if (!this.conn) {
+            const conn = this.conn = await this.createConnection();
+
+            const [[schema]] = await conn.query(
+                `SHOW DATABASES LIKE ?`, [opts.versionSchema]
+            );
+
+            if (!schema)
+                await conn.query(`CREATE DATABASE ??`, [opts.versionSchema]);
+
+            const [[res]] = await conn.query(
+                `SELECT COUNT(*) > 0 tableExists
+                    FROM information_schema.tables
+                    WHERE TABLE_SCHEMA = ?
+                        AND TABLE_NAME = 'version'`,
+                [opts.versionSchema]
+            );
+    
+            if (!res.tableExists) {
+                const structure = await fs.readFile(`${__dirname}/structure.sql`, 'utf8');
+                await conn.query(structure);
+                return null;
+            }
+
+            await conn.query(`USE ??`, [opts.versionSchema]);
+        }
+
         return this.conn;
     }
 
@@ -176,26 +248,10 @@ class MyVC {
     }
 
     async fetchDbVersion() {
-        const {opts} = this;
-
-        const [[res]] = await this.conn.query(
-            `SELECT COUNT(*) > 0 tableExists
-                FROM information_schema.tables
-                WHERE TABLE_SCHEMA = ?
-                    AND TABLE_NAME = 'version'`,
-            [opts.versionSchema]
-        );
-
-        if (!res.tableExists) {
-            const structure = await fs.readFile(`${__dirname}/structure.sql`, 'utf8');
-            await this.conn.query(structure);
-            return null;
-        }
-
         const [[version]] = await this.conn.query(
             `SELECT number, gitCommit
                 FROM version WHERE code = ?`,
-            [opts.code]
+            [this.opts.code]
         );
         return version;
     }
@@ -278,7 +334,7 @@ class MyVC {
     }
 
     async cachedChanges() {
-        const dumpDir = `${this.opts.workspace}/dump`;
+        const dumpDir = `${this.opts.myvcDir}/dump`;
         const dumpChanges = `${dumpDir}/.changes`;
 
         if (!await fs.pathExists(dumpChanges))
@@ -299,6 +355,40 @@ class MyVC {
             });
         }
         return changes;
+    }
+
+    showHelp(opts, usage, command) {
+        const prefix = `${'Usage:'.gray} [npx] myvc`;
+
+        if (command) {
+            let log = [prefix, command.blue];
+            if (usage.operand) log.push(`[<${usage.operand}>]`);
+            if (opts) log.push('[<options>]');
+            console.log(log.join(' '))
+        } else
+            console.log(`${prefix} [<options>] ${'<command>'.blue} [<args>]`);
+
+        if (usage.description)
+            console.log(`${'Description:'.gray} ${usage.description}`);
+
+        if (opts) {
+            console.log('Options:'.gray);
+            this.printOpts(opts, usage, 'alias');
+            this.printOpts(opts, usage, 'boolean');
+            this.printOpts(opts, usage, 'string');
+        }
+    }
+
+    printOpts(opts, usage, group) {
+        const optGroup = opts[group];
+        if (optGroup)
+        for (const opt in optGroup) {
+            const paramDescription = usage.params[opt] || '';
+            let longOpt = opt;
+            if (group !== 'boolean') longOpt += ` <string>`;
+            longOpt = camelToSnake(longOpt).padEnd(22, ' ')
+            console.log(`  -${optGroup[opt]}, --${longOpt} ${paramDescription}`);
+        }
     }
 }
 

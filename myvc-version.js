@@ -6,11 +6,19 @@ const fs = require('fs-extra');
  * Creates a new version.
  */
 class Version {
-    mainOpt = 'name';
+    get usage() {
+        return {
+            description: 'Creates a new version',
+            params: {
+                name: 'Name for the new version'
+            },
+            operand: 'name'
+        };
+    }
+
     get localOpts() {
         return {
-            operand: 'name',
-            name: {
+            string: {
                 name: 'n'
             },
             default: {
@@ -20,34 +28,51 @@ class Version {
     }
 
     async run(myvc, opts) {
-        const verionsDir =`${opts.workspace}/versions`;
         let versionDir;
-        let versionName = opts.name;
 
         // Fetch last version number
 
         const conn = await myvc.dbConnect();
-        const version = await myvc.fetchDbVersion() || {};
 
         try {
             await conn.query('START TRANSACTION');
 
             const [[row]] = await conn.query(
-                `SELECT lastNumber FROM version WHERE code = ? FOR UPDATE`,
+                `SELECT number, lastNumber
+                    FROM version
+                    WHERE code = ?
+                    FOR UPDATE`,
                 [opts.code]
             );
-            const lastVersion = row && row.lastNumber;
+            const number = row && row.number;
+            const lastNumber = row && row.lastNumber;
 
             console.log(
                 `Database information:`
-                + `\n -> Version: ${version.number}`
-                + `\n -> Last version: ${lastVersion}`
+                + `\n -> Version: ${number}`
+                + `\n -> Last version: ${lastNumber}`
             );
 
-            let newVersion = lastVersion ? parseInt(lastVersion) + 1 : 1;
-            newVersion = String(newVersion).padStart(opts.versionDigits, '0');
+            let newVersion;
+
+            if (lastNumber)
+                newVersion = Math.max(
+                    parseInt(number),
+                    parseInt(lastNumber)
+                ) + 1;
+            else
+                newVersion = 1;
+
+            const versionDigits = number
+                ? number.length
+                : opts.versionDigits;
+
+            newVersion = String(newVersion).padStart(versionDigits, '0');
 
             // Get version name
+
+            let versionName = opts.name;
+            const verionsDir =`${opts.myvcDir}/versions`;
 
             const versionNames = new Set();
             const versionDirs = await fs.readdir(verionsDir);
@@ -83,11 +108,19 @@ class Version {
             versionDir = `${verionsDir}/${versionFolder}`;
 
             await conn.query(
-                `UPDATE version SET lastNumber = ? WHERE code = ?`,
-                [newVersion, opts.code]
+                `INSERT INTO version
+                    SET code = ?,
+                        lastNumber = ?
+                    ON DUPLICATE KEY UPDATE
+                        lastNumber = VALUES(lastNumber)`,
+                [opts.code, newVersion]
             );
             await fs.mkdir(versionDir);
-            console.log(`New version folder created: ${versionFolder}`);
+            await fs.writeFile(
+                `${versionDir}/00-firstScript.sql`,
+                '--Place your SQL code here\n'
+            );
+            console.log(`New version created: ${versionFolder}`);
 
             await conn.query('COMMIT');
         } catch (err) {

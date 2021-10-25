@@ -11,6 +11,12 @@ const Run = require('./myvc-run');
  * version of it.
  */
 class Start {
+    get usage() {
+        return {
+            description: 'Start local database server container'
+        };
+    }
+
     async run(myvc, opts) {
         const ct = new Container(opts.code);
         let status;

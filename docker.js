@@ -1,5 +1,6 @@
 const spawn = require('child_process').spawn;
 const execFile = require('child_process').execFile;
+const camelToSnake = require('./lib').camelToSnake;
 
 const docker = {
     async run(image, commandArgs, options, execOptions) {
@@ -118,10 +119,6 @@ class Container {
         const child = await docker.exec('inspect', this.id, options);
         return JSON.parse(child.stdout);
     }
-}
-
-function camelToSnake(str) {
-    return str.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
 }
 
 module.exports = docker;

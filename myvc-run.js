@@ -11,14 +11,21 @@ const Server = require('./server/server');
  * image when fixtures have been modified or when the day on which the
  * image was built is different to today. Some workarounds have been used
  * to avoid a bug with OverlayFS driver on MacOS.
- *
- * @property {Boolean} ci Continuous integration environment
- * @property {Boolean} random Whether to use a random container name
  */
 class Run {
+    get usage() {
+        return {
+            description: 'Build and start local database server container',
+            params: {
+                ci: 'Workaround for continuous integration system',
+                random: 'Whether to use a random container name or port'
+            }
+        };
+    }
+
     get localOpts() {
         return {
-            alias: {
+            boolean: {
                 ci: 'c',
                 random: 'r'
             }
@@ -26,7 +33,7 @@ class Run {
     }
 
     async run(myvc, opts) {
-        const dumpDir = `${opts.workspace}/dump`;
+        const dumpDir = `${opts.myvcDir}/dump`;
 
         if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
             throw new Error('To run local database you have to create a dump first');
@@ -71,7 +78,7 @@ class Run {
         const day = pad(today.getDate());
         const stamp = `${year}-${month}-${day}`;
 
-        await docker.build(opts.workspace, {
+        await docker.build(opts.myvcDir, {
             tag: opts.code,
             file: `${dockerfilePath}.dump`,
             buildArg: `STAMP=${stamp}`

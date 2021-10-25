@@ -33,7 +33,7 @@ $ npx myvc [command]
 Execute *myvc* with the desired command.
 
 ```text
-$ myvc [-w|--workspace] [-r|--remote] [-d|--debug] [-h|--help] command [args]
+$ [npx] myvc [-w|--workspace <string>] [-r|--remote <string>] [-d|--debug] [-h|--help] <command> [<args>]
 ```
 
 The default workspace directory is the current working directory and unless 
@@ -48,8 +48,8 @@ Database versioning commands:
 
 Local server management commands:
 
- * **dump**: Export database structure and fixtures from *production*.
- * **run**: Build and starts local database server container.
+ * **dump**: Export database structure and fixtures.
+ * **run**: Build and start local database server container.
  * **start**: Start local database server container.
 
 Each command can have its own specific commandline options.
@@ -72,32 +72,26 @@ Incorporates database routine changes into workspace.
 $ myvc pull [remote] [-f|--force] [-c|--checkout]
 ```
 
-When *checkout* option is provided, it does the following steps:
+When *checkout* option is provided, it does the following before export:
 
-1. Saves the current HEAD.
-2. Check out to the last database push commit (saved in versioning tables).
-3. Creates and checkout to a new branch.
-4. Exports database routines.
-5. Commits the new changes.
-6. Checkout to the original HEAD.
-7. Merge the new branch into.
-8. Let the user deal with merge conflicts.
+1. Get the last database push commit (saved in versioning tables).
+2. Creates and checkout to a new branch based in database commit.
 
 ### push
 
 Applies versions and routine changes into database.
 
 ```text
-$ myvc push [remote] [-f|--force] [-u|--user]
+$ myvc push [<remote>] [-f|--force] [-u|--user]
 ```
 
 ### version
 
 Creates a new version folder, when name is not specified it generates a random 
-name mixing color with plant name.
+name mixing a color with a plant name.
 
 ```text
-$ myvc version [name]
+$ myvc version [<name>]
 ```
 
 ## Local server commands
@@ -105,10 +99,10 @@ $ myvc version [name]
 ### dump
 
 Exports database structure and fixtures from remote into hidden files located
-in *dump* folder.
+in *dump* folder. If no remote is specified *production* is used.
 
 ```text
-$ myvc dump [remote]
+$ myvc dump [<remote>]
 ```
 
 ### run
@@ -134,7 +128,7 @@ $ myvc start
 
 ## Basic information
 
-First of all you have to initalize your workspace.
+First of all you have to initalize the workspace.
 
 ```text
 $ myvc init
@@ -156,9 +150,9 @@ remotes/[remote].ini
 
 ### Routines
 
-Routines should be placed inside *routines* folder. All objects that have
-PL/SQL code are considered routines. It includes events, functions, procedures,
-triggers and views with the following structure.
+Routines are placed inside *routines* folder. All objects that have PL/SQL code 
+are considered routines. It includes events, functions, procedures, triggers 
+and views with the following structure.
 
 ```text
   routines
@@ -193,10 +187,11 @@ Don't place your PL/SQL objects here, use the routines folder!
 
 ### Local server
 
-The local server is created as a MariaDB Docker container using the base dump created with the *dump* command plus pushing local versions and changed
+The local server is created as a MariaDB Docker container using the base dump 
+created with the *dump* command plus pushing local versions and changed 
 routines.
 
-## Dumps
+### Dumps
 
 You can create your local fixture and structure files.
 
@@ -206,18 +201,18 @@ You can create your local fixture and structure files.
 ## Why
 
 The main reason for starting this project it's because there are no fully free 
-and opensource migration tools available that allow versioning database routines
-with an standard CVS system as if they were normal application code.
+and open source migration tools available that allow versioning database 
+routines with an standard CVS system as if they were normal application code.
 
-Also, the existing tools are too complex and require too much knowledge to start
-a small project.
+Also, the existing tools are too complex and require too much knowledge to 
+start a small project.
 
 ## Todo
 
-* Improve *help* option for commands.
-* Allow to specify a custom workspace subdirectory inside project directory.
-* Create a lock during push to avoid collisions.
+* Update routines shasum when push.
 * Use a custom *Dockerfile* for local database container.
+* Console logging via events.
+* Lock version table row when pushing.
 
 ## Built With
 

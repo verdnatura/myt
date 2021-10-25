@@ -5,15 +5,22 @@ const nodegit = require('nodegit');
 
 /**
  * Pushes changes to remote.
- *
- * @property {Boolean} force Answer yes to all questions
- * @property {Boolean} user Whether to change current user version
  */
 class Push {
+    get usage() {
+        return {
+            description: 'Apply changes into database',
+            params: {
+                force: 'Answer yes to all questions',
+                user: 'Update the user version instead, for shared databases'
+            },
+            operand: 'remote'
+        };
+    }
+
     get localOpts() {
         return {
-            operand: 'remote',
-            alias: {
+            boolean: {
                 force: 'f',
                 user: 'u'
             }
@@ -24,6 +31,25 @@ class Push {
         const conn = await myvc.dbConnect();
         this.conn = conn;
 
+        // Obtain exclusive lock
+
+        const [[row]] = await conn.query(
+            `SELECT GET_LOCK('myvc_push', 30) getLock`);
+
+        if (!row.getLock) {
+            let isUsed = 0;
+
+            if (row.getLock == 0) {
+                const [[row]] = await conn.query(
+                    `SELECT IS_USED_LOCK('myvc_push') isUsed`);
+                isUsed = row.isUsed;
+            }
+
+            throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
+        }
+
+        // Get database version
+
         const version = await myvc.fetchDbVersion() || {};
 
         console.log(
@@ -33,7 +59,7 @@ class Push {
         );
 
         if (!version.number)
-            version.number = '00000';
+            version.number = String('0').padStart(opts.versionDigits, '0');
         if (!/^[0-9]*$/.test(version.number))
             throw new Error('Wrong database version');
 
@@ -58,6 +84,8 @@ class Push {
             if (userVersion.gitCommit && userVersion.gitCommit !== version.gitCommit)
                 version.gitCommit = userVersion.gitCommit;
         }
+
+        // Prevent push to production by mistake
 
         if (opts.remote == 'production') {
             console.log(
@@ -88,11 +116,13 @@ class Push {
             }
         }
 
+        // Apply versions
+
         console.log('Applying versions.');
         const pushConn = await myvc.createConnection();
 
         let nChanges = 0;
-        const versionsDir = `${opts.workspace}/versions`;
+        const versionsDir = `${opts.myvcDir}/versions`;
 
         function logVersion(type, version, name) {
             console.log('', type.bold, `[${version.bold}]`, name);
@@ -105,21 +135,25 @@ class Push {
                 if (versionDir == 'README.md')
                     continue;
 
-                const match = versionDir.match(/^([0-9]{5})-([a-zA-Z0-9]+)?$/);
+                const match = versionDir.match(/^([0-9])-([a-zA-Z0-9]+)?$/);
                 if (!match) {
                     logVersion('[W]'.yellow, '?????', versionDir);
                     continue;
                 }
 
-                const dirVersion = match[1];
+                const versionNumber = match[1];
                 const versionName = match[2];
 
-                if (version.number >= dirVersion) {
-                    logVersion('[I]'.blue, dirVersion, versionName);
+                if (versionNumber.length != version.number.length) {
+                    logVersion('[W]'.yellow, '*****', versionDir);
+                    continue;
+                }
+                if (version.number >= versionNumber) {
+                    logVersion('[I]'.blue, versionNumber, versionName);
                     continue;
                 }
 
-                logVersion('[+]'.green, dirVersion, versionName);
+                logVersion('[+]'.green, versionNumber, versionName);
                 const scriptsDir = `${versionsDir}/${versionDir}`;
                 const scripts = await fs.readdir(scriptsDir);
 
@@ -134,9 +168,11 @@ class Push {
                     nChanges++;
                 }
 
-                await this.updateVersion(nChanges, 'number', dirVersion);
+                await this.updateVersion(nChanges, 'number', versionNumber);
             }
         }
+
+        // Apply routines
 
         console.log('Applying changed routines.');
 
@@ -145,12 +181,6 @@ class Push {
             ? await myvc.changedRoutines(version.gitCommit)
             : await myvc.cachedChanges();
         changes = this.parseChanges(changes);
-
-        await conn.query(
-            `CREATE TEMPORARY TABLE tProcsPriv
-                ENGINE = MEMORY
-                SELECT * FROM mysql.procs_priv LIMIT 0`
-        );
 
         const routines = [];
         for (const change of changes)
@@ -171,19 +201,32 @@ class Push {
         }
 
         for (const change of changes) {
-            const fullPath = `${opts.workspace}/routines/${change.path}.sql`;
+            const fullPath = `${opts.myvcDir}/routines/${change.path}.sql`;
             const exists = await fs.pathExists(fullPath);
+
             const actionMsg = exists ? '[+]'.green : '[-]'.red;
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
-
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
             try {
                 const scapedSchema = pushConn.escapeId(change.schema, true);
 
                 if (exists) {
-                    await pushConn.query(`USE ${scapedSchema}`);
+                    if (change.type.name = 'VIEW')
+                        await pushConn.query(`USE ${scapedSchema}`);
+
                     await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
+
+                    if (change.isRoutine) {
+                        await conn.query(
+                            `INSERT IGNORE INTO mysql.procs_priv
+                                SELECT * FROM tProcsPriv
+                                WHERE Db = ?
+                                    AND Routine_name = ?
+                                    AND Routine_type = ?`,
+                            [change.schema, change.name, change.type.name]
+                        );
+                    }
                 } else {
                     const escapedName =
                         scapedSchema + '.' +
@@ -203,20 +246,15 @@ class Push {
         }
 
         if (routines.length) {
-            await conn.query(
-                `INSERT IGNORE INTO mysql.procs_priv
-                    SELECT * FROM tProcsPriv`
-            );
-            await conn.query(
-                `DROP TEMPORARY TABLE tProcsPriv`
-            );
+            await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
+            await conn.query('FLUSH PRIVILEGES');
         }
+
+        // Update and release
 
         await pushConn.end();
 
         if (nRoutines > 0) {
-            await conn.query('FLUSH PRIVILEGES');
-
             console.log(` -> ${nRoutines} routines have changed.`);
         } else
             console.log(` -> No routines changed.`);
@@ -226,6 +264,8 @@ class Push {
 
         if (version.gitCommit !== head.sha())
             await this.updateVersion(nRoutines, 'gitCommit', head.sha());
+
+        await conn.query(`DO RELEASE_LOCK('myvc_push')`);
     }
 
     parseChanges(changes) {
@@ -395,6 +435,11 @@ const typeMap = {
     },
 };
 
+const routineTypes = new Set([
+    'FUNCTION',
+    'PROCEDURE'
+]);
+
 class Routine {
     constructor(change) {
         const path = change.path;
@@ -411,7 +456,7 @@ class Routine {
             schema,
             name,
             fullName: `${schema}.${name}`,
-            isRoutine: ['FUNC', 'PROC'].indexOf(type.abbr) !== -1
+            isRoutine: routineTypes.has(type.abbr)
         });
     }
 }

@@ -6,10 +6,20 @@ const shajs = require('sha.js');
 const nodegit = require('nodegit');
 
 class Pull {
+    get usage() {
+        return {
+            description: 'Incorporate database routine changes into workspace',
+            params: {
+                force: 'Do it even if there are local changes',
+                checkout: 'Move to same database commit before pull'
+            },
+            operand: 'remote'
+        };
+    }
+
     get localOpts() {
         return {
-            operand: 'remote',
-            alias: {
+            boolean: {
                 force: 'f',
                 checkout: 'c'
             }
@@ -80,7 +90,7 @@ class Pull {
         for (const exporter of exporters)
             await exporter.init();
 
-        const exportDir = `${opts.workspace}/routines`;
+        const exportDir = `${opts.myvcDir}/routines`;
         if (!await fs.pathExists(exportDir))
             await fs.mkdir(exportDir);
 
@@ -88,7 +98,7 @@ class Pull {
 
         let newShaSums = {};
         let oldShaSums;
-        const shaFile = `${opts.workspace}/.shasums.json`;
+        const shaFile = `${opts.myvcDir}/.shasums.json`;
 
         if (await fs.pathExists(shaFile))
             oldShaSums = JSON.parse(await fs.readFile(shaFile, 'utf8'));
