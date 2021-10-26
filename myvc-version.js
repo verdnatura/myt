@@ -118,7 +118,7 @@ class Version {
             await fs.mkdir(versionDir);
             await fs.writeFile(
                 `${versionDir}/00-firstScript.sql`,
-                '--Place your SQL code here\n'
+                '-- Place your SQL code here\n'
             );
             console.log(`New version created: ${versionFolder}`);
 

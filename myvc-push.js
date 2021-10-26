@@ -135,7 +135,7 @@ class Push {
                 if (versionDir == 'README.md')
                     continue;
 
-                const match = versionDir.match(/^([0-9])-([a-zA-Z0-9]+)?$/);
+                const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
                 if (!match) {
                     logVersion('[W]'.yellow, '?????', versionDir);
                     continue;
