@@ -185,7 +185,11 @@ class Push {
         const routines = [];
         for (const change of changes)
             if (change.isRoutine)
-                routines.push([change.schema, change.name]);
+                routines.push([
+                    change.schema,
+                    change.name,
+                    change.type.name
+                ]);
 
         if (routines.length) {
             await conn.query(
@@ -195,7 +199,7 @@ class Push {
                 `CREATE TEMPORARY TABLE tProcsPriv
                     ENGINE = MEMORY
                     SELECT * FROM mysql.procs_priv
-                        WHERE (Db, Routine_name) IN (?)`,
+                        WHERE (Db, Routine_name, Routine_type) IN (?)`,
                 [routines]
             );
         }
@@ -212,7 +216,7 @@ class Push {
                 const scapedSchema = pushConn.escapeId(change.schema, true);
 
                 if (exists) {
-                    if (change.type.name = 'VIEW')
+                    if (change.type.name === 'VIEW')
                         await pushConn.query(`USE ${scapedSchema}`);
 
                     await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
@@ -221,9 +225,9 @@ class Push {
                         await conn.query(
                             `INSERT IGNORE INTO mysql.procs_priv
                                 SELECT * FROM tProcsPriv
-                                WHERE Db = ?
-                                    AND Routine_name = ?
-                                    AND Routine_type = ?`,
+                                    WHERE Db = ?
+                                        AND Routine_name = ?
+                                        AND Routine_type = ?`,
                             [change.schema, change.name, change.type.name]
                         );
                     }
@@ -456,7 +460,7 @@ class Routine {
             schema,
             name,
             fullName: `${schema}.${name}`,
-            isRoutine: routineTypes.has(type.abbr)
+            isRoutine: routineTypes.has(type.name)
         });
     }
 }
