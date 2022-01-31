@@ -11,8 +11,7 @@ class Push {
         return {
             description: 'Apply changes into database',
             params: {
-                force: 'Answer yes to all questions',
-                user: 'Update the user version instead, for shared databases'
+                force: 'Answer yes to all questions'
             },
             operand: 'remote'
         };
@@ -21,8 +20,7 @@ class Push {
     get localOpts() {
         return {
             boolean: {
-                force: 'f',
-                user: 'u'
+                force: 'f'
             }
         };
     }
@@ -63,28 +61,6 @@ class Push {
         if (!/^[0-9]*$/.test(version.number))
             throw new Error('Wrong database version');
 
-        if (opts.user) {
-            const user = await this.getDbUser();
-            let [[userVersion]] = await conn.query(
-                `SELECT number, gitCommit
-                    FROM versionUser
-                    WHERE code = ? AND user = ?`,
-                [opts.code, user]
-            );
-            userVersion = userVersion || {};
-            console.log(
-                `User information:`
-                + `\n -> User: ${user}`
-                + `\n -> Version: ${userVersion.number}`
-                + `\n -> Commit: ${userVersion.gitCommit}`
-            );
-
-            if (userVersion.number > version.number)
-                version.number = userVersion.number;
-            if (userVersion.gitCommit && userVersion.gitCommit !== version.gitCommit)
-                version.gitCommit = userVersion.gitCommit;
-        }
-
         // Prevent push to production by mistake
 
         if (opts.remote == 'production') {
@@ -124,8 +100,11 @@ class Push {
         let nChanges = 0;
         const versionsDir = `${opts.myvcDir}/versions`;
 
-        function logVersion(type, version, name) {
-            console.log('', type.bold, `[${version.bold}]`, name);
+        function logVersion(version, name, error) {
+            console.log('', version.bold, name);
+        }
+        function logScript(type, message, error) {
+            console.log(' ', type.bold, message);
         }
 
         if (await fs.pathExists(versionsDir)) {
@@ -137,7 +116,9 @@ class Push {
 
                 const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
                 if (!match) {
-                    logVersion('[W]'.yellow, '?????', versionDir);
+                    logVersion('[?????]'.yellow, versionDir,
+                        `Wrong directory name.`
+                    );
                     continue;
                 }
 
@@ -145,26 +126,72 @@ class Push {
                 const versionName = match[2];
 
                 if (versionNumber.length != version.number.length) {
-                    logVersion('[W]'.yellow, '*****', versionDir);
-                    continue;
-                }
-                if (version.number >= versionNumber) {
-                    logVersion('[I]'.blue, versionNumber, versionName);
+                    logVersion('[*****]'.gray, versionDir,
+                        `Bad version length, should have ${version.number.length} characters.`
+                    );
                     continue;
                 }
 
-                logVersion('[+]'.green, versionNumber, versionName);
+                logVersion(`[${versionNumber}]`.cyan, versionName);
                 const scriptsDir = `${versionsDir}/${versionDir}`;
                 const scripts = await fs.readdir(scriptsDir);
 
                 for (const script of scripts) {
-                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+\.sql$/.test(script)) {
-                        console.log(`  - Ignoring wrong file name: ${script}`);
+                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+(.undo)?\.sql$/.test(script)) {
+                        logScript('[W]'.yellow, script, `Wrong file name.`);
                         continue;
                     }
+                    if (/\.undo\.sql$/.test(script))
+                        continue;
 
-                    console.log(`  - ${script}`);
-                    await this.queryFromFile(pushConn, `${scriptsDir}/${script}`);
+                    const [[row]] = await conn.query(
+                        `SELECT errorNumber FROM versionLog
+                            WHERE code = ?
+                                AND number = ?
+                                AND file = ?`,
+                        [
+                            opts.code,
+                            versionNumber,
+                            script
+                        ]
+                    );
+                    const apply = !row || row.errorNumber;
+                    const actionMsg = apply ? '[+]'.green : '[I]'.blue;
+                    
+                    logScript(actionMsg, script);
+                    if (!apply) continue;
+
+                    let err;
+                    try {
+                        await this.queryFromFile(pushConn, `${scriptsDir}/${script}`);
+                    } catch (e) {
+                        err = e;
+                    }
+
+                    await conn.query(
+                        `INSERT INTO versionLog
+                            SET code = ?,
+                                number = ?,
+                                file = ?,
+                                user = USER(),
+                                updated = NOW(),
+                                errorNumber = ?,
+                                errorMessage = ?
+                            ON DUPLICATE KEY UPDATE
+                                updated = VALUES(updated),
+                                user = VALUES(user),
+                                errorNumber = VALUES(errorNumber),
+                                errorMessage = VALUES(errorMessage)`,
+                        [
+                            opts.code,
+                            versionNumber,
+                            script,
+                            err && err.errno,
+                            err && err.message
+                        ]
+                    );
+
+                    if (err) throw err;
                     nChanges++;
                 }
 
@@ -280,49 +307,24 @@ class Push {
         return routines;
     }
 
-    async getDbUser() {
-        const [[row]] = await this.conn.query('SELECT USER() `user`');
-        return row.user.substr(0, row.user.indexOf('@'));
-    }
-
     async updateVersion(nChanges, column, value) {
         if (nChanges == 0) return;
         const {opts} = this;
 
         column = this.conn.escapeId(column, true);
-
-        if (opts.user) {
-            const user = await this.getDbUser();
-            await this.conn.query(
-                `INSERT INTO versionUser
-                    SET code = ?, 
-                        user = ?, 
-                        ${column} = ?,
-                        updated = NOW()
-                    ON DUPLICATE KEY UPDATE 
-                        ${column} = VALUES(${column}),
-                        updated = VALUES(updated)`,
-                [
-                    opts.code,
-                    user,
-                    value
-                ]
-            );
-        } else {
-            await this.conn.query(
-                `INSERT INTO version
-                    SET code = ?,
-                        ${column} = ?,
-                        updated = NOW()
-                    ON DUPLICATE KEY UPDATE 
-                        ${column} = VALUES(${column}),
-                        updated = VALUES(updated)`,
-                [
-                    opts.code,
-                    value
-                ]
-            );
-        }
+        await this.conn.query(
+            `INSERT INTO version
+                SET code = ?,
+                    ${column} = ?,
+                    updated = NOW()
+                ON DUPLICATE KEY UPDATE 
+                    ${column} = VALUES(${column}),
+                    updated = VALUES(updated)`,
+            [
+                opts.code,
+                value
+            ]
+        );
     }
 
     /**

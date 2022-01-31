@@ -103,12 +103,16 @@ class MyVC {
 
             if (depVersion) {
                 const myVersion = packageJson.version.match(versionRegex);
+
                 const isSameVersion =
                     depVersion[1] === myVersion[1] &&
                     depVersion[2] === myVersion[2];
-
                 if (!isSameVersion)
-                    throw new Error(`This version of MyVC differs from your package.json`)
+                    throw new Error(`This version of MyVC differs from your package.json`);
+
+                const isSameMinor = depVersion[3] === myVersion[3];
+                if (!isSameMinor)
+                    console.warn(`Warning! Minor version of MyVC differs from your package.json`.yellow);
             }
 
             // Load method

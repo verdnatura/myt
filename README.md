@@ -82,7 +82,7 @@ When *checkout* option is provided, it does the following before export:
 Applies versions and routine changes into database.
 
 ```text
-$ myvc push [<remote>] [-f|--force] [-u|--user]
+$ myvc push [<remote>] [-f|--force]
 ```
 
 ### version
@@ -209,7 +209,10 @@ start a small project.
 
 ## Todo
 
+* Don't push (modified) routines whose SQL text is the same in DB.
+* Preserve all characteristics on pull: comments, SQL mode, READS SQL DATA...
 * Update routines shasum when push.
+* Undo changes when there is an error applying a version using "undo" files.
 * Use a custom *Dockerfile* for local database container.
 * Console logging via events.
 * Lock version table row when pushing.
