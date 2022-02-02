@@ -1,5 +1,6 @@
 
 SELECT 
+		`EVENT_SCHEMA` AS `schema`,
 		`EVENT_NAME` AS `name`,
 		`DEFINER` AS `definer`,
 		`EVENT_DEFINITION` AS `body`,
@@ -14,5 +15,5 @@ SELECT
 		`EVENT_COMMENT` AS `comment`,
 		`LAST_ALTERED` AS `modified`
 	FROM `information_schema`.`EVENTS`
-	WHERE `EVENT_SCHEMA` = ?
+	WHERE ?
 	ORDER BY `name`

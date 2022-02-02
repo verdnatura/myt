@@ -2,6 +2,7 @@
 const MyVC = require('./myvc');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
+const ExporterEngine = require('./lib').ExporterEngine;
 
 /**
  * Pushes changes to remote.
@@ -45,6 +46,8 @@ class Push {
 
             throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
         }
+
+        const pushConn = await myvc.createConnection();
 
         // Get database version
 
@@ -95,7 +98,6 @@ class Push {
         // Apply versions
 
         console.log('Applying versions.');
-        const pushConn = await myvc.createConnection();
 
         let nChanges = 0;
         const versionsDir = `${opts.myvcDir}/versions`;
@@ -163,7 +165,8 @@ class Push {
 
                     let err;
                     try {
-                        await this.queryFromFile(pushConn, `${scriptsDir}/${script}`);
+                        await this.queryFromFile(pushConn,
+                            `${scriptsDir}/${script}`);
                     } catch (e) {
                         err = e;
                     }
@@ -231,40 +234,67 @@ class Push {
             );
         }
 
+        const engine = new ExporterEngine(conn, opts.myvcDir);
+        await engine.init();
+
         for (const change of changes) {
+            const schema = change.schema;
+            const name = change.name;
+            const type = change.type.name.toLowerCase();
             const fullPath = `${opts.myvcDir}/routines/${change.path}.sql`;
             const exists = await fs.pathExists(fullPath);
 
-            const actionMsg = exists ? '[+]'.green : '[-]'.red;
+            let newSql;
+            if (exists)
+                newSql = await fs.readFile(fullPath, 'utf8');
+            const oldSql = await engine.fetchRoutine(type, schema, name);
+            const isEqual = newSql == oldSql;
+
+            let actionMsg;
+            if ((exists && isEqual) || (!exists && !oldSql))
+                actionMsg = '[I]'.blue;
+            else if (exists)
+                actionMsg = '[+]'.green;
+            else
+                actionMsg = '[-]'.red;
+
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
             try {
-                const scapedSchema = pushConn.escapeId(change.schema, true);
+                const scapedSchema = pushConn.escapeId(schema, true);
 
                 if (exists) {
-                    if (change.type.name === 'VIEW')
-                        await pushConn.query(`USE ${scapedSchema}`);
+                    if (!isEqual) {
+                        if (change.type.name === 'VIEW')
+                            await pushConn.query(`USE ${scapedSchema}`);
 
-                    await this.queryFromFile(pushConn, `routines/${change.path}.sql`);
+                        await this.multiQuery(pushConn, newSql);
+                        nRoutines++;
 
-                    if (change.isRoutine) {
-                        await conn.query(
-                            `INSERT IGNORE INTO mysql.procs_priv
-                                SELECT * FROM tProcsPriv
-                                    WHERE Db = ?
-                                        AND Routine_name = ?
-                                        AND Routine_type = ?`,
-                            [change.schema, change.name, change.type.name]
-                        );
+                        if (change.isRoutine) {
+                            await conn.query(
+                                `INSERT IGNORE INTO mysql.procs_priv
+                                    SELECT * FROM tProcsPriv
+                                        WHERE Db = ?
+                                            AND Routine_name = ?
+                                            AND Routine_type = ?`,
+                                [schema, name, change.type.name]
+                            );
+                        }
+
+                        await engine.fetchShaSum(type, schema, name);
                     }
                 } else {
                     const escapedName =
                         scapedSchema + '.' +
-                        pushConn.escapeId(change.name, true);
+                        pushConn.escapeId(name, true);
 
                     const query = `DROP ${change.type.name} IF EXISTS ${escapedName}`;
                     await pushConn.query(query);
+
+                    engine.deleteShaSum(type, schema, name);
+                    nRoutines++;
                 }
             } catch (err) {
                 if (err.sqlState)
@@ -273,17 +303,14 @@ class Push {
                     throw err;
             }
 
-            nRoutines++;
         }
+
+        await engine.saveShaSums();
 
         if (routines.length) {
             await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
             await conn.query('FLUSH PRIVILEGES');
         }
-
-        // Update and release
-
-        await pushConn.end();
 
         if (nRoutines > 0) {
             console.log(` -> ${nRoutines} routines have changed.`);
@@ -296,6 +323,9 @@ class Push {
         if (version.gitCommit !== head.sha())
             await this.updateVersion(nRoutines, 'gitCommit', head.sha());
 
+        // Update and release
+
+        await pushConn.end();
         await conn.query(`DO RELEASE_LOCK('myvc_push')`);
     }
 
@@ -328,19 +358,31 @@ class Push {
     }
 
     /**
-     * Executes an SQL script.
+     * Executes a multi-query string.
      *
-     * @param {String} file Path to the SQL script
+     * @param {Connection} conn MySQL connection object
+     * @param {String} sql SQL multi-query string
      * @returns {Array<Result>} The resultset
      */
-    async queryFromFile(conn, file) {
+    async multiQuery(conn, sql) {
         let results = [];
-        const stmts = this.querySplit(await fs.readFile(file, 'utf8'));
+        const stmts = this.querySplit(sql);
 
         for (const stmt of stmts)
             results = results.concat(await conn.query(stmt));
 
         return results;
+    }
+
+    /**
+     * Executes an SQL script.
+     *
+     * @param {Connection} conn MySQL connection object
+     * @returns {Array<Result>} The resultset
+     */
+    async queryFromFile(conn, file) {
+        const sql = await fs.readFile(file, 'utf8');
+        return await this.multiQuery(conn, sql);
     }
 
     /**

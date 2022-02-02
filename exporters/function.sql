@@ -1,5 +1,6 @@
 
 SELECT
+		`db` AS `schema`,
 		`name`,
 		`definer`,
 		`param_list` AS `paramList`,
@@ -8,5 +9,5 @@ SELECT
 		`body`,
 		`modified`
 	FROM `mysql`.`proc`
-	WHERE `db` = ? AND `type` = 'FUNCTION'
+	WHERE ? AND `type` = 'FUNCTION'
 	ORDER BY `name`

@@ -1,10 +1,8 @@
 
 const MyVC = require('./myvc');
 const fs = require('fs-extra');
-const ejs = require('ejs');
-const shajs = require('sha.js');
 const nodegit = require('nodegit');
-
+const ExporterEngine = require('./lib').ExporterEngine;
 class Pull {
     get usage() {
         return {
@@ -79,29 +77,13 @@ class Pull {
 
         console.log(`Incorporating routine changes.`);
 
-        const exporters = [
-            new Exporter('function'),
-            new Exporter('procedure'),
-            new Exporter('view'),
-            new Exporter('trigger'),
-            new Exporter('event')
-        ];
-
-        for (const exporter of exporters)
-            await exporter.init();
+        const engine = new ExporterEngine(conn, opts.myvcDir);
+        await engine.init();
+        const shaSums = engine.shaSums;
 
         const exportDir = `${opts.myvcDir}/routines`;
         if (!await fs.pathExists(exportDir))
             await fs.mkdir(exportDir);
-
-        // Initialize SHA data
-
-        let newShaSums = {};
-        let oldShaSums;
-        const shaFile = `${opts.myvcDir}/.shasums.json`;
-
-        if (await fs.pathExists(shaFile))
-            oldShaSums = JSON.parse(await fs.readFile(shaFile, 'utf8'));
 
         // Delete old schemas
 
@@ -111,93 +93,30 @@ class Pull {
                 await fs.remove(`${exportDir}/${schema}`, {recursive: true});
         }
 
+        for (const schema in shaSums) {
+            if (!await fs.pathExists(`${exportDir}/${schema}`))
+                delete shaSums[schema];
+        }
+
         // Export objects to SQL files
 
         for (const schema of opts.schemas) {
-            newShaSums[schema] = {};
-
             let schemaDir = `${exportDir}/${schema}`;
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
+            if (!shaSums[schema])
+                shaSums[schema] = {};
+            const sums = shaSums[schema];
 
-            for (const exporter of exporters) {
-                const objectType = exporter.objectType;
-                const newSums = newShaSums[schema][objectType] = {};
-                let oldSums = {};
-                try {
-                    oldSums = oldShaSums[schema][objectType];
-                } catch (e) {}
-
-                await exporter.export(conn, exportDir, schema, newSums, oldSums);
+            for (const exporter of engine.exporters) {
+                const type = exporter.objectType;
+                const oldSums = sums[type] || {};
+                sums[type] = {};
+                await exporter.export(exportDir, schema, sums[type], oldSums);
             }
         }
 
-        // Save SHA data
-
-        await fs.writeFile(shaFile, JSON.stringify(newShaSums, null, '  '));
-    }
-}
-
-class Exporter {
-    constructor(objectType) {
-        this.objectType = objectType;
-        this.dstDir = `${objectType}s`;
-    }
-
-    async init() {
-        const templateDir = `${__dirname}/exporters/${this.objectType}`;
-        this.query = await fs.readFile(`${templateDir}.sql`, 'utf8');
-
-        const templateFile = await fs.readFile(`${templateDir}.ejs`, 'utf8');
-        this.template = ejs.compile(templateFile);
-
-        if (await fs.pathExists(`${templateDir}.js`))
-            this.formatter = require(`${templateDir}.js`);
-    }
-
-    async export(conn, exportDir, schema, newSums, oldSums) {
-        const [res] = await conn.query(this.query, [schema]);
-        if (!res.length) return; 
-
-        const routineDir = `${exportDir}/${schema}/${this.dstDir}`;
-        if (!await fs.pathExists(routineDir))
-            await fs.mkdir(routineDir);
-
-        const routineSet = new Set();
-        for (const params of res)
-            routineSet.add(params.name);
-
-        const routines = await fs.readdir(routineDir);
-        for (const routineFile of routines) {
-            const match = routineFile.match(/^(.*)\.sql$/);
-            if (!match) continue;
-            const routine = match[1];
-            if (!routineSet.has(routine))
-                await fs.remove(`${routineDir}/${routine}.sql`);
-        }
-
-        for (const params of res) {
-            if (this.formatter)
-                this.formatter(params, schema)
-
-            const routineName = params.name;
-            const split = params.definer.split('@');
-            params.schema = conn.escapeId(schema);
-            params.name = conn.escapeId(routineName, true);
-            params.definer =
-                `${conn.escapeId(split[0], true)}@${conn.escapeId(split[1], true)}`;
-
-            const sql = this.template(params);
-            const routineFile = `${routineDir}/${routineName}.sql`;
-
-            const shaSum = shajs('sha256')
-                .update(JSON.stringify(sql))
-                .digest('hex');
-            newSums[routineName] = shaSum;
-
-            if (oldSums[routineName] !== shaSum)
-                await fs.writeFile(routineFile, sql);
-        }
+        await engine.saveShaSums();
     }
 }
 

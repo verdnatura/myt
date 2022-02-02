@@ -1,5 +1,6 @@
 
 SELECT
+		`TABLE_SCHEMA` AS `schema`,
 		`TABLE_NAME` AS `name`,
 		`VIEW_DEFINITION` AS `definition`,
 		`CHECK_OPTION` AS `checkOption`,
@@ -7,5 +8,5 @@ SELECT
 		`DEFINER` AS `definer`,
 		`SECURITY_TYPE` AS `securityType`
 	FROM `information_schema`.`VIEWS`
-	WHERE `TABLE_SCHEMA` = ?
+	WHERE ?
 	ORDER BY `name`
