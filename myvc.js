@@ -47,6 +47,9 @@ class MyVC {
         };
         const opts = this.getopts(baseOpts);
 
+        if (opts.version)
+            process.exit(0);
+
         try {
             const commandName = opts._[0];
             if (!command && commandName) {
@@ -78,9 +81,6 @@ class MyVC {
             const operandToOpt = command.usage.operand;
             if (opts._.length >= 2 && operandToOpt)
                 opts[operandToOpt] = opts._[1];
-    
-            if (opts.version)
-                process.exit(0);
 
             if (opts.help) {
                 this.showHelp(command.localOpts, command.usage, commandName);

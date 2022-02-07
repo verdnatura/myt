@@ -69,7 +69,7 @@ $ myvc init
 Incorporates database routine changes into workspace.
 
 ```text
-$ myvc pull [remote] [-f|--force] [-c|--checkout]
+$ myvc pull [remote] [-f|--force] [-c|--checkout] [-u|--update]
 ```
 
 When *checkout* option is provided, it does the following before export:
