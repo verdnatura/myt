@@ -201,7 +201,7 @@ class Push {
                     nChanges++;
                 }
 
-                await this.updateVersion(nChanges, 'number', versionNumber);
+                await this.updateVersion('number', versionNumber);
             }
         }
 
@@ -323,7 +323,7 @@ class Push {
         const head = await repo.getHeadCommit();
 
         if (version.gitCommit !== head.sha())
-            await this.updateVersion(nRoutines, 'gitCommit', head.sha());
+            await this.updateVersion('gitCommit', head.sha());
 
         // Update and release
 
@@ -339,10 +339,7 @@ class Push {
         return routines;
     }
 
-    async updateVersion(nChanges, column, value) {
-        if (nChanges == 0) return;
-        const {opts} = this;
-
+    async updateVersion(column, value) {
         column = this.conn.escapeId(column, true);
         await this.conn.query(
             `INSERT INTO version
@@ -353,7 +350,7 @@ class Push {
                     ${column} = VALUES(${column}),
                     updated = VALUES(updated)`,
             [
-                opts.code,
+                this.opts.code,
                 value
             ]
         );
