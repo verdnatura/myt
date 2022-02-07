@@ -20,9 +20,12 @@ class Push {
 
     get localOpts() {
         return {
-            boolean: {
+            alias: {
                 force: 'f'
-            }
+            },
+            boolean: [
+                'force'
+            ]
         };
     }
 
@@ -261,30 +264,28 @@ class Push {
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
+            if (!isEqual)
             try {
                 const scapedSchema = pushConn.escapeId(schema, true);
 
                 if (exists) {
-                    if (!isEqual) {
-                        if (change.type.name === 'VIEW')
-                            await pushConn.query(`USE ${scapedSchema}`);
+                    if (change.type.name === 'VIEW')
+                        await pushConn.query(`USE ${scapedSchema}`);
 
-                        await this.multiQuery(pushConn, newSql);
-                        nRoutines++;
+                    await this.multiQuery(pushConn, newSql);
 
-                        if (change.isRoutine) {
-                            await conn.query(
-                                `INSERT IGNORE INTO mysql.procs_priv
-                                    SELECT * FROM tProcsPriv
-                                        WHERE Db = ?
-                                            AND Routine_name = ?
-                                            AND Routine_type = ?`,
-                                [schema, name, change.type.name]
-                            );
-                        }
-
-                        await engine.fetchShaSum(type, schema, name);
+                    if (change.isRoutine) {
+                        await conn.query(
+                            `INSERT IGNORE INTO mysql.procs_priv
+                                SELECT * FROM tProcsPriv
+                                    WHERE Db = ?
+                                        AND Routine_name = ?
+                                        AND Routine_type = ?`,
+                            [schema, name, change.type.name]
+                        );
                     }
+
+                    await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =
                         scapedSchema + '.' +
@@ -294,8 +295,9 @@ class Push {
                     await pushConn.query(query);
 
                     engine.deleteShaSum(type, schema, name);
-                    nRoutines++;
                 }
+
+                nRoutines++;
             } catch (err) {
                 if (err.sqlState)
                     console.warn('Warning:'.yellow, err.message);

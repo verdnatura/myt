@@ -24,7 +24,7 @@ class Exporter {
         this.attrs = require(`${templateDir}.js`);
     }
 
-    async export(exportDir, schema, newSums, oldSums) {
+    async export(exportDir, schema, newSums, oldSums, update) {
         const res = await this.query(schema);
         if (!res.length) return; 
 
@@ -53,7 +53,7 @@ class Exporter {
             const shaSum = this.engine.shaSum(sql);
             newSums[routineName] = shaSum;
 
-            if (oldSums[routineName] !== shaSum)
+            if (oldSums[routineName] !== shaSum || update)
                 await fs.writeFile(routineFile, sql);
         }
     }
@@ -81,10 +81,16 @@ class Exporter {
     }
 
     format(params) {
-        const {conn} = this;
+        const {conn, attrs} = this;
 
-        if (this.attrs.formatter)
-            this.attrs.formatter(params);
+        if (attrs.formatter)
+            attrs.formatter(params, conn);
+
+        if (attrs.escapeCols)
+        for (const escapeCol of attrs.escapeCols) {
+            if (params[escapeCol])
+                params[escapeCol] = conn.escape(params[escapeCol])
+        }
 
         const split = params.definer.split('@');
         params.schema = conn.escapeId(params.schema, true);

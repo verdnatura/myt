@@ -18,9 +18,12 @@ class Version {
 
     get localOpts() {
         return {
-            string: {
+            alias: {
                 name: 'n'
             },
+            string: [
+                'name'
+            ],
             default: {
                 remote: 'production'
             }

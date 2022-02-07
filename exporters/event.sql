@@ -5,7 +5,7 @@ SELECT
 		`DEFINER` AS `definer`,
 		`EVENT_DEFINITION` AS `body`,
 		`EVENT_TYPE` AS `type`,
-		`EXECUTE_AT` AS `execute_at`,
+		`EXECUTE_AT` AS `executeAt`,
 		`INTERVAL_VALUE` AS `intervalValue`,
 		`INTERVAL_FIELD` AS `intervalField`,
 		`STARTS` AS `starts`,

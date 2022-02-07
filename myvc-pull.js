@@ -9,7 +9,8 @@ class Pull {
             description: 'Incorporate database routine changes into workspace',
             params: {
                 force: 'Do it even if there are local changes',
-                checkout: 'Move to same database commit before pull'
+                checkout: 'Move to same database commit before pull',
+                update: 'Update routine file even is shasum is the same'
             },
             operand: 'remote'
         };
@@ -17,10 +18,16 @@ class Pull {
 
     get localOpts() {
         return {
-            boolean: {
+            alias: {
                 force: 'f',
-                checkout: 'c'
-            }
+                checkout: 'c',
+                update: 'u'
+            },
+            boolean: [
+                'force',
+                'checkout',
+                'update'
+            ]
         };
     }
 
@@ -112,7 +119,7 @@ class Pull {
                 const type = exporter.objectType;
                 const oldSums = sums[type] || {};
                 sums[type] = {};
-                await exporter.export(exportDir, schema, sums[type], oldSums);
+                await exporter.export(exportDir, schema, sums[type], oldSums, opts.update);
             }
         }
 

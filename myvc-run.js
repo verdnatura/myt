@@ -25,10 +25,14 @@ class Run {
 
     get localOpts() {
         return {
-            boolean: {
+            alias: {
                 ci: 'c',
                 random: 'r'
-            }
+            },
+            boolean: [
+                'ci',
+                'random'
+            ]
         };
     }
 

@@ -1,7 +1,18 @@
 DROP EVENT IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
 CREATE DEFINER=<%- definer %> EVENT <%- schema %>.<%- name %>
-	ON SCHEDULE EVERY <%- intervalValue %> <%- intervalField %>
+	ON SCHEDULE <%
+if (type == 'RECURRING') {
+		%>EVERY <%- intervalValue %> <%- intervalField %><%
+	if (starts) { %>
+		STARTS <%- starts %><%
+	} %><%
+		if (ends) { %>
+		ENDS <%- ends %><%
+	} %><%
+} else {
+		%>AT <%- executeAt %><%
+} %>
 	ON COMPLETION <%- onCompletion %>
 	<% if (status == 'ENABLED') { %>ENABLE<% } else { %>DISABLE<% } %>
 DO <%- body %>$$

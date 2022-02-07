@@ -32,14 +32,15 @@ class MyVC {
         const baseOpts = {
             alias: {
                 remote: 'r',
-                workspace: 'w'
-            },
-            boolean: {
+                workspace: 'w',
                 socket: 's',
                 debug: 'd',
                 version: 'v',
                 help: 'h'
             },
+            boolean: [
+                'd', 'v', 'h'
+            ],
             default: {
                 workspace: process.cwd()
             }
@@ -70,7 +71,7 @@ class MyVC {
                 this.showHelp(baseOpts, usage);
                 process.exit(0);
             }
-    
+
             const commandOpts = this.getopts(command.localOpts);
             Object.assign(opts, commandOpts);
 
@@ -378,8 +379,6 @@ class MyVC {
         if (opts) {
             console.log('Options:'.gray);
             this.printOpts(opts, usage, 'alias');
-            this.printOpts(opts, usage, 'boolean');
-            this.printOpts(opts, usage, 'string');
         }
     }
 
