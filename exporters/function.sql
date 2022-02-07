@@ -4,10 +4,13 @@ SELECT
 		`name`,
 		`definer`,
 		`param_list` AS `paramList`,
-		`returns`,
-		`is_deterministic` AS `isDeterministic`,
 		`body`,
-		`modified`
+		`sql_data_access` AS `dataAccess`,
+		`security_type` AS `securityType`,
+		`comment`,
+		`modified`,
+		`is_deterministic` AS `isDeterministic`,
+		`returns`
 	FROM `mysql`.`proc`
 	WHERE ? AND `type` = 'FUNCTION'
 	ORDER BY `name`

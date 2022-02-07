@@ -9,5 +9,17 @@ module.exports = {
             indent: '\t',
             reservedWordCase: 'upper'
         });
+
+        let algorithm;
+        switch (params.isUpdatable) {
+        case 'YES':
+            algorithm = 'MERGE';
+            break;
+        case 'NO':
+            algorithm = 'TEMPTABLE';
+            break;
+        default:
+            algorithm = 'UNDEFINED';
+        }
     }
 };

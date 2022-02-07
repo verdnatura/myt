@@ -5,6 +5,21 @@ module.exports = {
     escapeCols: [
         'starts',
         'ends',
-        'executeAt'
-    ]
+        'executeAt',
+        'comment'
+    ],
+    formatter(params) {
+        let status;
+        switch(params.status){
+        case 'DISABLED':
+            status = 'DISABLE';
+            break;
+        case 'SLAVESIDE_DISABLED':
+            status = 'DISABLE ON SLAVE';
+            break;
+        default:
+            status = 'ENABLE'
+        }
+        params.status = status;
+    }
 };

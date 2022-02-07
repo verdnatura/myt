@@ -209,11 +209,11 @@ start a small project.
 
 ## Todo
 
-* Preserve all characteristics on pull: comments, SQL mode, READS SQL DATA...
 * Undo changes when there is an error applying a version using "undo" files.
 * Use a custom *Dockerfile* for local database container.
 * Console logging via events.
 * Lock version table row when pushing.
+* Preserve all characteristics on pull: SQL mode, character set, algorithm...
 
 ## Built With
 
