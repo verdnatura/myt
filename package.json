@@ -1,10 +1,13 @@
 {
   "name": "myvc",
-  "version": "1.2.9",
+  "version": "1.3.0",
   "author": "Verdnatura Levante SL",
   "description": "MySQL Version Control",
   "license": "GPL-3.0",
-  "bin": "cli.js",
+  "bin": {
+    "myvc": "cli.js",
+    "myv": "cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/verdnatura/myvc.git"
