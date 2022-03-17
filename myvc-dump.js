@@ -22,6 +22,7 @@ class Dump {
 
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
+        const iniPath = path.join(opts.subdir || '', 'remotes', opts.iniFile);
 
         const dumpDir = `${opts.myvcDir}/dump`;
         if (!await fs.pathExists(dumpDir))
@@ -43,7 +44,7 @@ class Dump {
         }, opts.debug);
 
         let dumpArgs = [
-            `--defaults-file=${opts.iniFile}`,
+            `--defaults-file=${iniPath}`,
             '--default-character-set=utf8',
             '--no-data',
             '--comments',
@@ -56,7 +57,7 @@ class Dump {
         await this.dockerRun('myvc-dump.sh', dumpArgs, execOptions);
 
         const fixturesArgs = [
-            `--defaults-file=${opts.iniFile}`,
+            `--defaults-file=${iniPath}`,
             '--no-create-info',
             '--skip-triggers',
             '--insert-ignore'
