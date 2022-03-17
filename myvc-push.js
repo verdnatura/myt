@@ -208,9 +208,11 @@ class Push {
         // Apply routines
 
         console.log('Applying changed routines.');
+    
+        const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        let changes = await fs.pathExists(`${opts.workspace}/.git`)
+        let changes = gitExists
             ? await myvc.changedRoutines(version.gitCommit)
             : await myvc.cachedChanges();
         changes = this.parseChanges(changes);
@@ -319,11 +321,13 @@ class Push {
         } else
             console.log(` -> No routines changed.`);
 
-        const repo = await nodegit.Repository.open(this.opts.workspace);
-        const head = await repo.getHeadCommit();
+        if (gitExists) {
+            const repo = await nodegit.Repository.open(this.opts.workspace);
+            const head = await repo.getHeadCommit();
 
-        if (version.gitCommit !== head.sha())
-            await this.updateVersion('gitCommit', head.sha());
+            if (version.gitCommit !== head.sha())
+                await this.updateVersion('gitCommit', head.sha());
+        }
 
         // Update and release
 

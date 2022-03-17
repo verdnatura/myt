@@ -34,9 +34,11 @@ COPY \
     structure.sql \
     myvc.js \
     myvc-push.js \
+    lib.js \
     myvc.default.yml \
     db.ini \
     ./
+COPY exporters exporters
 RUN ln -s /myvc/myvc.js /usr/local/bin/myvc
 
 WORKDIR /workspace
