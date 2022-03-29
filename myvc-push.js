@@ -50,6 +50,25 @@ class Push {
             throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
         }
 
+        async function releaseLock() {
+            await conn.query(`DO RELEASE_LOCK('myvc_push')`);
+        }
+
+        try {
+            await this.push(myvc, opts, conn);
+        } catch(err) {
+            try {
+                await releaseLock();
+            } catch (e) {
+                console.error(e);
+            }
+            throw err;
+        }
+
+        await releaseLock();
+    }
+
+    async push(myvc, opts, conn) {
         const pushConn = await myvc.createConnection();
 
         // Get database version
@@ -103,6 +122,7 @@ class Push {
         console.log('Applying versions.');
 
         let nChanges = 0;
+        let silent = true;
         const versionsDir = `${opts.myvcDir}/versions`;
 
         function logVersion(version, name, error) {
@@ -110,6 +130,9 @@ class Push {
         }
         function logScript(type, message, error) {
             console.log(' ', type.bold, message);
+        }
+        function isUndoScript(script) {
+            return /\.undo\.sql$/.test(script);
         }
 
         if (await fs.pathExists(versionsDir)) {
@@ -137,16 +160,34 @@ class Push {
                     continue;
                 }
 
-                logVersion(`[${versionNumber}]`.cyan, versionName);
                 const scriptsDir = `${versionsDir}/${versionDir}`;
                 const scripts = await fs.readdir(scriptsDir);
+
+                const [versionLog] = await conn.query(
+                    `SELECT file FROM versionLog
+                        WHERE code = ?
+                            AND number = ?
+                            AND errorNumber IS NULL`,
+                    [opts.code, versionNumber]
+                );
+
+                for (const script of scripts)
+                if (!isUndoScript(script)
+                && versionLog.findIndex(x => x.file == script) === -1) {
+                    console.debug(script);
+                    silent = false;
+                    break;
+                }
+
+                if (silent) continue;
+                logVersion(`[${versionNumber}]`.cyan, versionName);
 
                 for (const script of scripts) {
                     if (!/^[0-9]{2}-[a-zA-Z0-9_]+(.undo)?\.sql$/.test(script)) {
                         logScript('[W]'.yellow, script, `Wrong file name.`);
                         continue;
                     }
-                    if (/\.undo\.sql$/.test(script))
+                    if (isUndoScript(script))
                         continue;
 
                     const [[row]] = await conn.query(
@@ -242,7 +283,17 @@ class Push {
         const engine = new ExporterEngine(conn, opts.myvcDir);
         await engine.init();
 
-        for (const change of changes) {
+        async function finalize() {
+            await engine.saveShaSums();
+
+            if (routines.length) {
+                await conn.query('FLUSH PRIVILEGES');
+                await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
+            }
+        }
+
+        for (const change of changes)
+        try {
             const schema = change.schema;
             const name = change.name;
             const type = change.type.name.toLowerCase();
@@ -266,8 +317,7 @@ class Push {
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
-            if (!isEqual)
-            try {
+            if (!isEqual) {
                 const scapedSchema = pushConn.escapeId(schema, true);
 
                 if (exists) {
@@ -300,21 +350,17 @@ class Push {
                 }
 
                 nRoutines++;
-            } catch (err) {
-                if (err.sqlState)
-                    console.warn('Warning:'.yellow, err.message);
-                else
-                    throw err;
             }
-
+        } catch (err) {
+            try {
+                await finalize();
+            } catch (e) {
+                console.log(e);
+            }
+            throw err;
         }
 
-        await engine.saveShaSums();
-
-        if (routines.length) {
-            await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
-            await conn.query('FLUSH PRIVILEGES');
-        }
+        await finalize();
 
         if (nRoutines > 0) {
             console.log(` -> ${nRoutines} routines have changed.`);
@@ -329,10 +375,9 @@ class Push {
                 await this.updateVersion('gitCommit', head.sha());
         }
 
-        // Update and release
+        // End
 
         await pushConn.end();
-        await conn.query(`DO RELEASE_LOCK('myvc_push')`);
     }
 
     parseChanges(changes) {
@@ -403,7 +448,7 @@ class Push {
             stmtStart;
 
         let delimiter = ';';
-        const delimiterRe = /\s*delimiter\s+(\S+)[^\S\r\n]*(?:\r?\n|\r)/yi;
+        const delimiterRe = /\s*delimiter\s+(\S+)[^\S\r\n]*(?:\r?\n|\r|$)/yi;
 
         function begins(str) {
             let j;
@@ -447,12 +492,11 @@ class Push {
             }
 
             const len = i - stmtStart - delimiter.length;
-            stmts.push(sql.substr(stmtStart, len));
-        }
+            const stmt = sql.substr(stmtStart, len);
 
-        const len = stmts.length;
-        if (len > 1 && /^\s*$/.test(stmts[len - 1]))
-            stmts.pop();
+            if (!/^\s*$/.test(stmt))
+                stmts.push(stmt);
+        }
 
         return stmts;
     }
