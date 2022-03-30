@@ -174,7 +174,6 @@ class Push {
                 for (const script of scripts)
                 if (!isUndoScript(script)
                 && versionLog.findIndex(x => x.file == script) === -1) {
-                    console.debug(script);
                     silent = false;
                     break;
                 }
@@ -355,7 +354,7 @@ class Push {
             try {
                 await finalize();
             } catch (e) {
-                console.log(e);
+                console.error(e);
             }
             throw err;
         }
