@@ -561,6 +561,11 @@ const tokens = {
         end: '\'',
         escape: char => char == '\'' || char == '\\'
     },
+    quotedString: {
+        start: '"',
+        end: '"',
+        escape: char => char == '"' || char == '\\'
+    },
     id: {
         start: '`',
         end: '`',

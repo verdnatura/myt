@@ -144,12 +144,18 @@ class ExporterEngine {
     }
 
     shaSum(sql) {
+        if (!sql) return null;
         return shajs('sha256')
             .update(JSON.stringify(sql))
             .digest('hex');
     }
 
     setShaSum(type, schema, name, shaSum) {
+        if (!shaSum) {
+            this.deleteShaSum(type, schema, name);
+            return;
+        }
+
         const shaSums = this.shaSums;
         if (!shaSums[schema])
             shaSums[schema] = {};
