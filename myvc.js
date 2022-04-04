@@ -78,6 +78,8 @@ class MyVC {
             }
 
             const allOpts = Object.assign({}, baseOpts);
+
+            if (command.localOpts)
             for (const key in command.localOpts) {
                 const baseValue = baseOpts[key];
                 const cmdValue = command.localOpts[key];
@@ -388,21 +390,19 @@ class MyVC {
         if (usage.description)
             console.log(`${'Description:'.gray} ${usage.description}`);
 
-        if (opts) {
-            console.log('Options:'.gray);
-            this.printOpts(opts, usage, 'alias');
-        }
-    }
+        if (opts && opts.alias) {
+            const alias = opts.alias;
+            const boolean = opts.boolean || [];
 
-    printOpts(opts, usage, group) {
-        const optGroup = opts[group];
-        if (optGroup)
-        for (const opt in optGroup) {
-            const paramDescription = usage.params[opt] || '';
-            let longOpt = opt;
-            if (group !== 'boolean') longOpt += ` <string>`;
-            longOpt = camelToSnake(longOpt).padEnd(22, ' ')
-            console.log(`  -${optGroup[opt]}, --${longOpt} ${paramDescription}`);
+            console.log('Options:'.gray);
+            for (const opt in alias) {
+                const paramDescription = usage.params[opt] || '';
+                let longOpt = opt;
+                if (boolean.indexOf(longOpt) === -1)
+                    longOpt += ` <string>`;
+                longOpt = camelToSnake(longOpt).padEnd(22, ' ')
+                console.log(`  -${alias[opt]}, --${longOpt} ${paramDescription}`);
+            }
         }
     }
 }
