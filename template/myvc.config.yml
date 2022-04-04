@@ -5,7 +5,7 @@ schemas:
 fixtures:
   myvc:
     - version
-    - versionUser
+    - versionLog
   my_db:
     - table1
     - table2

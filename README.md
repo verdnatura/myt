@@ -18,14 +18,14 @@ It's recommended to install the package globally.
 
 ```text
 # npm install -g myvc
-$ myvc [command]
+$ myvc <command>
 ```
 
 You can also install locally and use the *npx* command to execute it.
 
 ```text
 $ npm install myvc
-$ npx myvc [command]
+$ npx myvc <command>
 ```
 
 ## How to use
@@ -53,6 +53,101 @@ Local server management commands:
  * **start**: Start local database server container.
 
 Each command can have its own specific commandline options.
+
+## Basic information
+
+First of all you have to initalize the workspace.
+
+```text
+$ myvc init
+```
+
+Now you can configure MyVC using *myvc.config.yml* file, located at the root of
+your workspace. This file should include the project codename and schemas/tables
+wich are exported when you use *pull* or *dump* commands.
+
+Don't forget to initialize git (if it isn't initialized yet).
+
+```text
+$ git init
+```
+
+### Remotes
+
+Create database connection configuration for each environment at *remotes*
+folder using standard MySQL *ini* configuration files. The convention remote
+names are *local*, *production* and *test*.
+
+```text
+remotes/[remote].ini
+```
+### Startup
+
+Once the basic configuration is done, routines can be imported from the
+database into the project, it is recommended to use the *production* remote.
+
+```text
+$ myvc pull production
+```
+
+From now on, you can use the project as if it were a standard git repository
+(since it is). To apply changes to the database run the *push* command on the
+desired remote.
+
+```text
+$ myvc push [<remote>]
+```
+
+### Routines
+
+Routines are placed inside *routines* folder. All objects that have PL/SQL code 
+are considered routines. It includes events, functions, procedures, triggers 
+and views with the following structure.
+
+```text
+  routines
+  `- schema
+     |- events
+     |  `- eventName.sql
+     |- functions
+     |  `- functionName.sql
+     |- procedures
+     |  `- procedureName.sql
+     |- triggers
+     |  `- triggerName.sql
+     `- views
+        `- viewName.sql
+```
+
+### Versions
+
+Versions are placed inside *versions* folder with the following structure.
+Don't place your PL/SQL objects here, use the routines folder!
+
+```text
+  versions
+  |- 00001-firstVersionCodeName
+  |  |- 00-firstExecutedScript.sql
+  |  |- 01-secondScript.sql
+  |  `- 99-lastScript.sql
+  `- 00002-secondVersion
+     |- 00-firstExecutedScript.sql
+     `- 00-sameNumbers.sql
+```
+
+### Local server
+
+The local server is created as a MariaDB Docker container using the base dump 
+created with the *dump* command plus pushing local versions and changed 
+routines.
+
+### Dumps
+
+You can create your local fixture and structure files.
+
+* *dump/structure.sql*
+* *dump/fixtures.sql*
+
 
 ## Versioning commands
 
@@ -125,78 +220,6 @@ version of it.
 ```text
 $ myvc start
 ```
-
-## Basic information
-
-First of all you have to initalize the workspace.
-
-```text
-$ myvc init
-```
-
-Now you can configure MyVC using *myvc.config.yml* file, located at the root of
-your workspace. This file should include the project codename and schemas/tables
-wich are exported when you use *pull* or *dump* commands.
-
-### Remotes
-
-Create database connection configuration for each environment at *remotes*
-folder using standard MySQL *ini* configuration files. The convention remote 
-names are *production* and *test*.
-
-```text
-remotes/[remote].ini
-```
-
-### Routines
-
-Routines are placed inside *routines* folder. All objects that have PL/SQL code 
-are considered routines. It includes events, functions, procedures, triggers 
-and views with the following structure.
-
-```text
-  routines
-  `- schema
-     |- events
-     |  `- eventName.sql
-     |- functions
-     |  `- functionName.sql
-     |- procedures
-     |  `- procedureName.sql
-     |- triggers
-     |  `- triggerName.sql
-     `- views
-        `- viewName.sql
-```
-
-### Versions
-
-Versions are placed inside *versions* folder with the following structure.
-Don't place your PL/SQL objects here, use the routines folder!
-
-```text
-  versions
-  |- 00001-firstVersionCodeName
-  |  |- 00-firstExecutedScript.sql
-  |  |- 01-secondScript.sql
-  |  `- 99-lastScript.sql
-  `- 00002-secondVersion
-     |- 00-firstExecutedScript.sql
-     `- 00-sameNumbers.sql
-```
-
-### Local server
-
-The local server is created as a MariaDB Docker container using the base dump 
-created with the *dump* command plus pushing local versions and changed 
-routines.
-
-### Dumps
-
-You can create your local fixture and structure files.
-
-* *dump/structure.sql*
-* *dump/fixtures.sql*
 
 ## Why
 
