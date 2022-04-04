@@ -3,7 +3,8 @@ CREATE TABLE `version` (
     `code` VARCHAR(255) NOT NULL,
     `number` CHAR(11) NULL DEFAULT NULL,
     `gitCommit` VARCHAR(255) NULL DEFAULT NULL,
-    `updated` DATETIME NOT NULL DEFAULT NULL
+    `updated` DATETIME NOT NULL,
+    `lastNumber` CHAR(11) NULL DEFAULT NULL
 ) ENGINE=InnoDB;
 
 ALTER TABLE `version`

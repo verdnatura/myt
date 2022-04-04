@@ -39,7 +39,9 @@ class MyVC {
                 help: 'h'
             },
             boolean: [
-                'd', 'v', 'h'
+                'debug',
+                'version',
+                'help'
             ],
             default: {
                 workspace: process.cwd()
@@ -75,7 +77,19 @@ class MyVC {
                 process.exit(0);
             }
 
-            const commandOpts = this.getopts(command.localOpts);
+            const allOpts = Object.assign({}, baseOpts);
+            for (const key in command.localOpts) {
+                const baseValue = baseOpts[key];
+                const cmdValue = command.localOpts[key];
+                if (Array.isArray(baseValue))
+                    allOpts[key] = baseValue.concat(cmdValue);
+                else if (typeof baseValue == 'object')
+                    allOpts[key] = Object.assign({}, baseValue, cmdValue);
+                else
+                    allOpts[key] = cmdValue;
+            }
+
+            const commandOpts = this.getopts(allOpts);
             Object.assign(opts, commandOpts);
 
             const operandToOpt = command.usage.operand;
@@ -227,6 +241,7 @@ class MyVC {
 
             if (!schema)
                 await conn.query(`CREATE DATABASE ??`, [opts.versionSchema]);
+            await conn.query(`USE ??`, [opts.versionSchema]);
 
             const [[res]] = await conn.query(
                 `SELECT COUNT(*) > 0 tableExists
@@ -239,10 +254,7 @@ class MyVC {
             if (!res.tableExists) {
                 const structure = await fs.readFile(`${__dirname}/structure.sql`, 'utf8');
                 await conn.query(structure);
-                return null;
             }
-
-            await conn.query(`USE ??`, [opts.versionSchema]);
         }
 
         return this.conn;

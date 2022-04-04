@@ -370,7 +370,7 @@ class Push {
             const repo = await nodegit.Repository.open(this.opts.workspace);
             const head = await repo.getHeadCommit();
 
-            if (version.gitCommit !== head.sha())
+            if (head && version.gitCommit !== head.sha())
                 await this.updateVersion('gitCommit', head.sha());
         }
 

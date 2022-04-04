@@ -57,11 +57,10 @@ class Version {
             );
 
             let newVersion;
-
             if (lastNumber)
                 newVersion = Math.max(
-                    parseInt(number),
-                    parseInt(lastNumber)
+                    parseInt(number) || 0,
+                    parseInt(lastNumber) || 0
                 ) + 1;
             else
                 newVersion = 1;
