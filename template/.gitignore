@@ -1,3 +1,4 @@
 .DS_Store
 node_modules
 remotes/*.ini
+!remotes/local.ini
