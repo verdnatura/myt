@@ -469,6 +469,7 @@ class Push {
                 continue;
             }
 
+            let delimiterFound = false;
             while (i < sql.length) {
                 char = sql[i];
 
@@ -480,7 +481,8 @@ class Push {
                         i++;
                     }
                 } else {
-                    if (begins(delimiter)) break;
+                    delimiterFound = begins(delimiter);
+                    if (delimiterFound) break;
 
                     const tok = tokenIndex.get(char);
                     if (tok && begins(tok.start))
@@ -490,7 +492,8 @@ class Push {
                 }
             }
 
-            const len = i - stmtStart;
+            let len = i - stmtStart;
+            if (delimiterFound) len -= delimiter.length;
             const stmt = sql.substr(stmtStart, len);
 
             if (!/^\s*$/.test(stmt))
