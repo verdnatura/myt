@@ -490,7 +490,7 @@ class Push {
                 }
             }
 
-            const len = i - stmtStart - delimiter.length;
+            const len = i - stmtStart;
             const stmt = sql.substr(stmtStart, len);
 
             if (!/^\s*$/.test(stmt))
