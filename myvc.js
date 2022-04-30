@@ -125,11 +125,11 @@ class MyVC {
                     depVersion[1] === myVersion[1] &&
                     depVersion[2] === myVersion[2];
                 if (!isSameVersion)
-                    throw new Error(`This version of MyVC differs from your package.json`);
+                    throw new Error(`MyVC version differs a lot from package.json, please run 'npm i' first to install the proper version`);
 
                 const isSameMinor = depVersion[3] === myVersion[3];
                 if (!isSameMinor)
-                    console.warn(`Warning! Minor version of MyVC differs from your package.json`.yellow);
+                    console.warn(`Warning! MyVC minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version`.yellow);
             }
 
             // Load method
@@ -312,19 +312,25 @@ class MyVC {
 
         if (head && commitSha) {
             let commit;
-            try {
-                await repo.fetchAll();
-            } catch(err) {
-                console.warn(err.message.yellow);
-            }
+            let notFound;
+            commitSha = '9254aa7c35a1d25bf93629d2df4d5c1f87f21224'
+
             try {
                 commit = await repo.getCommit(commitSha);
+                notFound = false;
             } catch (err) {
                 if (err.errorFunction == 'Commit.lookup')
-                    throw new Error(`Commit id (${commitSha}) not found, you may have to run 'git fetch' first`);
+                    notFound = true;
                 else
                     throw err;
             }
+
+            if (notFound) {
+                console.warn(`Commit id (${commitSha}) not found trying to fetch from git remote`.yellow);
+                await repo.fetchAll();
+                commit = await repo.getCommit(commitSha);
+            }
+
             const commitTree = await commit.getTree();
 
             const headTree = await head.getTree();
