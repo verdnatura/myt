@@ -11,7 +11,7 @@ class Version {
             description: 'Creates a new version',
             params: {
                 name: 'Name for the new version',
-                noClean: 'Do not clean old versions'
+                hold: 'Do not clean old versions'
             },
             operand: 'name'
         };
@@ -21,13 +21,13 @@ class Version {
         return {
             alias: {
                 name: 'n',
-                noClean: 'c'
+                hold: 'o'
             },
             string: [
                 'name'
             ],
             boolean: [
-                'noClean'
+                'hold'
             ],
             default: {
                 remote: 'production'
@@ -143,7 +143,7 @@ class Version {
 
         // Remove old versions
 
-        if (opts.maxOldVersions && !opts.noClean
+        if (opts.maxOldVersions && !opts.hold
         && oldVersions.length > opts.maxOldVersions) {
             oldVersions.splice(-opts.maxOldVersions);
 

@@ -11,7 +11,7 @@ class Pull {
                 force: 'Do it even if there are local changes',
                 checkout: 'Move to same database commit before pull',
                 updateAll: 'Update all routines',
-                saveSums: 'Save SHA sums of all objects'
+                sums: 'Save SHA sums of all objects'
             },
             operand: 'remote'
         };
@@ -23,13 +23,13 @@ class Pull {
                 force: 'f',
                 checkout: 'c',
                 updateAll: 'u',
-                saveSums: 's'
+                sums: 's'
             },
             boolean: [
                 'force',
                 'checkout',
                 'updateAll',
-                'saveSums'
+                'sums'
             ]
         };
     }
@@ -117,7 +117,7 @@ class Pull {
 
             for (const exporter of engine.exporters)
                 await exporter.export(exportDir,
-                    schema, opts.update, opts.saveSums);
+                    schema, opts.update, opts.sums);
         }
 
         await engine.refreshPullDate();

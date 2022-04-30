@@ -13,8 +13,8 @@ class Push {
             description: 'Apply changes into database',
             params: {
                 force: 'Answer yes to all questions',
-                saveCommit: 'Wether to save the commit SHA into database',
-                saveSums: 'Save SHA sums of pushed objects'
+                commit: 'Wether to save the commit SHA into database',
+                sums: 'Save SHA sums of pushed objects'
             },
             operand: 'remote'
         };
@@ -24,13 +24,13 @@ class Push {
         return {
             alias: {
                 force: 'f',
-                saveCommit: 'c',
-                saveSums: 's'
+                commit: 'c',
+                sums: 's'
             },
             boolean: [
                 'force',
-                'saveCommit',
-                'saveSums'
+                'commit',
+                'sums'
             ]
         };
     }
@@ -39,8 +39,8 @@ class Push {
         const conn = await myvc.dbConnect();
         this.conn = conn;
 
-        if (opts.saveCommit == null && opts.remote == 'local')
-            opts.saveCommit = true;
+        if (opts.commit == null && opts.remote == 'local')
+            opts.commit = true;
 
         // Obtain exclusive lock
 
@@ -346,7 +346,7 @@ class Push {
                         );
                     }
 
-                    if (opts.saveSums || oldSum)
+                    if (opts.sums || oldSum)
                         await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =
@@ -377,7 +377,7 @@ class Push {
         } else
             console.log(` -> No routines changed.`);
 
-        if (gitExists && opts.saveCommit) {
+        if (gitExists && opts.commit) {
             const repo = await nodegit.Repository.open(this.opts.workspace);
             const head = await repo.getHeadCommit();
 
