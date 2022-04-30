@@ -12,7 +12,9 @@ class Push {
         return {
             description: 'Apply changes into database',
             params: {
-                force: 'Answer yes to all questions'
+                force: 'Answer yes to all questions',
+                saveCommit: 'Wether to save the commit SHA into database',
+                saveSums: 'Save SHA sums of pushed objects'
             },
             operand: 'remote'
         };
@@ -21,10 +23,14 @@ class Push {
     get localOpts() {
         return {
             alias: {
-                force: 'f'
+                force: 'f',
+                saveCommit: 'c',
+                saveSums: 's'
             },
             boolean: [
-                'force'
+                'force',
+                'saveCommit',
+                'saveSums'
             ]
         };
     }
@@ -32,6 +38,9 @@ class Push {
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
         this.conn = conn;
+
+        if (opts.saveCommit == null && opts.remote == 'local')
+            opts.saveCommit = true;
 
         // Obtain exclusive lock
 
@@ -142,16 +151,16 @@ class Push {
                 if (versionDir == 'README.md')
                     continue;
 
-                const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
-                if (!match) {
+                const dirVersion = myvc.parseVersionDir(versionDir);
+                if (!dirVersion) {
                     logVersion('[?????]'.yellow, versionDir,
                         `Wrong directory name.`
                     );
                     continue;
                 }
 
-                const versionNumber = match[1];
-                const versionName = match[2];
+                const versionNumber = dirVersion.number;
+                const versionName = dirVersion.name;
 
                 if (versionNumber.length != version.number.length) {
                     logVersion('[*****]'.gray, versionDir,
@@ -283,7 +292,7 @@ class Push {
         await engine.init();
 
         async function finalize() {
-            await engine.saveShaSums();
+            await engine.saveInfo();
 
             if (routines.length) {
                 await conn.query('FLUSH PRIVILEGES');
@@ -303,6 +312,7 @@ class Push {
             if (exists)
                 newSql = await fs.readFile(fullPath, 'utf8');
             const oldSql = await engine.fetchRoutine(type, schema, name);
+            const oldSum = engine.getShaSum(type, schema, name);
             const isEqual = newSql == oldSql;
 
             let actionMsg;
@@ -336,7 +346,8 @@ class Push {
                         );
                     }
 
-                    await engine.fetchShaSum(type, schema, name);
+                    if (opts.saveSums || oldSum)
+                        await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =
                         scapedSchema + '.' +
@@ -366,7 +377,7 @@ class Push {
         } else
             console.log(` -> No routines changed.`);
 
-        if (gitExists) {
+        if (gitExists && opts.saveCommit) {
             const repo = await nodegit.Repository.open(this.opts.workspace);
             const head = await repo.getHeadCommit();
 

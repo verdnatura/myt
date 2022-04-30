@@ -10,7 +10,8 @@ class Pull {
             params: {
                 force: 'Do it even if there are local changes',
                 checkout: 'Move to same database commit before pull',
-                update: 'Update routine file even is shasum is the same'
+                updateAll: 'Update all routines',
+                saveSums: 'Save SHA sums of all objects'
             },
             operand: 'remote'
         };
@@ -21,12 +22,14 @@ class Pull {
             alias: {
                 force: 'f',
                 checkout: 'c',
-                update: 'u'
+                updateAll: 'u',
+                saveSums: 's'
             },
             boolean: [
                 'force',
                 'checkout',
-                'update'
+                'updateAll',
+                'saveSums'
             ]
         };
     }
@@ -102,7 +105,7 @@ class Pull {
 
         for (const schema in shaSums) {
             if (!await fs.pathExists(`${exportDir}/${schema}`))
-                delete shaSums[schema];
+                engine.deleteSchemaSums(schema);
         }
 
         // Export objects to SQL files
@@ -111,19 +114,14 @@ class Pull {
             let schemaDir = `${exportDir}/${schema}`;
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
-            if (!shaSums[schema])
-                shaSums[schema] = {};
-            const sums = shaSums[schema];
 
-            for (const exporter of engine.exporters) {
-                const type = exporter.objectType;
-                const oldSums = sums[type] || {};
-                sums[type] = {};
-                await exporter.export(exportDir, schema, sums[type], oldSums, opts.update);
-            }
+            for (const exporter of engine.exporters)
+                await exporter.export(exportDir,
+                    schema, opts.update, opts.saveSums);
         }
 
-        await engine.saveShaSums();
+        await engine.refreshPullDate();
+        await engine.saveInfo();
     }
 }
 

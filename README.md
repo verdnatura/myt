@@ -95,7 +95,7 @@ From now on, you can use the project as if it were a standard git repository
 desired remote.
 
 ```text
-$ myvc push [<remote>]
+$ myvc push [<remote>] [--save-commit]
 ```
 
 ### Routines
@@ -164,10 +164,10 @@ $ myvc init
 Incorporates database routine changes into workspace.
 
 ```text
-$ myvc pull [remote] [-f|--force] [-c|--checkout] [-u|--update]
+$ myvc pull [remote] [-f|--force] [-c|--checkout] [-u|--update] [-s|save-sums]
 ```
 
-When *checkout* option is provided, it does the following before export:
+When *--checkout* option is provided, it does the following before export:
 
 1. Get the last database push commit (saved in versioning tables).
 2. Creates and checkout to a new branch based in database commit.
@@ -177,8 +177,13 @@ When *checkout* option is provided, it does the following before export:
 Applies versions and routine changes into database.
 
 ```text
-$ myvc push [<remote>] [-f|--force]
+$ myvc push [<remote>] [-f|--force] [-c|--save-commit] [-s|save-sums]
 ```
+
+Commit is saved into database only if *--save-commit* option is provided, it
+prevents from accidentally saving local commits into shared servers, causing 
+subsequent pushes from other clients to fail because they can't get that 
+commit from the git tree in order to get differences.
 
 ### version
 
@@ -186,7 +191,7 @@ Creates a new version folder, when name is not specified it generates a random
 name mixing a color with a plant name.
 
 ```text
-$ myvc version [<name>]
+$ myvc version [<name>] [-c|--no-clean]
 ```
 
 ## Local server commands

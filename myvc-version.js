@@ -10,7 +10,8 @@ class Version {
         return {
             description: 'Creates a new version',
             params: {
-                name: 'Name for the new version'
+                name: 'Name for the new version',
+                noClean: 'Do not clean old versions'
             },
             operand: 'name'
         };
@@ -19,10 +20,14 @@ class Version {
     get localOpts() {
         return {
             alias: {
-                name: 'n'
+                name: 'n',
+                noClean: 'c'
             },
             string: [
                 'name'
+            ],
+            boolean: [
+                'noClean'
             ],
             default: {
                 remote: 'production'
@@ -31,7 +36,9 @@ class Version {
     }
 
     async run(myvc, opts) {
-        let versionDir;
+        let newVersionDir;
+        const verionsDir =`${opts.myvcDir}/versions`;
+        const oldVersions = [];
 
         // Fetch last version number
 
@@ -74,14 +81,16 @@ class Version {
             // Get version name
 
             let versionName = opts.name;
-            const verionsDir =`${opts.myvcDir}/versions`;
 
             const versionNames = new Set();
             const versionDirs = await fs.readdir(verionsDir);
-            for (const versionNameDir of versionDirs) {
-                const split = versionNameDir.split('-');
-                const versionName = split[1];
-                if (versionName) versionNames.add(versionName);
+            for (const versionDir of versionDirs) {
+                const dirVersion = myvc.parseVersionDir(versionDir);
+                if (!dirVersion) continue;
+                versionNames.add(dirVersion.name);
+
+                if (parseInt(dirVersion.number) < parseInt(number))
+                    oldVersions.push(versionDir);
             }
 
             if (!versionName) {
@@ -107,7 +116,7 @@ class Version {
             // Create version
 
             const versionFolder = `${newVersion}-${versionName}`;
-            versionDir = `${verionsDir}/${versionFolder}`;
+            newVersionDir = `${verionsDir}/${versionFolder}`;
 
             await conn.query(
                 `INSERT INTO version
@@ -117,9 +126,9 @@ class Version {
                         lastNumber = VALUES(lastNumber)`,
                 [opts.code, newVersion]
             );
-            await fs.mkdir(versionDir);
+            await fs.mkdir(newVersionDir);
             await fs.writeFile(
-                `${versionDir}/00-firstScript.sql`,
+                `${newVersionDir}/00-firstScript.sql`,
                 '-- Place your SQL code here\n'
             );
             console.log(`New version created: ${versionFolder}`);
@@ -127,9 +136,22 @@ class Version {
             await conn.query('COMMIT');
         } catch (err) {
             await conn.query('ROLLBACK');
-            if (versionDir && await fs.pathExists(versionDir))
-                await fs.remove(versionDir, {recursive: true});
+            if (newVersionDir && await fs.pathExists(newVersionDir))
+                await fs.remove(newVersionDir, {recursive: true});
             throw err;
+        }
+
+        // Remove old versions
+
+        if (opts.maxOldVersions && !opts.noClean
+        && oldVersions.length > opts.maxOldVersions) {
+            oldVersions.splice(-opts.maxOldVersions);
+
+            for (const oldVersion of oldVersions)
+                await fs.remove(`${verionsDir}/${oldVersion}`,
+                    {recursive: true});
+
+            console.log(`Old versions deleted: ${oldVersions.length}`);
         }
     }
 }

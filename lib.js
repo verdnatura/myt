@@ -24,7 +24,7 @@ class Exporter {
         this.attrs = require(`${templateDir}.js`);
     }
 
-    async export(exportDir, schema, newSums, oldSums, update) {
+    async export(exportDir, schema, update, saveSum) {
         const res = await this.query(schema);
         if (!res.length) return; 
 
@@ -45,15 +45,32 @@ class Exporter {
                 await fs.remove(`${routineDir}/${routine}.sql`);
         }
 
+        const engine = this.engine;
+
         for (const params of res) {
             const routineName = params.name;
             const sql = this.format(params);
             const routineFile = `${routineDir}/${routineName}.sql`;
 
-            const shaSum = this.engine.shaSum(sql);
-            newSums[routineName] = shaSum;
+            const oldSum = engine.getShaSum(routineName);
+            if (oldSum || saveSum) {
+                const shaSum = engine.shaSum(sql);
+                if (oldSum !== shaSum) {
+                    engine.setShaSum(
+                        this.objectType, schema, routineName, shaSum);
+                    update = true;
+                }
+            } else if (params.modified && engine.lastPull) {
+                if (params.modified > engine.lastPull)
+                    update = true;
+            } else if (await fs.pathExists(routineFile)) {
+                const currentSql = await fs.readFile(routineFile, 'utf8');
+                if (sql != currentSql)
+                    update = true;
+            } else
+                update = true;
 
-            if (oldSums[routineName] !== shaSum || update)
+            if (update)
                 await fs.writeFile(routineFile, sql);
         }
     }
@@ -104,16 +121,26 @@ class Exporter {
 class ExporterEngine {
     constructor(conn, myvcDir) {
         this.conn = conn;
-        this.shaFile = `${myvcDir}/.shasums.json`;
+        this.pullFile = `${myvcDir}/.pullinfo.json`;
         this.exporters = [];
         this.exporterMap = {};
     }
 
     async init () {
-        if (await fs.pathExists(this.shaFile))
-            this.shaSums = JSON.parse(await fs.readFile(this.shaFile, 'utf8'));
-        else
-            this.shaSums = {};
+        if (await fs.pathExists(this.pullFile)) {
+            this.pullInfo = JSON.parse(await fs.readFile(this.pullFile, 'utf8'));
+            const lastPull = this.pullInfo.lastPull;
+            if (lastPull)
+                this.pullInfo.lastPull = new Date(lastPull);
+        } else
+            this.pullInfo = {
+                lastPull: null,
+                shaSums: {}
+            };
+
+        this.shaSums = this.pullInfo.shaSums;
+        this.lastPull = this.pullInfo.lastPull;
+        this.infoChanged = false;
 
         const types = [
             'function',
@@ -150,6 +177,14 @@ class ExporterEngine {
             .digest('hex');
     }
 
+    getShaSum(type, schema, name) {
+        try {
+            return this.shaSums[schema][type][name];
+        } catch (e) {};
+
+        return null;
+    }
+
     setShaSum(type, schema, name, shaSum) {
         if (!shaSum) {
             this.deleteShaSum(type, schema, name);
@@ -162,17 +197,32 @@ class ExporterEngine {
         if (!shaSums[schema][type])
             shaSums[schema][type] = {};
         shaSums[schema][type][name] = shaSum;
+        this.infoChanged = true;
     }
 
     deleteShaSum(type, schema, name) {
         try {
             delete this.shaSums[schema][type][name];
+            this.infoChanged = true;
         } catch (e) {};
     }
 
-    async saveShaSums() {
-        await fs.writeFile(this.shaFile,
-            JSON.stringify(this.shaSums, null, '  '));
+    deleteSchemaSums(schema) {
+        delete this.shaSums[schema];
+        this.infoChanged = true;
+    }
+
+    async refreshPullDate() {
+        const [[row]] = await this.conn.query(`SELECT NOW() now`);
+        this.pullInfo.lastPull = row.now;
+        this.infoChanged = true;
+    }
+
+    async saveInfo() {
+        if (!this.infoChanged) return;
+        await fs.writeFile(this.pullFile,
+            JSON.stringify(this.pullInfo, null, '  '));
+        this.infoChanged = false;
     }
 }
 

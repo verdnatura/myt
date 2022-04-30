@@ -1,5 +1,6 @@
 versionSchema: myvc
 versionDigits: 5
+maxOldVersions: 30
 schemas:
   - myvc
 fixtures:

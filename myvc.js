@@ -33,7 +33,7 @@ class MyVC {
             alias: {
                 remote: 'r',
                 workspace: 'w',
-                socket: 's',
+                socket: 'k',
                 debug: 'd',
                 version: 'v',
                 help: 'h'
@@ -275,6 +275,15 @@ class MyVC {
         return version;
     }
 
+    parseVersionDir(versionDir) {
+        const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
+        if (!match) return null;
+        return {
+            number: match[1],
+            name: match[2]
+        };
+    }
+
     async changedRoutines(commitSha) {
         const repo = await this.openRepo();
         const changes = [];
@@ -302,7 +311,20 @@ class MyVC {
         const head = await repo.getHeadCommit();
 
         if (head && commitSha) {
-            const commit = await repo.getCommit(commitSha);
+            let commit;
+            try {
+                await repo.fetchAll();
+            } catch(err) {
+                console.warn(err.message.yellow);
+            }
+            try {
+                commit = await repo.getCommit(commitSha);
+            } catch (err) {
+                if (err.errorFunction == 'Commit.lookup')
+                    throw new Error(`Commit id (${commitSha}) not found, you may have to run 'git fetch' first`);
+                else
+                    throw err;
+            }
             const commitTree = await commit.getTree();
 
             const headTree = await head.getTree();

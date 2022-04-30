@@ -26,7 +26,6 @@ WORKDIR /myvc
 
 COPY \
     package.json \
-    package-lock.json \
     ./
 RUN npm install --only=prod
 
