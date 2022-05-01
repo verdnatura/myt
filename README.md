@@ -8,9 +8,8 @@ development, so any help is welcomed! Feel free to contribute.
 
 ## Requirements
 
-* Node.js >= 14.0
 * Git
-* Docker (Local server)
+* Docker (Optional, used to manage local server)
 
 ## Installation
 
@@ -33,7 +32,8 @@ $ npx myvc <command>
 Execute *myvc* with the desired command.
 
 ```text
-$ [npx] myvc [-w|--workspace <string>] [-r|--remote <string>] [-d|--debug] [-h|--help] <command> [<args>]
+$ [npx] myvc [-w|--workspace <string>] [-r|--remote <string>] [-d|--debug]
+[-h|--help] <command> [<args>]
 ```
 
 The default workspace directory is the current working directory and unless 
@@ -95,7 +95,7 @@ From now on, you can use the project as if it were a standard git repository
 desired remote.
 
 ```text
-$ myvc push [<remote>] [--save-commit]
+$ myvc push [<remote>] [--commit]
 ```
 
 ### Routines
@@ -148,7 +148,6 @@ You can create your local fixture and structure files.
 * *dump/structure.sql*
 * *dump/fixtures.sql*
 
-
 ## Versioning commands
 
 ### init
@@ -193,6 +192,9 @@ name mixing a color with a plant name.
 ```text
 $ myvc version [<name>] [-o|--hold]
 ```
+
+By default it also cleans all already applied versions older than 
+*maxOldVersions*, you can provide de *--hold* option to prevent this behavior.
 
 ## Local server commands
 
