@@ -313,7 +313,6 @@ class MyVC {
         if (head && commitSha) {
             let commit;
             let notFound;
-            commitSha = '9254aa7c35a1d25bf93629d2df4d5c1f87f21224'
 
             try {
                 commit = await repo.getCommit(commitSha);
