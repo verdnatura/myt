@@ -10,7 +10,7 @@ class Pull {
             params: {
                 force: 'Do it even if there are local changes',
                 checkout: 'Move to same database commit before pull',
-                updateAll: 'Update all routines',
+                update: 'Update all routines',
                 sums: 'Save SHA sums of all objects'
             },
             operand: 'remote'
@@ -22,13 +22,13 @@ class Pull {
             alias: {
                 force: 'f',
                 checkout: 'c',
-                updateAll: 'u',
+                update: 'u',
                 sums: 's'
             },
             boolean: [
                 'force',
                 'checkout',
-                'updateAll',
+                'update',
                 'sums'
             ]
         };
