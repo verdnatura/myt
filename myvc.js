@@ -325,7 +325,7 @@ class MyVC {
             }
 
             if (notFound) {
-                console.warn(`Commit id (${commitSha}) not found trying to fetch from git remote`.yellow);
+                console.warn(`Database commit not found, trying git fetch`.yellow);
                 await repo.fetchAll();
                 commit = await repo.getCommit(commitSha);
             }

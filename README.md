@@ -237,7 +237,7 @@ routines with an standard CVS system as if they were normal application code.
 Also, the existing tools are too complex and require too much knowledge to 
 start a small project.
 
-## Todo
+## ToDo
 
 * Undo changes when there is an error applying a version using "undo" files.
 * Use a custom *Dockerfile* for local database container.
