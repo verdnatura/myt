@@ -190,11 +190,16 @@ Creates a new version folder, when name is not specified it generates a random
 name mixing a color with a plant name.
 
 ```text
-$ myvc version [<name>] [-o|--hold]
+$ myvc version [<name>]
 ```
 
-By default it also cleans all already applied versions older than 
-*maxOldVersions*, you can provide de *--hold* option to prevent this behavior.
+### clean
+
+Cleans all already applied versions older than  *maxOldVersions*.
+
+```text
+$ myvc clean
+```
 
 ## Local server commands
 

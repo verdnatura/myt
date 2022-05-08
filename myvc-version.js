@@ -10,8 +10,7 @@ class Version {
         return {
             description: 'Creates a new version',
             params: {
-                name: 'Name for the new version',
-                hold: 'Do not clean old versions'
+                name: 'Name for the new version'
             },
             operand: 'name'
         };
@@ -20,14 +19,10 @@ class Version {
     get localOpts() {
         return {
             alias: {
-                name: 'n',
-                hold: 'o'
+                name: 'n'
             },
             string: [
                 'name'
-            ],
-            boolean: [
-                'hold'
             ],
             default: {
                 remote: 'production'
@@ -38,7 +33,6 @@ class Version {
     async run(myvc, opts) {
         let newVersionDir;
         const verionsDir =`${opts.myvcDir}/versions`;
-        const oldVersions = [];
 
         // Fetch last version number
 
@@ -88,9 +82,6 @@ class Version {
                 const dirVersion = myvc.parseVersionDir(versionDir);
                 if (!dirVersion) continue;
                 versionNames.add(dirVersion.name);
-
-                if (parseInt(dirVersion.number) < parseInt(number))
-                    oldVersions.push(versionDir);
             }
 
             if (!versionName) {
@@ -139,19 +130,6 @@ class Version {
             if (newVersionDir && await fs.pathExists(newVersionDir))
                 await fs.remove(newVersionDir, {recursive: true});
             throw err;
-        }
-
-        // Remove old versions
-
-        if (opts.maxOldVersions && !opts.hold
-        && oldVersions.length > opts.maxOldVersions) {
-            oldVersions.splice(-opts.maxOldVersions);
-
-            for (const oldVersion of oldVersions)
-                await fs.remove(`${verionsDir}/${oldVersion}`,
-                    {recursive: true});
-
-            console.log(`Old versions deleted: ${oldVersions.length}`);
         }
     }
 }

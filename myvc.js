@@ -60,6 +60,7 @@ class MyVC {
                     'pull',
                     'push',
                     'version',
+                    'clean',
                     'dump',
                     'start',
                     'run'
@@ -125,11 +126,11 @@ class MyVC {
                     depVersion[1] === myVersion[1] &&
                     depVersion[2] === myVersion[2];
                 if (!isSameVersion)
-                    throw new Error(`MyVC version differs a lot from package.json, please run 'npm i' first to install the proper version`);
+                    throw new Error(`MyVC version differs a lot from package.json, please run 'npm i' first to install the proper version.`);
 
                 const isSameMinor = depVersion[3] === myVersion[3];
                 if (!isSameMinor)
-                    console.warn(`Warning! MyVC minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version`.yellow);
+                    console.warn(`Warning! MyVC minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version.`.yellow);
             }
 
             // Load method

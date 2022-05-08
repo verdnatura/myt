@@ -75,7 +75,7 @@ class Dump {
         await dumpStream.end();
 
         const version = await myvc.fetchDbVersion();
-        if (version){
+        if (version) {
             await fs.writeFile(
                 `${dumpDir}/.dump.json`,
                 JSON.stringify(version)
