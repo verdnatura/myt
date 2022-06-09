@@ -9,6 +9,7 @@ const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
+const { networkInterfaces } = require('os');
 const camelToSnake = require('./lib').camelToSnake;
 
 class MyVC {
@@ -48,6 +49,11 @@ class MyVC {
             }
         };
         const opts = this.getopts(baseOpts);
+
+        if (opts.debug) {
+            console.warn('Debug mode enabled.'.yellow);
+            console.log('Global options:'.magenta, opts);
+        }
 
         if (opts.version)
             process.exit(0);
@@ -93,11 +99,16 @@ class MyVC {
             }
 
             const commandOpts = this.getopts(allOpts);
+            if (opts.debug)
+                console.log('Command options:'.magenta, commandOpts);
             Object.assign(opts, commandOpts);
 
             const operandToOpt = command.usage.operand;
             if (opts._.length >= 2 && operandToOpt)
                 opts[operandToOpt] = opts._[1];
+
+            if (opts.debug)
+                console.log('Final options:'.magenta, opts);
 
             if (opts.help) {
                 this.showHelp(command.localOpts, command.usage, commandName);
@@ -145,9 +156,9 @@ class MyVC {
         } catch (err) {
             if (err.name == 'Error' && !opts.debug) {
                 console.error('Error:'.gray, err.message.red);
-                process.exit(1);
+                console.log(`You can get more details about the error by passing the 'debug' option.`.yellow);
             } else
-                throw err;
+                console.log(err.stack.magenta);
         }
 
         function parameter(parameter, value) {
@@ -187,26 +198,33 @@ class MyVC {
         if (!await fs.pathExists(iniPath))
             throw new Error(`Database config file not found: ${iniPath}`);
         
-        const iniConfig = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
-        const dbConfig = {
-            host: iniConfig.host,
-            port: iniConfig.port,
-            user: iniConfig.user,
-            password: iniConfig.password,
-            multipleStatements: true,
-            authPlugins: {
-                mysql_clear_password() {
-                    return () => iniConfig.password + '\0';
+        let dbConfig;
+        try {
+            const iniConfig = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
+            dbConfig = {
+                host: iniConfig.host,
+                port: iniConfig.port,
+                user: iniConfig.user,
+                password: iniConfig.password,
+                multipleStatements: true,
+                authPlugins: {
+                    mysql_clear_password() {
+                        return () => iniConfig.password + '\0';
+                    }
+                }
+            };
+            if (iniConfig.ssl_ca) {
+                dbConfig.ssl = {
+                    ca: await fs.readFile(`${opts.myvcDir}/${iniConfig.ssl_ca}`),
+                    rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
                 }
             }
-        };
-
-        if (iniConfig.ssl_ca) {
-            dbConfig.ssl = {
-                ca: await fs.readFile(`${opts.myvcDir}/${iniConfig.ssl_ca}`),
-                rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
-            }
+        } catch(err) {
+            const newErr = Error(`Cannot process the ini file, check that the syntax is correct: ${iniPath}`);
+            newErr.stack += `\nCaused by: ${err.stack}`;
+            throw newErr;
         }
+
         if (opts.socket)
             dbConfig.socketPath = '/var/run/mysqld/mysqld.sock';
 
@@ -255,7 +273,8 @@ class MyVC {
             );
     
             if (!res.tableExists) {
-                const structure = await fs.readFile(`${__dirname}/structure.sql`, 'utf8');
+                const structure = await fs.readFile(
+                    `${__dirname}/structure.sql`, 'utf8');
                 await conn.query(structure);
             }
         }

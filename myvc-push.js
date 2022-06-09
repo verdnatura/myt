@@ -39,7 +39,7 @@ class Push {
         const conn = await myvc.dbConnect();
         this.conn = conn;
 
-        if (opts.commit == null && opts.remote == 'local')
+        if (opts.remote == 'local')
             opts.commit = true;
 
         // Obtain exclusive lock
@@ -556,6 +556,9 @@ class Routine {
         const schema = split[0];
         const type = typeMap[split[1]];
         const name = split[2];
+
+        if (split.length !== 3 || !type)
+            throw new Error(`Wrong routine path for '${path}', check that the sql file is located in the correct directory`);
 
         Object.assign(this, {
             path,
