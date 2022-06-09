@@ -79,8 +79,10 @@ const docker = {
                 const child = spawn('docker', execArgs, execOptions || undefined);
                 child.on('exit', code => {
                     if (code !== 0) {
-                        const args = JSON.stringify(execArgs);
-                        reject(new Error(`docker: ${args}: exit code ${code}`));
+                        const quotedArgs = execArgs
+                            .map(x => /\s/g.test(x) ? `"${x}"` : x)
+                            .join(' ');
+                        reject(new Error(`Docker exit code ${code}: 'docker ${quotedArgs}'`));
                     } else
                         resolve(code);
                 });

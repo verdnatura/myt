@@ -68,6 +68,7 @@ class MyVC {
                     'version',
                     'clean',
                     'dump',
+                    'fixtures',
                     'start',
                     'run'
                 ];

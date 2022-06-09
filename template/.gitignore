@@ -2,3 +2,4 @@
 node_modules
 remotes/*.ini
 !remotes/local.ini
+dump/.changes

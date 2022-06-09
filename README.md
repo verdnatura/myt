@@ -49,6 +49,7 @@ Database versioning commands:
 Local server management commands:
 
  * **dump**: Export database structure and fixtures.
+ * **fixtures**: Export local database fixtures.
  * **run**: Build and start local database server container.
  * **start**: Start local database server container.
 
@@ -210,6 +211,15 @@ in *dump* folder. If no remote is specified *production* is used.
 
 ```text
 $ myvc dump [<remote>]
+```
+
+### fixtures
+
+Exports local database fixtures into *dump/fixtures.sql* files. If no remote is
+specified *local* is used.
+
+```text
+$ myvc fixtures [<remote>]
 ```
 
 ### run
