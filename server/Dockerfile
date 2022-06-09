@@ -1,4 +1,4 @@
-FROM mariadb:10.4.13
+FROM mariadb:10.7.3
 
 ENV MYSQL_ROOT_PASSWORD root
 ENV TZ Europe/Madrid

@@ -6,4 +6,4 @@ schemas:
 fixtures:
   myvc:
     - version
-    - versionUser
+    - versionLog
