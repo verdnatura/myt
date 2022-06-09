@@ -1,19 +1,11 @@
 FROM mariadb:10.7.3
 
 ENV MYSQL_ROOT_PASSWORD root
-ENV TZ Europe/Madrid
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
-        ca-certificates \
-        tzdata \
-    && curl -sL https://apt.verdnatura.es/conf/verdnatura.gpg | apt-key add - \
-    && echo "deb http://apt.verdnatura.es/ jessie main" > /etc/apt/sources.list.d/vn.list \
-    && apt-get update \
-    && apt-get install -y \
-        vn-mariadb \
     && curl -sL https://deb.nodesource.com/setup_14.x | bash - \
     && apt-get install -y --no-install-recommends \
         nodejs \
@@ -51,7 +43,6 @@ COPY \
     server/docker-start.sh \
     /usr/local/bin/
 
-USER mysql
 ENTRYPOINT ["docker-start.sh"]
 
 CMD ["mysqld"]

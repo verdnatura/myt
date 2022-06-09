@@ -38,6 +38,9 @@ class Run {
 
     async run(myvc, opts) {
         const dumpDir = `${opts.myvcDir}/dump`;
+        const serverDir = path.join(__dirname, 'server');
+
+        // Fetch dump information
 
         if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
             throw new Error('To run local database you have to create a dump first');
@@ -68,12 +71,26 @@ class Run {
             }
         }
 
-        const dockerfilePath = path.join(__dirname, 'server', 'Dockerfile');
-    
+        // Build base server image
+
+        await docker.build(__dirname, {
+            tag: 'myvc/server-base',
+            file: path.join(serverDir, 'Dockerfile')
+        }, opts.debug);
+
+
+        // Build server image
+
+        let serverDockerfile = path.join(dumpDir, 'Dockerfile');
+        if (!await fs.pathExists(serverDockerfile))
+            serverDockerfile = path.join(serverDir, 'Dockerfile.server');
+
         await docker.build(__dirname, {
             tag: 'myvc/server',
-            file: dockerfilePath
+            file: serverDockerfile
         }, opts.debug);
+
+        // Build dump image
 
         const today = new Date();
         const pad = v => v < 10 ? '0' + v : v;
@@ -84,9 +101,11 @@ class Run {
 
         await docker.build(opts.myvcDir, {
             tag: opts.code,
-            file: `${dockerfilePath}.dump`,
+            file: path.join(serverDir, 'Dockerfile.dump'),
             buildArg: `STAMP=${stamp}`
         }, opts.debug);
+
+        // Run container
 
         const isRandom = opts.random;
         const dbConfig = Object.assign({}, opts.dbConfig);
