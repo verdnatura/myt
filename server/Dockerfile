@@ -26,6 +26,7 @@ COPY \
     myvc.js \
     myvc-push.js \
     lib.js \
+    docker.js \
     myvc.default.yml \
     db.ini \
     ./

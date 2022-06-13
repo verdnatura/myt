@@ -9,8 +9,8 @@ const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
-const { networkInterfaces } = require('os');
 const camelToSnake = require('./lib').camelToSnake;
+const docker = require('./docker');
 
 class MyVC {
     async run(command) {
@@ -403,8 +403,8 @@ class MyVC {
     }
 
     async cachedChanges() {
-        const dumpDir = `${this.opts.myvcDir}/dump`;
-        const dumpChanges = `${dumpDir}/.changes`;
+        const dumpDir = path.join(this.opts.myvcDir, 'dump');
+        const dumpChanges = path.join(dumpDir, '.changes');
 
         if (!await fs.pathExists(dumpChanges))
             return null;
@@ -420,10 +420,67 @@ class MyVC {
         for await (const line of rl) {
             changes.push({
                 mark: line.charAt(0),
-                path: line.substr(1)
+                path: line.substring(1)
             });
         }
         return changes;
+    }
+
+    async initDump(dumpFile) {
+        const dumpDir = path.join(this.opts.myvcDir, 'dump');
+        if (!await fs.pathExists(dumpDir))
+            await fs.mkdir(dumpDir);
+
+        const dumpPath = path.join(dumpDir, dumpFile);
+
+        // FIXME: If it's called after docker.build() statement it creates an 
+        // "invalid" WriteStream
+        const dumpStream = await fs.createWriteStream(dumpPath);
+
+        await docker.build(__dirname, {
+            tag: 'myvc/client',
+            file: path.join(__dirname, 'server', 'Dockerfile.client')
+        }, this.opts.debug);
+
+        return dumpStream;
+    }
+
+    async dumpFixtures(dumpStream, tables) {
+        const fixturesArgs = [
+            '--no-create-info',
+            '--skip-triggers',
+            '--insert-ignore'
+        ];
+        for (const schema in tables) {
+            const escapedSchema = '`'+ schema.replace('`', '``') +'`';
+            await dumpStream.write(
+                `USE ${escapedSchema};\n`,
+                'utf8'
+            );
+
+            const args = fixturesArgs.concat([schema], tables[schema]);
+            await this.runDump('mysqldump', args, dumpStream);
+        }
+    }
+
+    async runDump(command, args, dumpStream) {
+        const iniPath = path.join(this.opts.subdir || '', 'remotes', this.opts.iniFile);
+        const myArgs = [
+            `--defaults-file=${iniPath}`
+        ];
+        const execOptions = {
+            stdio: [
+                process.stdin,
+                dumpStream,
+                process.stderr
+            ] 
+        };
+        const commandArgs = [command].concat(myArgs, args);
+        await docker.run('myvc/client', commandArgs, {
+            addHost: 'host.docker.internal:host-gateway',
+            volume: `${this.opts.myvcDir}:/workspace`,
+            rm: true
+        }, execOptions);
     }
 
     showHelp(opts, usage, command) {
