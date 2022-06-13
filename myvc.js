@@ -160,6 +160,8 @@ class MyVC {
                 console.log(`You can get more details about the error by passing the 'debug' option.`.yellow);
             } else
                 console.log(err.stack.magenta);
+
+            process.exit(1);
         }
 
         function parameter(parameter, value) {
