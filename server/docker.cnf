@@ -5,4 +5,5 @@ innodb_page_size = 16K
 log_bin_trust_function_creators = ON
 datadir = /mysql-data
 sql_mode = NO_ENGINE_SUBSTITUTION
+table_definition_cache = 1024
 skip-log-bin
