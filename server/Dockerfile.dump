@@ -4,14 +4,16 @@ USER root
 
 COPY \
     dump/.dump.sql  \
-    dump/structure.sql \
+    dump/beforeDump.sql \
+    dump/afterDump.sql \
     dump/
 COPY myvc.config.yml \
     ./
 
 RUN gosu mysql docker-init.sh \
-    && docker-dump.sh dump/structure \
+    && docker-dump.sh dump/beforeDump \
     && docker-dump.sh dump/.dump \
+    && docker-dump.sh dump/afterDump \
     && gosu mysql docker-temp-stop.sh
 
 COPY routines routines

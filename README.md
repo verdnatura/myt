@@ -146,7 +146,8 @@ routines.
 
 You can create your local fixture and structure files.
 
-* *dump/structure.sql*
+* *dump/beforeDump.sql*
+* *dump/afterDump.sql*
 * *dump/fixtures.sql*
 
 ## Versioning commands

@@ -22,6 +22,7 @@ class Dump {
     async run(myvc, opts) {
         const dumpStream = await myvc.initDump('.dump.sql');
 
+        console.log('Dumping structure.');
         let dumpArgs = [
             '--default-character-set=utf8',
             '--no-data',
@@ -34,9 +35,28 @@ class Dump {
         dumpArgs = dumpArgs.concat(opts.schemas);
         await myvc.runDump('myvc-dump.sh', dumpArgs, dumpStream);
 
+        console.log('Dumping fixtures.');
         await myvc.dumpFixtures(dumpStream, opts.fixtures);
+
+        console.log('Dumping privileges.');
+        const privs = opts.privileges;
+        if (privs && Array.isArray(privs.tables)) {
+            let args = [
+                '--no-create-info',
+                '--skip-triggers',
+                '--insert-ignore',
+                '--complete-insert'
+            ];
+            if (privs.where) args.push('--where', privs.where);
+            args = args.concat(['mysql'], privs.tables);
+            
+            await dumpStream.write('USE `mysql`;\n', 'utf8');
+            await myvc.runDump('myvc-dump.sh', args, dumpStream);
+        }
+
         await dumpStream.end();
 
+        console.log('Saving version.');
         await myvc.dbConnect();
         const version = await myvc.fetchDbVersion();
         if (version) {
