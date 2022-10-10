@@ -1,5 +1,6 @@
-FROM mariadb:10.7.3
+FROM myvc/server-base
 
+USER root
 ENV MYSQL_ROOT_PASSWORD root
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -38,11 +39,12 @@ WORKDIR /workspace
 COPY server/docker.cnf /etc/mysql/conf.d/
 COPY \
     server/docker-init.sh \
-    server/docker-temp-start.sh \
-    server/docker-temp-stop.sh \
+    server/docker-push.sh \
     server/docker-dump.sh \
     server/docker-start.sh \
     /usr/local/bin/
+
+USER mysql
 
 ENTRYPOINT ["docker-start.sh"]
 

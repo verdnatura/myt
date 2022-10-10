@@ -10,11 +10,7 @@ COPY \
 COPY myvc.config.yml \
     ./
 
-RUN gosu mysql docker-init.sh \
-    && docker-dump.sh dump/beforeDump \
-    && docker-dump.sh dump/.dump \
-    && docker-dump.sh dump/afterDump \
-    && gosu mysql docker-temp-stop.sh
+RUN gosu mysql docker-init.sh
 
 COPY routines routines
 COPY versions versions
@@ -24,10 +20,7 @@ COPY \
     dump/
 
 ARG STAMP=unknown
-RUN gosu mysql docker-temp-start.sh \
-    && myvc push --socket --commit \
-    && docker-dump.sh dump/fixtures \
-    && gosu mysql docker-temp-stop.sh
+RUN gosu mysql docker-push.sh
 
 RUN echo "[LOG] Import finished." \
     && rm -rf /workspace

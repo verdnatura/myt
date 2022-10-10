@@ -73,21 +73,20 @@ class Run {
 
         // Build base server image
 
-        await docker.build(__dirname, {
-            tag: 'myvc/server-base',
-            file: path.join(serverDir, 'Dockerfile')
-        }, opts.debug);
-
-
-        // Build server image
-
         let serverDockerfile = path.join(dumpDir, 'Dockerfile');
         if (!await fs.pathExists(serverDockerfile))
             serverDockerfile = path.join(serverDir, 'Dockerfile.server');
 
         await docker.build(__dirname, {
-            tag: 'myvc/server',
+            tag: 'myvc/server-base',
             file: serverDockerfile
+        }, opts.debug);
+
+        // Build myvc server image
+
+        await docker.build(__dirname, {
+            tag: 'myvc/server',
+            file: path.join(serverDir, 'Dockerfile')
         }, opts.debug);
 
         // Build dump image

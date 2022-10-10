@@ -1,3 +1,1 @@
-FROM myvc/server-base
-
-USER mysql
+FROM mysql:5.6
