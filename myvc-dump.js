@@ -51,7 +51,7 @@ class Dump {
             args = args.concat(['mysql'], privs.tables);
             
             await dumpStream.write('USE `mysql`;\n', 'utf8');
-            await myvc.runDump('myvc-dump.sh', args, dumpStream);
+            await myvc.runDump('mysqldump', args, dumpStream);
         }
 
         await dumpStream.end();
