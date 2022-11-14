@@ -1,6 +1,6 @@
 
 CREATE TABLE `version` (
-    `code` VARCHAR(255) NOT NULL,
+    `code` VARCHAR(50) NOT NULL,
     `number` CHAR(11) NULL DEFAULT NULL,
     `gitCommit` VARCHAR(255) NULL DEFAULT NULL,
     `updated` DATETIME NOT NULL,
@@ -11,7 +11,7 @@ ALTER TABLE `version`
     ADD PRIMARY KEY (`code`);
 
 CREATE TABLE `versionLog` (
-    `code` VARCHAR(255) NOT NULL,
+    `code` VARCHAR(50) NOT NULL,
     `number` CHAR(11) NOT NULL,
     `file` VARCHAR(255) NOT NULL,
     `user` VARCHAR(255) NULL,
