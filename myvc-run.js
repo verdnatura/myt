@@ -66,7 +66,7 @@ class Run {
             if (!isEqual) {
                 const fd = await fs.open(`${dumpDir}/.changes`, 'w+');
                 for (const change of changes)
-                    fs.write(fd, change.mark + change.path + '\n');
+                    await fs.write(fd, change.mark + change.path + '\n');
                 await fs.close(fd);
             }
         }
@@ -75,10 +75,10 @@ class Run {
 
         let serverDockerfile = path.join(dumpDir, 'Dockerfile');
         if (!await fs.pathExists(serverDockerfile))
-            serverDockerfile = path.join(serverDir, 'Dockerfile.server');
+            serverDockerfile = path.join(serverDir, 'Dockerfile.base');
 
         await docker.build(__dirname, {
-            tag: 'myvc/server-base',
+            tag: 'myvc/base',
             file: serverDockerfile
         }, opts.debug);
 
@@ -86,7 +86,7 @@ class Run {
 
         await docker.build(__dirname, {
             tag: 'myvc/server',
-            file: path.join(serverDir, 'Dockerfile')
+            file: path.join(serverDir, 'Dockerfile.server')
         }, opts.debug);
 
         // Build dump image

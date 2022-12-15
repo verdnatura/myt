@@ -8,6 +8,6 @@
         "type": "git"
     },
     "dependencies": {
-        "myvc": "^1.4.15"
+        "myvc": "^1.4.19"
     }
 }
