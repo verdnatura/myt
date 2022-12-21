@@ -1,13 +1,12 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 
-class Init {
-    get usage() {
-        return {
-            description: 'Initialize an empty workspace'
-        };
-    }
+class Init extends Command {
+    static usage = {
+        description: 'Initialize an empty workspace'
+    };
 
     async run(myvc, opts) {
         const templateDir = `${__dirname}/template`;

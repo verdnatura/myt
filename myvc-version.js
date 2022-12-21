@@ -1,38 +1,34 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 
 /**
  * Creates a new version.
  */
-class Version {
-    get usage() {
-        return {
-            description: 'Creates a new version',
-            params: {
-                name: 'Name for the new version'
-            },
-            operand: 'name'
-        };
-    }
+class Version extends Command {
+    static usage = {
+        description: 'Creates a new version',
+        params: {
+            name: 'Name for the new version'
+        },
+        operand: 'name'
+    };
 
-    get localOpts() {
-        return {
-            alias: {
-                name: 'n'
-            },
-            string: [
-                'name'
-            ],
-            default: {
-                remote: 'production'
-            }
-        };
-    }
+    static localOpts = {
+        alias: {
+            name: 'n'
+        },
+        string: [
+            'name'
+        ],
+        default: {
+            remote: 'production'
+        }
+    };
 
     async run(myvc, opts) {
         let newVersionDir;
-        const verionsDir =`${opts.myvcDir}/versions`;
 
         // Fetch last version number
 
@@ -77,7 +73,7 @@ class Version {
             let versionName = opts.name;
 
             const versionNames = new Set();
-            const versionDirs = await fs.readdir(verionsDir);
+            const versionDirs = await fs.readdir(opts.versionsDir);
             for (const versionDir of versionDirs) {
                 const dirVersion = myvc.parseVersionDir(versionDir);
                 if (!dirVersion) continue;
@@ -107,7 +103,7 @@ class Version {
             // Create version
 
             const versionFolder = `${newVersion}-${versionName}`;
-            newVersionDir = `${verionsDir}/${versionFolder}`;
+            newVersionDir = `${opts.versionsDir}/${versionFolder}`;
 
             await conn.query(
                 `INSERT INTO version

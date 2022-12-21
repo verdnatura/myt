@@ -1,23 +1,20 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 const path = require('path');
 
-class Dump {
-    get usage() {
-        return {
-            description: 'Dumps structure and fixtures from remote',
-            operand: 'remote'
-        };
-    }
+class Dump extends Command {
+    static usage = {
+        description: 'Dumps structure and fixtures from remote',
+        operand: 'remote'
+    };
 
-    get localOpts() {
-        return {
-            default: {
-                remote: 'production'
-            }
-        };
-    }
+    static localOpts = {
+        default: {
+            remote: 'production'
+        }
+    };
 
     async run(myvc, opts) {
         const dumpStream = await myvc.initDump('.dump.sql');
@@ -33,7 +30,7 @@ class Dump {
             '--databases'
         ];
         dumpArgs = dumpArgs.concat(opts.schemas);
-        await myvc.runDump('myvc-dump.sh', dumpArgs, dumpStream);
+        await myvc.runDump('docker-dump.sh', dumpArgs, dumpStream);
 
         console.log('Dumping fixtures.');
         await myvc.dumpFixtures(dumpStream, opts.fixtures);
@@ -60,9 +57,8 @@ class Dump {
         await myvc.dbConnect();
         const version = await myvc.fetchDbVersion();
         if (version) {
-            const dumpDir = path.join(opts.myvcDir, 'dump');
             await fs.writeFile(
-                `${dumpDir}/.dump.json`,
+                `${opts.dumpDir}/.dump.json`,
                 JSON.stringify(version)
             );
         }

@@ -1,39 +1,36 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
-const ExporterEngine = require('./lib').ExporterEngine;
+const ExporterEngine = require('./lib/exporter-engine');
 
 /**
  * Pushes changes to remote.
  */
-class Push {
-    get usage() {
-        return {
-            description: 'Apply changes into database',
-            params: {
-                force: 'Answer yes to all questions',
-                commit: 'Wether to save the commit SHA into database',
-                sums: 'Save SHA sums of pushed objects'
-            },
-            operand: 'remote'
-        };
-    }
+class Push extends Command {
+    static usage = {
+        description: 'Apply changes into database',
+        params: {
+            force: 'Answer yes to all questions',
+            commit: 'Wether to save the commit SHA into database',
+            sums: 'Save SHA sums of pushed objects'
+        },
+        operand: 'remote'
+    };
 
-    get localOpts() {
-        return {
-            alias: {
-                force: 'f',
-                commit: 'c',
-                sums: 's'
-            },
-            boolean: [
-                'force',
-                'commit',
-                'sums'
-            ]
-        };
-    }
+    static localOpts = {
+        alias: {
+            force: 'f',
+            commit: 'c',
+            sums: 's'
+        },
+        boolean: [
+            'force',
+            'commit',
+            'sums'
+        ]
+    };
 
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
@@ -132,7 +129,7 @@ class Push {
 
         let nChanges = 0;
         let silent = true;
-        const versionsDir = `${opts.myvcDir}/versions`;
+        const versionsDir = opts.versionsDir;
 
         function logVersion(version, name, error) {
             console.log('', version.bold, name);
@@ -217,7 +214,7 @@ class Push {
 
                     let err;
                     try {
-                        await this.queryFromFile(pushConn,
+                        await myvc.queryFromFile(pushConn,
                             `${scriptsDir}/${script}`);
                     } catch (e) {
                         err = e;
@@ -261,9 +258,7 @@ class Push {
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        let changes = gitExists
-            ? await myvc.changedRoutines(version.gitCommit)
-            : await myvc.cachedChanges();
+        let changes = await myvc.changedRoutines(version.gitCommit);
         changes = this.parseChanges(changes);
 
         const routines = [];
@@ -305,7 +300,7 @@ class Push {
             const schema = change.schema;
             const name = change.name;
             const type = change.type.name.toLowerCase();
-            const fullPath = `${opts.myvcDir}/routines/${change.path}.sql`;
+            const fullPath = `${opts.routinesDir}/${change.path}.sql`;
             const exists = await fs.pathExists(fullPath);
 
             let newSql;
@@ -333,7 +328,7 @@ class Push {
                     if (change.type.name === 'VIEW')
                         await pushConn.query(`USE ${scapedSchema}`);
 
-                    await this.multiQuery(pushConn, newSql);
+                    await myvc.multiQuery(pushConn, newSql);
 
                     if (change.isRoutine) {
                         await conn.query(
@@ -415,104 +410,6 @@ class Push {
         );
     }
 
-    /**
-     * Executes a multi-query string.
-     *
-     * @param {Connection} conn MySQL connection object
-     * @param {String} sql SQL multi-query string
-     * @returns {Array<Result>} The resultset
-     */
-    async multiQuery(conn, sql) {
-        let results = [];
-        const stmts = this.querySplit(sql);
-
-        for (const stmt of stmts)
-            results = results.concat(await conn.query(stmt));
-
-        return results;
-    }
-
-    /**
-     * Executes an SQL script.
-     *
-     * @param {Connection} conn MySQL connection object
-     * @returns {Array<Result>} The resultset
-     */
-    async queryFromFile(conn, file) {
-        const sql = await fs.readFile(file, 'utf8');
-        return await this.multiQuery(conn, sql);
-    }
-
-    /**
-     * Splits an SQL muti-query into a single-query array, it does an small 
-     * parse to correctly handle the DELIMITER statement.
-     *
-     * @param {Array<String>} stmts The splitted SQL statements
-     */
-    querySplit(sql) {
-        const stmts = [];
-        let i,
-            char,
-            token,
-            escaped,
-            stmtStart;
-
-        let delimiter = ';';
-        const delimiterRe = /\s*delimiter\s+(\S+)[^\S\r\n]*(?:\r?\n|\r|$)/yi;
-
-        function begins(str) {
-            let j;
-            for (j = 0; j < str.length; j++)
-                if (sql[i + j] != str[j])
-                    return false;
-            i += j;
-            return true;
-        }
-
-        for (i = 0; i < sql.length;) {
-            stmtStart = i;
-
-            delimiterRe.lastIndex = i;
-            const match = sql.match(delimiterRe);
-            if (match) {
-                delimiter = match[1];
-                i += match[0].length;
-                continue;
-            }
-
-            let delimiterFound = false;
-            while (i < sql.length) {
-                char = sql[i];
-
-                if (token) {
-                    if (!escaped && begins(token.end))
-                        token = null;
-                    else {
-                        escaped = !escaped && token.escape(char);
-                        i++;
-                    }
-                } else {
-                    delimiterFound = begins(delimiter);
-                    if (delimiterFound) break;
-
-                    const tok = tokenIndex.get(char);
-                    if (tok && begins(tok.start))
-                        token = tok;
-                    else
-                        i++;
-                }
-            }
-
-            let len = i - stmtStart;
-            if (delimiterFound) len -= delimiter.length;
-            const stmt = sql.substr(stmtStart, len);
-
-            if (!/^\s*$/.test(stmt))
-                stmts.push(stmt);
-        }
-
-        return stmts;
-    }
 }
 
 const typeMap = {
@@ -570,40 +467,6 @@ class Routine {
             isRoutine: routineTypes.has(type.name)
         });
     }
-}
-
-const tokens = {
-    string: {
-        start: '\'',
-        end: '\'',
-        escape: char => char == '\'' || char == '\\'
-    },
-    quotedString: {
-        start: '"',
-        end: '"',
-        escape: char => char == '"' || char == '\\'
-    },
-    id: {
-        start: '`',
-        end: '`',
-        escape: char => char == '`'
-    },
-    multiComment: {
-        start: '/*',
-        end: '*/',
-        escape: () => false
-    },
-    singleComment: {
-        start: '-- ',
-        end: '\n',
-        escape: () => false
-    }
-};
-
-const tokenIndex = new Map();
-for (const tokenId in tokens) {
-    const token = tokens[tokenId];
-    tokenIndex.set(token.start[0], token);
 }
 
 module.exports = Push;

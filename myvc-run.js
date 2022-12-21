@@ -1,10 +1,11 @@
 
 const MyVC = require('./myvc');
-const docker = require('./docker');
-const Container = require('./docker').Container;
+const Command = require('./lib/command');
+const Push = require('./myvc-push');
+const docker = require('./lib/docker');
 const fs = require('fs-extra');
 const path = require('path');
-const Server = require('./server/server');
+const Server = require('./lib/server');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the
@@ -12,64 +13,32 @@ const Server = require('./server/server');
  * image was built is different to today. Some workarounds have been used
  * to avoid a bug with OverlayFS driver on MacOS.
  */
-class Run {
-    get usage() {
-        return {
-            description: 'Build and start local database server container',
-            params: {
-                ci: 'Workaround for continuous integration system',
-                random: 'Whether to use a random container name or port'
-            }
-        };
-    }
+class Run extends Command {
+    static usage = {
+        description: 'Build and start local database server container',
+        params: {
+            ci: 'Workaround for continuous integration system',
+            random: 'Whether to use a random container name or port'
+        }
+    };
 
-    get localOpts() {
-        return {
-            alias: {
-                ci: 'c',
-                random: 'r'
-            },
-            boolean: [
-                'ci',
-                'random'
-            ]
-        };
-    }
+    static localOpts = {
+        alias: {
+            ci: 'c',
+            random: 'r'
+        },
+        boolean: [
+            'ci',
+            'random'
+        ]
+    };
 
     async run(myvc, opts) {
-        const dumpDir = `${opts.myvcDir}/dump`;
+        const dumpDir = opts.dumpDir;
         const serverDir = path.join(__dirname, 'server');
-
-        // Fetch dump information
 
         if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
             throw new Error('To run local database you have to create a dump first');
-
-        const dumpInfo = `${dumpDir}/.dump.json`;
-
-        if (await fs.pathExists(dumpInfo)) {
-            const cache = await myvc.cachedChanges();
-
-            const version = JSON.parse(
-                await fs.readFileSync(dumpInfo, 'utf8')
-            );
-            const changes = await myvc.changedRoutines(version.gitCommit);
-
-            let isEqual = false;
-            if (cache && changes && cache.length == changes.length)
-                for (let i = 0; i < changes.length; i++) {
-                    isEqual = cache[i].path == changes[i].path
-                        && cache[i].mark == changes[i].mark;
-                    if (!isEqual) break;
-                }
-
-            if (!isEqual) {
-                const fd = await fs.open(`${dumpDir}/.changes`, 'w+');
-                for (const change of changes)
-                    await fs.write(fd, change.mark + change.path + '\n');
-                await fs.close(fd);
-            }
-        }
 
         // Build base server image
 
@@ -119,7 +88,7 @@ class Run {
                 publish: `3306:${dbConfig.port}`
             };
             try {
-                const server = new Server(new Container(opts.code));
+                const server = new Server(new docker.Container(opts.code));
                 await server.rm();
             } catch (e) {}
         }
@@ -128,13 +97,14 @@ class Run {
 
         Object.assign(runOptions, null, {
             env: `RUN_CHOWN=${runChown}`,
-            detach: true
+            detach: true,
+            volume: `${path.join(dumpDir, 'fixtures.sql')}:/fixtures.sql:ro`
         });
         const ct = await docker.run(opts.code, null, runOptions);
         const server = new Server(ct, dbConfig);
 
-        try {
-            if (isRandom) {
+        if (isRandom) {
+            try {
                 const netSettings = await ct.inspect({
                     format: '{{json .NetworkSettings}}'
                 });
@@ -143,14 +113,43 @@ class Run {
                     dbConfig.host = netSettings.Gateway;
 
                 dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
-            }
-        } catch (err) {
-            if (isRandom)
+            } catch (err) {
                 await server.rm();
-            throw err;
+                throw err;
+            }
         }
 
         await server.wait();
+
+        // Apply changes
+
+        Object.assign(opts, {
+            commit: true,
+            dbConfig
+        });
+        await myvc.runCommand(Push, opts);
+
+        // Apply fixtures
+
+        console.log('Applying fixtures.');
+        await ct.exec(null,
+            'docker-import.sh', ['/fixtures'], 'spawn', opts.debug);
+
+        // Create triggers
+
+        console.log('Creating triggers.');
+        const conn = await myvc.createConnection();
+
+        for (const schema of opts.schemas) {
+            const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
+            if (!await fs.pathExists(triggersPath))
+                continue;
+
+            const triggersDir = await fs.readdir(triggersPath);
+            for (const triggerFile of triggersDir)
+                await myvc.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+        }
+
         return server;
     }
 }

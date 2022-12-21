@@ -1,38 +1,35 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
-const ExporterEngine = require('./lib').ExporterEngine;
-class Pull {
-    get usage() {
-        return {
-            description: 'Incorporate database routine changes into workspace',
-            params: {
-                force: 'Do it even if there are local changes',
-                checkout: 'Move to same database commit before pull',
-                update: 'Update all routines',
-                sums: 'Save SHA sums of all objects'
-            },
-            operand: 'remote'
-        };
-    }
+const ExporterEngine = require('./lib/exporter-engine');
+class Pull extends Command {
+    static usage = {
+        description: 'Incorporate database routine changes into workspace',
+        params: {
+            force: 'Do it even if there are local changes',
+            checkout: 'Move to same database commit before pull',
+            update: 'Update all routines',
+            sums: 'Save SHA sums of all objects'
+        },
+        operand: 'remote'
+    };
 
-    get localOpts() {
-        return {
-            alias: {
-                force: 'f',
-                checkout: 'c',
-                update: 'u',
-                sums: 's'
-            },
-            boolean: [
-                'force',
-                'checkout',
-                'update',
-                'sums'
-            ]
-        };
-    }
+    static localOpts = {
+        alias: {
+            force: 'f',
+            checkout: 'c',
+            update: 'u',
+            sums: 's'
+        },
+        boolean: [
+            'force',
+            'checkout',
+            'update',
+            'sums'
+        ]
+    };
 
     async run(myvc, opts) {
         const conn = await myvc.dbConnect();
@@ -91,32 +88,32 @@ class Pull {
         await engine.init();
         const shaSums = engine.shaSums;
 
-        const exportDir = `${opts.myvcDir}/routines`;
-        if (!await fs.pathExists(exportDir))
-            await fs.mkdir(exportDir);
+        const routinesDir = opts.routinesDir;
+        if (!await fs.pathExists(routinesDir))
+            await fs.mkdir(routinesDir);
 
         // Delete old schemas
 
-        const schemas = await fs.readdir(exportDir);
+        const schemas = await fs.readdir(routinesDir);
         for (const schema of schemas) {
             if (opts.schemas.indexOf(schema) == -1)
-                await fs.remove(`${exportDir}/${schema}`, {recursive: true});
+                await fs.remove(`${routinesDir}/${schema}`, {recursive: true});
         }
 
         for (const schema in shaSums) {
-            if (!await fs.pathExists(`${exportDir}/${schema}`))
+            if (!await fs.pathExists(`${routinesDir}/${schema}`))
                 engine.deleteSchemaSums(schema);
         }
 
         // Export objects to SQL files
 
         for (const schema of opts.schemas) {
-            let schemaDir = `${exportDir}/${schema}`;
+            let schemaDir = `${routinesDir}/${schema}`;
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
 
             for (const exporter of engine.exporters)
-                await exporter.export(exportDir,
+                await exporter.export(routinesDir,
                     schema, opts.update, opts.sums);
         }
 

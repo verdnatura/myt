@@ -7,5 +7,8 @@ RUN apt-get update \
         libmariadb3 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY myvc-dump.sh /usr/local/bin/
+COPY \
+    server/docker-dump.sh \
+    server/docker-fixtures.sh \
+    /usr/local/bin/
 WORKDIR /workspace

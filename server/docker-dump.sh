@@ -1,9 +1,4 @@
 #!/bin/bash
 
-FILE="$1.sql"
-
-#if [ -f "$FILE" ]; then
-    echo "[LOG] -> Importing $FILE"
-    export MYSQL_PWD=root
-    mysql -u root --default-character-set=utf8 --comments -f < "$FILE"
-#fi
+# FIXME: It can corrupt data
+mysqldump $@ | sed 's/ AUTO_INCREMENT=[0-9]* //g'

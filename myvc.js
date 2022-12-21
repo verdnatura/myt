@@ -9,17 +9,13 @@ const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
-const camelToSnake = require('./lib').camelToSnake;
-const docker = require('./docker');
+const camelToSnake = require('./lib/util').camelToSnake;
+const docker = require('./lib/docker');
+const Command = require('./lib/command');
 
 class MyVC {
-    async run(command) {
-        console.log(
-            'MyVC (MySQL Version Control)'.green,
-            `v${packageJson.version}`.magenta
-        );
-
-        const usage = {
+    get usage() {
+        return {
             description: 'Utility for database versioning',
             params: {
                 remote: 'Name of remote to use',
@@ -30,7 +26,10 @@ class MyVC {
                 help: 'Display this help message'
             }
         };
-        const baseOpts = {
+    }
+
+    get localOpts() {
+        return {
             alias: {
                 remote: 'r',
                 workspace: 'w',
@@ -48,6 +47,15 @@ class MyVC {
                 workspace: process.cwd()
             }
         };
+    }
+
+    async run(CommandClass) {
+        console.log(
+            'MyVC (MySQL Version Control)'.green,
+            `v${packageJson.version}`.magenta
+        );
+
+        const baseOpts = this.localOpts;
         const opts = this.getopts(baseOpts);
 
         if (opts.debug) {
@@ -60,37 +68,28 @@ class MyVC {
 
         try {
             const commandName = opts._[0];
-            if (!command && commandName) {
-                const commands = [
-                    'init',
-                    'pull',
-                    'push',
-                    'version',
-                    'clean',
-                    'dump',
-                    'fixtures',
-                    'start',
-                    'run'
-                ];
+            if (!CommandClass && commandName) {
+                if (!/^[a-z]+$/.test(commandName))
+                    throw new Error (`Invalid command name '${commandName}'`);
 
-                if (commands.indexOf(commandName) == -1)
+                const commandFile = path.join(__dirname, `myvc-${commandName}.js`);
+
+                if (!await fs.pathExists(commandFile))
                     throw new Error (`Unknown command '${commandName}'`);
-        
-                const Klass = require(`./myvc-${commandName}`);
-                command = new Klass();
+                CommandClass = require(commandFile);
             }
 
-            if (!command) {
-                this.showHelp(baseOpts, usage);
+            if (!CommandClass) {
+                this.showHelp(baseOpts, this.usage);
                 process.exit(0);
             }
 
             const allOpts = Object.assign({}, baseOpts);
 
-            if (command.localOpts)
-            for (const key in command.localOpts) {
+            if (CommandClass.localOpts)
+            for (const key in CommandClass.localOpts) {
                 const baseValue = baseOpts[key];
-                const cmdValue = command.localOpts[key];
+                const cmdValue = CommandClass.localOpts[key];
                 if (Array.isArray(baseValue))
                     allOpts[key] = baseValue.concat(cmdValue);
                 else if (typeof baseValue == 'object')
@@ -104,7 +103,7 @@ class MyVC {
                 console.log('Command options:'.magenta, commandOpts);
             Object.assign(opts, commandOpts);
 
-            const operandToOpt = command.usage.operand;
+            const operandToOpt = CommandClass.usage.operand;
             if (opts._.length >= 2 && operandToOpt)
                 opts[operandToOpt] = opts._[1];
 
@@ -112,7 +111,7 @@ class MyVC {
                 console.log('Final options:'.magenta, opts);
 
             if (opts.help) {
-                this.showHelp(command.localOpts, command.usage, commandName);
+                this.showHelp(CommandClass.localOpts, CommandClass.usage, commandName);
                 process.exit(0);
             }
 
@@ -151,8 +150,7 @@ class MyVC {
             parameter('Remote:', opts.remote || 'local');
 
             await this.load(opts);
-            command.opts = opts;
-            await command.run(this, opts);
+            await this.runCommand(CommandClass, opts);
             await this.unload();
         } catch (err) {
             if (err.name == 'Error' && !opts.debug) {
@@ -171,10 +169,16 @@ class MyVC {
         process.exit();
     }
 
+    async runCommand(CommandClass, opts) {
+        const command = new CommandClass();
+        command.opts = opts;
+        await command.run(this, opts);
+    }
+
     async load(opts) {
         // Configuration file
 
-        const config = require(`${__dirname}/myvc.default.yml`);
+        const config = require(`${__dirname}/assets/myvc.default.yml`);
         
         const configFile = 'myvc.config.yml';
         const configPath = path.join(opts.workspace, configFile);
@@ -187,9 +191,13 @@ class MyVC {
         if (!opts.myvcDir)
             opts.myvcDir = path.join(opts.workspace, opts.subdir || '');
 
+        opts.routinesDir = path.join(opts.myvcDir, 'routines');
+        opts.versionsDir = path.join(opts.myvcDir, 'versions');
+        opts.dumpDir = path.join(opts.myvcDir, 'dump');
+
         // Database configuration
         
-        let iniDir = __dirname;
+        let iniDir = path.join(__dirname, 'assets');
         let iniFile = 'db.ini';
 
         if (opts.remote) {
@@ -277,7 +285,7 @@ class MyVC {
     
             if (!res.tableExists) {
                 const structure = await fs.readFile(
-                    `${__dirname}/structure.sql`, 'utf8');
+                    `${__dirname}/assets/structure.sql`, 'utf8');
                 await conn.query(structure);
             }
         }
@@ -402,32 +410,8 @@ class MyVC {
         });
     }
 
-    async cachedChanges() {
-        const dumpDir = path.join(this.opts.myvcDir, 'dump');
-        const dumpChanges = path.join(dumpDir, '.changes');
-
-        if (!await fs.pathExists(dumpChanges))
-            return null;
-
-        const readline = require('readline');
-        const rl = readline.createInterface({
-            input: fs.createReadStream(dumpChanges),
-            //output: process.stdout,
-            console: false
-        });
-
-        const changes = [];
-        for await (const line of rl) {
-            changes.push({
-                mark: line.charAt(0),
-                path: line.substring(1)
-            });
-        }
-        return changes;
-    }
-
     async initDump(dumpFile) {
-        const dumpDir = path.join(this.opts.myvcDir, 'dump');
+        const dumpDir = this.opts.dumpDir;
         if (!await fs.pathExists(dumpDir))
             await fs.mkdir(dumpDir);
 
@@ -445,12 +429,21 @@ class MyVC {
         return dumpStream;
     }
 
-    async dumpFixtures(dumpStream, tables) {
+    async dumpFixtures(dumpStream, tables, replace) {
         const fixturesArgs = [
             '--no-create-info',
             '--skip-triggers',
-            '--insert-ignore'
+            '--skip-extended-insert',
+            '--skip-disable-keys',
+            '--skip-add-locks',
+            '--skip-set-charset',
+            '--skip-comments',
+            '--skip-tz-utc'
         ];
+
+        if (replace)
+            fixturesArgs.push('--replace');
+
         for (const schema in tables) {
             const escapedSchema = '`'+ schema.replace('`', '``') +'`';
             await dumpStream.write(
@@ -512,6 +505,139 @@ class MyVC {
             }
         }
     }
+
+    /**
+     * Executes an SQL script.
+     *
+     * @param {Connection} conn MySQL connection object
+     * @returns {Array<Result>} The resultset
+     */
+    async queryFromFile(conn, file) {
+        const sql = await fs.readFile(file, 'utf8');
+        return await this.multiQuery(conn, sql);
+    }
+
+    /**
+     * Executes a multi-query string.
+     *
+     * @param {Connection} conn MySQL connection object
+     * @param {String} sql SQL multi-query string
+     * @returns {Array<Result>} The resultset
+     */
+    async multiQuery(conn, sql) {
+        let results = [];
+        const stmts = this.querySplit(sql);
+
+        for (const stmt of stmts)
+            results = results.concat(await conn.query(stmt));
+
+        return results;
+    }
+
+    /**
+     * Splits an SQL muti-query into a single-query array, it does an small 
+     * parse to correctly handle the DELIMITER statement.
+     *
+     * @param {Array<String>} stmts The splitted SQL statements
+     */
+    querySplit(sql) {
+        const stmts = [];
+        let i,
+            char,
+            token,
+            escaped,
+            stmtStart;
+
+        let delimiter = ';';
+        const delimiterRe = /\s*delimiter\s+(\S+)[^\S\r\n]*(?:\r?\n|\r|$)/yi;
+
+        function begins(str) {
+            let j;
+            for (j = 0; j < str.length; j++)
+                if (sql[i + j] != str[j])
+                    return false;
+            i += j;
+            return true;
+        }
+
+        for (i = 0; i < sql.length;) {
+            stmtStart = i;
+
+            delimiterRe.lastIndex = i;
+            const match = sql.match(delimiterRe);
+            if (match) {
+                delimiter = match[1];
+                i += match[0].length;
+                continue;
+            }
+
+            let delimiterFound = false;
+            while (i < sql.length) {
+                char = sql[i];
+
+                if (token) {
+                    if (!escaped && begins(token.end))
+                        token = null;
+                    else {
+                        escaped = !escaped && token.escape(char);
+                        i++;
+                    }
+                } else {
+                    delimiterFound = begins(delimiter);
+                    if (delimiterFound) break;
+
+                    const tok = tokenIndex.get(char);
+                    if (tok && begins(tok.start))
+                        token = tok;
+                    else
+                        i++;
+                }
+            }
+
+            let len = i - stmtStart;
+            if (delimiterFound) len -= delimiter.length;
+            const stmt = sql.substr(stmtStart, len);
+
+            if (!/^\s*$/.test(stmt))
+                stmts.push(stmt);
+        }
+
+        return stmts;
+    }
+}
+
+const tokens = {
+    string: {
+        start: '\'',
+        end: '\'',
+        escape: char => char == '\'' || char == '\\'
+    },
+    quotedString: {
+        start: '"',
+        end: '"',
+        escape: char => char == '"' || char == '\\'
+    },
+    id: {
+        start: '`',
+        end: '`',
+        escape: char => char == '`'
+    },
+    multiComment: {
+        start: '/*',
+        end: '*/',
+        escape: () => false
+    },
+    singleComment: {
+        start: '-- ',
+        end: '\n',
+        escape: () => false
+    }
+};
+
+const tokenIndex = new Map();
+for (const tokenId in tokens) {
+    const token = tokens[tokenId];
+    tokenIndex.set(token.start[0], token);
 }
 
 module.exports = MyVC;

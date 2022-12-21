@@ -1,7 +1,8 @@
 
 const MyVC = require('./myvc');
-const Container = require('./docker').Container;
-const Server = require('./server/server');
+const Command = require('./lib/command');
+const Container = require('./lib/docker').Container;
+const Server = require('./lib/server');
 const Run = require('./myvc-run');
 
 /**
@@ -10,12 +11,10 @@ const Run = require('./myvc-run');
  * mind that when you do not rebuild the docker you may be using an outdated 
  * version of it.
  */
-class Start {
-    get usage() {
-        return {
-            description: 'Start local database server container'
-        };
-    }
+class Start extends Command {
+    static usage =  {
+        description: 'Start local database server container'
+    };
 
     async run(myvc, opts) {
         const ct = new Container(opts.code);

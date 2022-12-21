@@ -7,20 +7,8 @@ COPY \
     dump/beforeDump.sql \
     dump/afterDump.sql \
     dump/
-COPY myvc.config.yml \
-    ./
 
 RUN gosu mysql docker-init.sh
-
-COPY routines routines
-COPY versions versions
-COPY \
-    dump/fixtures.sql \
-    dump/.changes \
-    dump/
-
-ARG STAMP=unknown
-RUN gosu mysql docker-push.sh
 
 RUN echo "[LOG] Import finished." \
     && rm -rf /workspace

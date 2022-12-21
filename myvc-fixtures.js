@@ -1,25 +1,22 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 
-class Fixtures {
-    get usage() {
-        return {
-            description: 'Dumps local fixtures from database',
-            operand: 'remote'
-        };
-    }
+class Fixtures extends Command {
+    static usage = {
+        description: 'Dumps local fixtures from database',
+        operand: 'remote'
+    };
 
-    get localOpts() {
-        return {
-            default: {
-                remote: 'docker'
-            }
-        };
-    }
+    static localOpts = {
+        default: {
+            remote: 'docker'
+        }
+    };
 
     async run(myvc, opts) {
         const dumpStream = await myvc.initDump('fixtures.sql');
-        await myvc.dumpFixtures(dumpStream, opts.localFixtures);
+        await myvc.dumpFixtures(dumpStream, opts.localFixtures, true);
         await dumpStream.end();
     }
 }

@@ -1,33 +1,29 @@
 
 const MyVC = require('./myvc');
+const Command = require('./lib/command');
 const fs = require('fs-extra');
 
 /**
  * Cleans old applied versions.
  */
-class Clean {
-    get usage() {
-        return {
-            description: 'Cleans old applied versions'
-        };
-    }
+class Clean extends Command {
+    static usage = {
+        description: 'Cleans old applied versions'
+    };
 
-    get localOpts() {
-        return {
-            default: {
-                remote: 'production'
-            }
-        };
-    }
+    static localOpts = {
+        default: {
+            remote: 'production'
+        }
+    };
 
     async run(myvc, opts) {
         await myvc.dbConnect();
         const version = await myvc.fetchDbVersion() || {};
         const number = version.number;
 
-        const verionsDir =`${opts.myvcDir}/versions`;
         const oldVersions = [];
-        const versionDirs = await fs.readdir(verionsDir);
+        const versionDirs = await fs.readdir(opts.versionsDir);
         for (const versionDir of versionDirs) {
             const dirVersion = myvc.parseVersionDir(versionDir);
             if (!dirVersion) continue;
@@ -41,7 +37,7 @@ class Clean {
             oldVersions.splice(-opts.maxOldVersions);
 
             for (const oldVersion of oldVersions)
-                await fs.remove(`${verionsDir}/${oldVersion}`,
+                await fs.remove(`${opts.versionsDir}/${oldVersion}`,
                     {recursive: true});
 
             console.log(`Old versions deleted: ${oldVersions.length}`);
