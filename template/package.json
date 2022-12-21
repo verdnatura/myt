@@ -8,6 +8,6 @@
         "type": "git"
     },
     "dependencies": {
-        "myt": "^1.5.2"
+        "@verdnatura/myt": "^1.5.3"
     }
 }

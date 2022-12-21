@@ -1,4 +1,4 @@
-# Myt - MySQL and MariaDB version control using Git
+# Myt - MySQL version control
 
 Utilities to ease the maintenance of MySQL or MariaDB database versioning using
 a Git repository.
