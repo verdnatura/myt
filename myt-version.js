@@ -1,5 +1,5 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 
@@ -27,12 +27,12 @@ class Version extends Command {
         }
     };
 
-    async run(myvc, opts) {
+    async run(myt, opts) {
         let newVersionDir;
 
         // Fetch last version number
 
-        const conn = await myvc.dbConnect();
+        const conn = await myt.dbConnect();
 
         try {
             await conn.query('START TRANSACTION');
@@ -75,7 +75,7 @@ class Version extends Command {
             const versionNames = new Set();
             const versionDirs = await fs.readdir(opts.versionsDir);
             for (const versionDir of versionDirs) {
-                const dirVersion = myvc.parseVersionDir(versionDir);
+                const dirVersion = myt.parseVersionDir(versionDir);
                 if (!dirVersion) continue;
                 versionNames.add(dirVersion.name);
             }
@@ -216,4 +216,4 @@ const plants = [
 module.exports = Version;
 
 if (require.main === module)
-    new MyVC().run(Version);
+    new Myt().run(Version);

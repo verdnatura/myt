@@ -1,9 +1,9 @@
-versionSchema: myvc
+versionSchema: myt
 versionDigits: 5
 maxOldVersions: 30
 schemas:
-  - myvc
+  - myt
 fixtures:
-  myvc:
+  myt:
     - version
     - versionLog

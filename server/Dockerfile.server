@@ -1,4 +1,4 @@
-FROM myvc/base
+FROM myt/base
 
 USER root
 ENV MYSQL_ROOT_PASSWORD root

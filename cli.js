@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 
-const MyVC = require('./myvc');
-new MyVC().run();
+const Myt = require('./myt');
+new Myt().run();

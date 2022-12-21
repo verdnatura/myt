@@ -1,16 +1,17 @@
 {
-  "name": "myvc",
-  "version": "1.5.0",
+  "name": "@verdnatura/myt",
+  "version": "1.5.2",
   "author": "Verdnatura Levante SL",
-  "description": "MySQL Version Control",
+  "description": "MySQL and MariaDB version control using Git",
   "license": "GPL-3.0",
   "bin": {
+    "myt": "cli.js",
     "myvc": "cli.js",
     "myv": "cli.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/verdnatura/myvc.git"
+    "url": "https://github.com/verdnatura/myt.git"
   },
   "dependencies": {
     "@sqltools/formatter": "^1.2.3",

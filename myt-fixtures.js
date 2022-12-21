@@ -1,5 +1,5 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 
 class Fixtures extends Command {
@@ -14,9 +14,9 @@ class Fixtures extends Command {
         }
     };
 
-    async run(myvc, opts) {
-        const dumpStream = await myvc.initDump('fixtures.sql');
-        await myvc.dumpFixtures(dumpStream, opts.localFixtures, true);
+    async run(myt, opts) {
+        const dumpStream = await myt.initDump('fixtures.sql');
+        await myt.dumpFixtures(dumpStream, opts.localFixtures, true);
         await dumpStream.end();
     }
 }
@@ -24,5 +24,5 @@ class Fixtures extends Command {
 module.exports = Fixtures;
 
 if (require.main === module)
-    new MyVC().run(Fixtures);
+    new Myt().run(Fixtures);
 

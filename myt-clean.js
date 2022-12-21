@@ -1,5 +1,5 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 
@@ -17,15 +17,15 @@ class Clean extends Command {
         }
     };
 
-    async run(myvc, opts) {
-        await myvc.dbConnect();
-        const version = await myvc.fetchDbVersion() || {};
+    async run(myt, opts) {
+        await myt.dbConnect();
+        const version = await myt.fetchDbVersion() || {};
         const number = version.number;
 
         const oldVersions = [];
         const versionDirs = await fs.readdir(opts.versionsDir);
         for (const versionDir of versionDirs) {
-            const dirVersion = myvc.parseVersionDir(versionDir);
+            const dirVersion = myt.parseVersionDir(versionDir);
             if (!dirVersion) continue;
 
             if (parseInt(dirVersion.number) < parseInt(number))
@@ -49,4 +49,4 @@ class Clean extends Command {
 module.exports = Clean;
 
 if (require.main === module)
-    new MyVC().run(Clean);
+    new Myt().run(Clean);

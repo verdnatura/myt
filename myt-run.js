@@ -1,7 +1,7 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
-const Push = require('./myvc-push');
+const Push = require('./myt-push');
 const docker = require('./lib/docker');
 const fs = require('fs-extra');
 const path = require('path');
@@ -33,7 +33,7 @@ class Run extends Command {
         ]
     };
 
-    async run(myvc, opts) {
+    async run(myt, opts) {
         const dumpDir = opts.dumpDir;
         const serverDir = path.join(__dirname, 'server');
 
@@ -47,14 +47,14 @@ class Run extends Command {
             serverDockerfile = path.join(serverDir, 'Dockerfile.base');
 
         await docker.build(__dirname, {
-            tag: 'myvc/base',
+            tag: 'myt/base',
             file: serverDockerfile
         }, opts.debug);
 
-        // Build myvc server image
+        // Build myt server image
 
         await docker.build(__dirname, {
-            tag: 'myvc/server',
+            tag: 'myt/server',
             file: path.join(serverDir, 'Dockerfile.server')
         }, opts.debug);
 
@@ -67,7 +67,7 @@ class Run extends Command {
         const day = pad(today.getDate());
         const stamp = `${year}-${month}-${day}`;
 
-        await docker.build(opts.myvcDir, {
+        await docker.build(opts.mytDir, {
             tag: opts.code,
             file: path.join(serverDir, 'Dockerfile.dump'),
             buildArg: `STAMP=${stamp}`
@@ -127,7 +127,7 @@ class Run extends Command {
             commit: true,
             dbConfig
         });
-        await myvc.runCommand(Push, opts);
+        await myt.runCommand(Push, opts);
 
         // Apply fixtures
 
@@ -138,7 +138,7 @@ class Run extends Command {
         // Create triggers
 
         console.log('Creating triggers.');
-        const conn = await myvc.createConnection();
+        const conn = await myt.createConnection();
 
         for (const schema of opts.schemas) {
             const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
@@ -147,7 +147,7 @@ class Run extends Command {
 
             const triggersDir = await fs.readdir(triggersPath);
             for (const triggerFile of triggersDir)
-                await myvc.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+                await myt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
         }
 
         return server;
@@ -157,4 +157,4 @@ class Run extends Command {
 module.exports = Run;
 
 if (require.main === module)
-    new MyVC().run(Run);
+    new Myt().run(Run);

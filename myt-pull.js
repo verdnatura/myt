@@ -1,9 +1,10 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
+
 class Pull extends Command {
     static usage = {
         description: 'Incorporate database routine changes into workspace',
@@ -31,9 +32,9 @@ class Pull extends Command {
         ]
     };
 
-    async run(myvc, opts) {
-        const conn = await myvc.dbConnect();
-        const repo = await myvc.openRepo();
+    async run(myt, opts) {
+        const conn = await myt.dbConnect();
+        const repo = await myt.openRepo();
 
         if (!opts.force) {
             async function hasChanges(diff) {
@@ -51,14 +52,14 @@ class Pull extends Command {
 
             // Check for unstaged changes
 
-            const unstagedDiff = await myvc.getUnstaged(repo);
+            const unstagedDiff = await myt.getUnstaged(repo);
 
             if (await hasChanges(unstagedDiff))
                 throw new Error('You have unstaged changes, save them before pull');
 
             // Check for staged changes
 
-            const stagedDiff = await myvc.getStaged(repo);
+            const stagedDiff = await myt.getStaged(repo);
  
             if (await hasChanges(stagedDiff))
                 throw new Error('You have staged changes, save them before pull');
@@ -67,15 +68,15 @@ class Pull extends Command {
         // Checkout to remote commit
 
         if (opts.checkout) {
-            const version = await myvc.fetchDbVersion();
+            const version = await myt.fetchDbVersion();
 
             if (version && version.gitCommit) {
                 const now = parseInt(new Date().toJSON());
-                const branchName = `myvc-pull_${now}`;
+                const branchName = `myt-pull_${now}`;
                 console.log(`Creating branch '${branchName}' from database commit.`);
                 const commit = await repo.getCommit(version.gitCommit);
                 const branch = await nodegit.Branch.create(repo,
-                    `myvc-pull_${now}`, commit, () => {});
+                    `myt-pull_${now}`, commit, () => {});
                 await repo.checkoutBranch(branch);
             }
         }
@@ -84,7 +85,7 @@ class Pull extends Command {
 
         console.log(`Incorporating routine changes.`);
 
-        const engine = new ExporterEngine(conn, opts.myvcDir);
+        const engine = new ExporterEngine(conn, opts.mytDir);
         await engine.init();
         const shaSums = engine.shaSums;
 
@@ -125,4 +126,4 @@ class Pull extends Command {
 module.exports = Pull;
 
 if (require.main === module)
-    new MyVC().run(Pull);
+    new Myt().run(Pull);

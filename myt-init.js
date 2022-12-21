@@ -1,5 +1,5 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 
@@ -8,11 +8,11 @@ class Init extends Command {
         description: 'Initialize an empty workspace'
     };
 
-    async run(myvc, opts) {
+    async run(myt, opts) {
         const templateDir = `${__dirname}/template`;
         const templates = await fs.readdir(templateDir);
         for (let template of templates) {
-            const dst = `${opts.myvcDir}/${template}`;
+            const dst = `${opts.mytDir}/${template}`;
             if (!await fs.pathExists(dst))
                 await fs.copy(`${templateDir}/${template}`, dst);
         }
@@ -22,4 +22,4 @@ class Init extends Command {
 module.exports = Init;
 
 if (require.main === module)
-    new MyVC().run(Init);
+    new Myt().run(Init);

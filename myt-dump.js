@@ -1,8 +1,7 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
-const path = require('path');
 
 class Dump extends Command {
     static usage = {
@@ -16,8 +15,8 @@ class Dump extends Command {
         }
     };
 
-    async run(myvc, opts) {
-        const dumpStream = await myvc.initDump('.dump.sql');
+    async run(myt, opts) {
+        const dumpStream = await myt.initDump('.dump.sql');
 
         console.log('Dumping structure.');
         let dumpArgs = [
@@ -30,10 +29,10 @@ class Dump extends Command {
             '--databases'
         ];
         dumpArgs = dumpArgs.concat(opts.schemas);
-        await myvc.runDump('docker-dump.sh', dumpArgs, dumpStream);
+        await myt.runDump('docker-dump.sh', dumpArgs, dumpStream);
 
         console.log('Dumping fixtures.');
-        await myvc.dumpFixtures(dumpStream, opts.fixtures);
+        await myt.dumpFixtures(dumpStream, opts.fixtures);
 
         console.log('Dumping privileges.');
         const privs = opts.privileges;
@@ -48,14 +47,14 @@ class Dump extends Command {
             args = args.concat(['mysql'], privs.tables);
             
             await dumpStream.write('USE `mysql`;\n', 'utf8');
-            await myvc.runDump('mysqldump', args, dumpStream);
+            await myt.runDump('mysqldump', args, dumpStream);
         }
 
         await dumpStream.end();
 
         console.log('Saving version.');
-        await myvc.dbConnect();
-        const version = await myvc.fetchDbVersion();
+        await myt.dbConnect();
+        const version = await myt.fetchDbVersion();
         if (version) {
             await fs.writeFile(
                 `${opts.dumpDir}/.dump.json`,
@@ -68,5 +67,5 @@ class Dump extends Command {
 module.exports = Dump;
 
 if (require.main === module)
-    new MyVC().run(Dump);
+    new Myt().run(Dump);
 

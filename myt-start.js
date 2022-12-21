@@ -1,9 +1,9 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const Container = require('./lib/docker').Container;
 const Server = require('./lib/server');
-const Run = require('./myvc-run');
+const Run = require('./myt-run');
 
 /**
  * Does the minium effort to start the database container, if it doesn't
@@ -16,7 +16,7 @@ class Start extends Command {
         description: 'Start local database server container'
     };
 
-    async run(myvc, opts) {
+    async run(myt, opts) {
         const ct = new Container(opts.code);
         let status;
 
@@ -26,7 +26,7 @@ class Start extends Command {
             });
         } catch (err) {
             const run = new Run()
-            return await run.run(myvc, opts);
+            return await run.run(myt, opts);
         }
 
         switch (status) {
@@ -48,4 +48,4 @@ class Start extends Command {
 module.exports = Start;
 
 if (require.main === module)
-    new MyVC().run(Start);
+    new Myt().run(Start);

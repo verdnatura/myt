@@ -1,5 +1,5 @@
 
-const MyVC = require('./myvc');
+const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
@@ -32,8 +32,8 @@ class Push extends Command {
         ]
     };
 
-    async run(myvc, opts) {
-        const conn = await myvc.dbConnect();
+    async run(myt, opts) {
+        const conn = await myt.dbConnect();
         this.conn = conn;
 
         if (opts.remote == 'local')
@@ -42,14 +42,14 @@ class Push extends Command {
         // Obtain exclusive lock
 
         const [[row]] = await conn.query(
-            `SELECT GET_LOCK('myvc_push', 30) getLock`);
+            `SELECT GET_LOCK('myt_push', 30) getLock`);
 
         if (!row.getLock) {
             let isUsed = 0;
 
             if (row.getLock == 0) {
                 const [[row]] = await conn.query(
-                    `SELECT IS_USED_LOCK('myvc_push') isUsed`);
+                    `SELECT IS_USED_LOCK('myt_push') isUsed`);
                 isUsed = row.isUsed;
             }
 
@@ -57,11 +57,11 @@ class Push extends Command {
         }
 
         async function releaseLock() {
-            await conn.query(`DO RELEASE_LOCK('myvc_push')`);
+            await conn.query(`DO RELEASE_LOCK('myt_push')`);
         }
 
         try {
-            await this.push(myvc, opts, conn);
+            await this.push(myt, opts, conn);
         } catch(err) {
             try {
                 await releaseLock();
@@ -74,12 +74,12 @@ class Push extends Command {
         await releaseLock();
     }
 
-    async push(myvc, opts, conn) {
-        const pushConn = await myvc.createConnection();
+    async push(myt, opts, conn) {
+        const pushConn = await myt.createConnection();
 
         // Get database version
 
-        const version = await myvc.fetchDbVersion() || {};
+        const version = await myt.fetchDbVersion() || {};
 
         console.log(
             `Database information:`
@@ -148,7 +148,7 @@ class Push extends Command {
                 if (versionDir == 'README.md')
                     continue;
 
-                const dirVersion = myvc.parseVersionDir(versionDir);
+                const dirVersion = myt.parseVersionDir(versionDir);
                 if (!dirVersion) {
                     logVersion('[?????]'.yellow, versionDir,
                         `Wrong directory name.`
@@ -214,7 +214,7 @@ class Push extends Command {
 
                     let err;
                     try {
-                        await myvc.queryFromFile(pushConn,
+                        await myt.queryFromFile(pushConn,
                             `${scriptsDir}/${script}`);
                     } catch (e) {
                         err = e;
@@ -258,7 +258,7 @@ class Push extends Command {
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        let changes = await myvc.changedRoutines(version.gitCommit);
+        let changes = await myt.changedRoutines(version.gitCommit);
         changes = this.parseChanges(changes);
 
         const routines = [];
@@ -283,7 +283,7 @@ class Push extends Command {
             );
         }
 
-        const engine = new ExporterEngine(conn, opts.myvcDir);
+        const engine = new ExporterEngine(conn, opts.mytDir);
         await engine.init();
 
         async function finalize() {
@@ -328,7 +328,7 @@ class Push extends Command {
                     if (change.type.name === 'VIEW')
                         await pushConn.query(`USE ${scapedSchema}`);
 
-                    await myvc.multiQuery(pushConn, newSql);
+                    await myt.multiQuery(pushConn, newSql);
 
                     if (change.isRoutine) {
                         await conn.query(
@@ -472,4 +472,4 @@ class Routine {
 module.exports = Push;
 
 if (require.main === module)
-    new MyVC().run(Push);
+    new Myt().run(Push);

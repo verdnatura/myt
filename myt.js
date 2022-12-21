@@ -13,7 +13,7 @@ const camelToSnake = require('./lib/util').camelToSnake;
 const docker = require('./lib/docker');
 const Command = require('./lib/command');
 
-class MyVC {
+class Myt {
     get usage() {
         return {
             description: 'Utility for database versioning',
@@ -51,7 +51,7 @@ class MyVC {
 
     async run(CommandClass) {
         console.log(
-            'MyVC (MySQL Version Control)'.green,
+            'Myt'.green,
             `v${packageJson.version}`.magenta
         );
 
@@ -72,7 +72,7 @@ class MyVC {
                 if (!/^[a-z]+$/.test(commandName))
                     throw new Error (`Invalid command name '${commandName}'`);
 
-                const commandFile = path.join(__dirname, `myvc-${commandName}.js`);
+                const commandFile = path.join(__dirname, `myt-${commandName}.js`);
 
                 if (!await fs.pathExists(commandFile))
                     throw new Error (`Unknown command '${commandName}'`);
@@ -126,7 +126,7 @@ class MyVC {
                 try {
                     depVersion = wsPackageJson
                         .dependencies
-                        .myvc.match(versionRegex);
+                        .myt.match(versionRegex);
                 } catch (e) {}
             }
 
@@ -137,11 +137,11 @@ class MyVC {
                     depVersion[1] === myVersion[1] &&
                     depVersion[2] === myVersion[2];
                 if (!isSameVersion)
-                    throw new Error(`MyVC version differs a lot from package.json, please run 'npm i' first to install the proper version.`);
+                    throw new Error(`Myt version differs a lot from package.json, please run 'npm i' first to install the proper version.`);
 
                 const isSameMinor = depVersion[3] === myVersion[3];
                 if (!isSameMinor)
-                    console.warn(`Warning! MyVC minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version.`.yellow);
+                    console.warn(`Warning! Myt minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version.`.yellow);
             }
 
             // Load method
@@ -178,9 +178,9 @@ class MyVC {
     async load(opts) {
         // Configuration file
 
-        const config = require(`${__dirname}/assets/myvc.default.yml`);
+        const config = require(`${__dirname}/assets/myt.default.yml`);
         
-        const configFile = 'myvc.config.yml';
+        const configFile = 'myt.config.yml';
         const configPath = path.join(opts.workspace, configFile);
         if (await fs.pathExists(configPath))
             Object.assign(config, require(configPath));
@@ -188,12 +188,12 @@ class MyVC {
         Object.assign(opts, config);
         opts.configFile = configFile;
 
-        if (!opts.myvcDir)
-            opts.myvcDir = path.join(opts.workspace, opts.subdir || '');
+        if (!opts.mytDir)
+            opts.mytDir = path.join(opts.workspace, opts.subdir || '');
 
-        opts.routinesDir = path.join(opts.myvcDir, 'routines');
-        opts.versionsDir = path.join(opts.myvcDir, 'versions');
-        opts.dumpDir = path.join(opts.myvcDir, 'dump');
+        opts.routinesDir = path.join(opts.mytDir, 'routines');
+        opts.versionsDir = path.join(opts.mytDir, 'versions');
+        opts.dumpDir = path.join(opts.mytDir, 'dump');
 
         // Database configuration
         
@@ -201,7 +201,7 @@ class MyVC {
         let iniFile = 'db.ini';
 
         if (opts.remote) {
-            iniDir = `${opts.myvcDir}/remotes`;
+            iniDir = `${opts.mytDir}/remotes`;
             iniFile = `${opts.remote}.ini`;
         }
         const iniPath = path.join(iniDir, iniFile);
@@ -226,7 +226,7 @@ class MyVC {
             };
             if (iniConfig.ssl_ca) {
                 dbConfig.ssl = {
-                    ca: await fs.readFile(`${opts.myvcDir}/${iniConfig.ssl_ca}`),
+                    ca: await fs.readFile(`${opts.mytDir}/${iniConfig.ssl_ca}`),
                     rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
                 }
             }
@@ -422,7 +422,7 @@ class MyVC {
         const dumpStream = await fs.createWriteStream(dumpPath);
 
         await docker.build(__dirname, {
-            tag: 'myvc/client',
+            tag: 'myt/client',
             file: path.join(__dirname, 'server', 'Dockerfile.client')
         }, this.opts.debug);
 
@@ -469,15 +469,15 @@ class MyVC {
             ] 
         };
         const commandArgs = [command].concat(myArgs, args);
-        await docker.run('myvc/client', commandArgs, {
+        await docker.run('myt/client', commandArgs, {
             addHost: 'host.docker.internal:host-gateway',
-            volume: `${this.opts.myvcDir}:/workspace`,
+            volume: `${this.opts.mytDir}:/workspace`,
             rm: true
         }, execOptions);
     }
 
     showHelp(opts, usage, command) {
-        const prefix = `${'Usage:'.gray} [npx] myvc`;
+        const prefix = `${'Usage:'.gray} [npx] myt`;
 
         if (command) {
             let log = [prefix, command.blue];
@@ -640,7 +640,7 @@ for (const tokenId in tokens) {
     tokenIndex.set(token.start[0], token);
 }
 
-module.exports = MyVC;
+module.exports = Myt;
 
 if (require.main === module)
-    new MyVC().run();
+    new Myt().run();

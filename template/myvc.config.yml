@@ -1,9 +1,9 @@
 code: my-db
 schemas:
-  - myvc
+  - myt
   - my_db
 fixtures:
-  myvc:
+  myt:
     - version
     - versionLog
   my_db:

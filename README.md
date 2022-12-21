@@ -1,4 +1,4 @@
-# MyVC (MySQL Version Control)
+# Myt - MySQL and MariaDB version control using Git
 
 Utilities to ease the maintenance of MySQL or MariaDB database versioning using
 a Git repository.
@@ -16,23 +16,23 @@ development, so any help is welcomed! Feel free to contribute.
 It's recommended to install the package globally.
 
 ```text
-# npm install -g myvc
-$ myvc <command>
+# npm install -g myt
+$ myt <command>
 ```
 
 You can also install locally and use the *npx* command to execute it.
 
 ```text
-$ npm install myvc
-$ npx myvc <command>
+$ npm install myt
+$ npx myt <command>
 ```
 
 ## How to use
 
-Execute *myvc* with the desired command.
+Execute *myt* with the desired command.
 
 ```text
-$ [npx] myvc [-w|--workspace <string>] [-r|--remote <string>] [-d|--debug]
+$ [npx] myt [-w|--workspace <string>] [-r|--remote <string>] [-d|--debug]
 [-h|--help] <command> [<args>]
 ```
 
@@ -60,10 +60,10 @@ Each command can have its own specific commandline options.
 First of all you have to initalize the workspace.
 
 ```text
-$ myvc init
+$ myt init
 ```
 
-Now you can configure MyVC using *myvc.config.yml* file, located at the root of
+Now you can configure Myt using *myt.config.yml* file, located at the root of
 your workspace. This file should include the project codename and schemas/tables
 wich are exported when you use *pull* or *dump* commands.
 
@@ -88,7 +88,7 @@ Once the basic configuration is done, routines can be imported from the
 database into the project, it is recommended to use the *production* remote.
 
 ```text
-$ myvc pull production
+$ myt pull production
 ```
 
 From now on, you can use the project as if it were a standard git repository
@@ -96,7 +96,7 @@ From now on, you can use the project as if it were a standard git repository
 desired remote.
 
 ```text
-$ myvc push [<remote>] [--commit]
+$ myt push [<remote>] [--commit]
 ```
 
 ### Routines
@@ -157,7 +157,7 @@ You can create your local fixture and structure files.
 Initializes an empty workspace.
 
 ```text
-$ myvc init
+$ myt init
 ```
 
 ### pull
@@ -165,7 +165,7 @@ $ myvc init
 Incorporates database routine changes into workspace.
 
 ```text
-$ myvc pull [remote] [-f|--force] [-c|--checkout] [-u|--update] [-s|--sums]
+$ myt pull [remote] [-f|--force] [-c|--checkout] [-u|--update] [-s|--sums]
 ```
 
 When *--checkout* option is provided, it does the following before export:
@@ -178,7 +178,7 @@ When *--checkout* option is provided, it does the following before export:
 Applies versions and routine changes into database.
 
 ```text
-$ myvc push [<remote>] [-f|--force] [-c|--commit] [-s|--sums]
+$ myt push [<remote>] [-f|--force] [-c|--commit] [-s|--sums]
 ```
 
 Commit is saved into database only if *--commit* option is provided, it
@@ -192,7 +192,7 @@ Creates a new version folder, when name is not specified it generates a random
 name mixing a color with a plant name.
 
 ```text
-$ myvc version [<name>]
+$ myt version [<name>]
 ```
 
 ### clean
@@ -200,7 +200,7 @@ $ myvc version [<name>]
 Cleans all already applied versions older than  *maxOldVersions*.
 
 ```text
-$ myvc clean
+$ myt clean
 ```
 
 ## Local server commands
@@ -211,7 +211,7 @@ Exports database structure and fixtures from remote into hidden files located
 in *dump* folder. If no remote is specified *production* is used.
 
 ```text
-$ myvc dump [<remote>]
+$ myt dump [<remote>]
 ```
 
 ### fixtures
@@ -220,7 +220,7 @@ Exports local database fixtures into *dump/fixtures.sql* files. If no remote is
 specified *local* is used.
 
 ```text
-$ myvc fixtures [<remote>]
+$ myt fixtures [<remote>]
 ```
 
 ### run
@@ -230,7 +230,7 @@ when fixtures have been modified or when the day on which the image was built
 is different to today.
 
 ```text
-$ myvc run [-c|--ci] [-r|--random]
+$ myt run [-c|--ci] [-r|--random]
 ```
 
 ### start
@@ -241,7 +241,7 @@ mind that when you do not rebuild the docker you may be using an outdated
 version of it.
 
 ```text
-$ myvc start
+$ myt start
 ```
 
 ## Why
