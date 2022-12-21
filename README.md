@@ -16,14 +16,14 @@ development, so any help is welcomed! Feel free to contribute.
 It's recommended to install the package globally.
 
 ```text
-# npm install -g myt
+# npm install -g @verdnatura/myt
 $ myt <command>
 ```
 
 You can also install locally and use the *npx* command to execute it.
 
 ```text
-$ npm install myt
+$ npm install @verdnatura/myt
 $ npx myt <command>
 ```
 
