@@ -14,7 +14,8 @@ class Push extends Command {
         params: {
             force: 'Answer yes to all questions',
             commit: 'Wether to save the commit SHA into database',
-            sums: 'Save SHA sums of pushed objects'
+            sums: 'Save SHA sums of pushed objects',
+            triggers: 'Wether to exclude triggers, used to generate local DB'
         },
         operand: 'remote'
     };
@@ -23,12 +24,14 @@ class Push extends Command {
         alias: {
             force: 'f',
             commit: 'c',
-            sums: 's'
+            sums: 's',
+            triggers: 't'
         },
         boolean: [
             'force',
             'commit',
-            'sums'
+            'sums',
+            'triggers'
         ]
     };
 
@@ -297,6 +300,9 @@ class Push extends Command {
 
         for (const change of changes)
         try {
+            if (opts.trigger && change.type.name === 'TRIGGER')
+                continue;
+
             const schema = change.schema;
             const name = change.name;
             const type = change.type.name.toLowerCase();

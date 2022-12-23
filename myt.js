@@ -172,7 +172,7 @@ class Myt {
     async runCommand(CommandClass, opts) {
         const command = new CommandClass();
         command.opts = opts;
-        await command.run(this, opts);
+        return await command.run(this, opts);
     }
 
     async load(opts) {

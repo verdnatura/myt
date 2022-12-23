@@ -40,7 +40,7 @@ class Run extends Command {
         if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
             throw new Error('To run local database you have to create a dump first');
 
-        // Build base server image
+        // Build base image
 
         let serverDockerfile = path.join(dumpDir, 'Dockerfile');
         if (!await fs.pathExists(serverDockerfile))
@@ -51,7 +51,7 @@ class Run extends Command {
             file: serverDockerfile
         }, opts.debug);
 
-        // Build myt server image
+        // Build server image
 
         await docker.build(__dirname, {
             tag: 'myt/server',
@@ -60,17 +60,9 @@ class Run extends Command {
 
         // Build dump image
 
-        const today = new Date();
-        const pad = v => v < 10 ? '0' + v : v;
-        const year = today.getFullYear();
-        const month = pad(today.getMonth() + 1);
-        const day = pad(today.getDate());
-        const stamp = `${year}-${month}-${day}`;
-
         await docker.build(opts.mytDir, {
             tag: opts.code,
-            file: path.join(serverDir, 'Dockerfile.dump'),
-            buildArg: `STAMP=${stamp}`
+            file: path.join(serverDir, 'Dockerfile.dump')
         }, opts.debug);
 
         // Run container
@@ -98,7 +90,7 @@ class Run extends Command {
         Object.assign(runOptions, null, {
             env: `RUN_CHOWN=${runChown}`,
             detach: true,
-            volume: `${path.join(dumpDir, 'fixtures.sql')}:/fixtures.sql:ro`
+            volume: `${this.opts.mytDir}:/workspace`
         });
         const ct = await docker.run(opts.code, null, runOptions);
         const server = new Server(ct, dbConfig);
@@ -125,6 +117,7 @@ class Run extends Command {
 
         Object.assign(opts, {
             commit: true,
+            trigger: true,
             dbConfig
         });
         await myt.runCommand(Push, opts);
@@ -133,7 +126,11 @@ class Run extends Command {
 
         console.log('Applying fixtures.');
         await ct.exec(null,
-            'docker-import.sh', ['/fixtures'], 'spawn', opts.debug);
+            'docker-import.sh',
+            ['/workspace/dump/fixtures'],
+            'spawn',
+            opts.debug
+        );
 
         // Create triggers
 

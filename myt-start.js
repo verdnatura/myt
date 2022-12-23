@@ -19,28 +19,32 @@ class Start extends Command {
     async run(myt, opts) {
         const ct = new Container(opts.code);
         let status;
+        let exists;
+        let server;
 
         try {
             status = await ct.inspect({
                 format: '{{json .State.Status}}'
             });
+            exists = true;
         } catch (err) {
-            const run = new Run()
-            return await run.run(myt, opts);
+            server = await myt.runCommand(Run, opts);
         }
 
-        switch (status) {
-        case 'running':
-            break;
-        case 'exited':
-            await ct.start();
-            break;
-        default:
-            throw new Error(`Unknown docker status: ${status}`);
+        if (exists) {
+            switch (status) {
+            case 'running':
+                break;
+            case 'exited':
+                await ct.start();
+                server = new Server(ct, opts.dbConfig);
+                await server.wait();
+                break;
+            default:
+                throw new Error(`Unknown docker status: ${status}`);
+            }
         }
 
-        const server = new Server(ct, opts.dbConfig);
-        await server.wait();
         return server;
     }
 }
