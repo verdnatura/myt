@@ -1,4 +1,3 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const Push = require('./myt-push');
@@ -6,6 +5,7 @@ const docker = require('./lib/docker');
 const fs = require('fs-extra');
 const path = require('path');
 const Server = require('./lib/server');
+const connExt = require('./lib/conn');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the
@@ -22,7 +22,7 @@ class Run extends Command {
         }
     };
 
-    static localOpts = {
+    static opts = {
         alias: {
             ci: 'c',
             random: 'r'
@@ -144,7 +144,7 @@ class Run extends Command {
 
             const triggersDir = await fs.readdir(triggersPath);
             for (const triggerFile of triggersDir)
-                await myt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+                await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
         }
 
         return server;

@@ -1,7 +1,7 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
+const Dumper = require('./lib/dumper');
 
 class Dump extends Command {
     static usage = {
@@ -9,14 +9,15 @@ class Dump extends Command {
         operand: 'remote'
     };
 
-    static localOpts = {
+    static opts = {
         default: {
             remote: 'production'
         }
     };
 
     async run(myt, opts) {
-        const dumpStream = await myt.initDump('.dump.sql');
+        const dumper = new Dumper(opts);
+        await dumper.init('.dump.sql');
 
         console.log('Dumping structure.');
         let dumpArgs = [
@@ -29,10 +30,10 @@ class Dump extends Command {
             '--databases'
         ];
         dumpArgs = dumpArgs.concat(opts.schemas);
-        await myt.runDump('docker-dump.sh', dumpArgs, dumpStream);
+        await dumper.runDump('docker-dump.sh', dumpArgs);
 
         console.log('Dumping fixtures.');
-        await myt.dumpFixtures(dumpStream, opts.fixtures);
+        await dumper.dumpFixtures(opts.fixtures);
 
         console.log('Dumping privileges.');
         const privs = opts.privileges;
@@ -45,12 +46,12 @@ class Dump extends Command {
             ];
             if (privs.where) args.push('--where', privs.where);
             args = args.concat(['mysql'], privs.tables);
-            
-            await dumpStream.write('USE `mysql`;\n', 'utf8');
-            await myt.runDump('mysqldump', args, dumpStream);
+
+            await dumper.use('mysql');
+            await dumper.runDump('mysqldump', args);
         }
 
-        await dumpStream.end();
+        await dumper.end();
 
         console.log('Saving version.');
         await myt.dbConnect();

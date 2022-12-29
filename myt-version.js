@@ -1,4 +1,3 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
@@ -15,7 +14,7 @@ class Version extends Command {
         operand: 'name'
     };
 
-    static localOpts = {
+    static opts = {
         alias: {
             name: 'n'
         },

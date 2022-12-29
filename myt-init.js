@@ -1,4 +1,3 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');

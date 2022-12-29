@@ -1,4 +1,3 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
@@ -11,7 +10,7 @@ class Clean extends Command {
         description: 'Cleans old applied versions'
     };
 
-    static localOpts = {
+    static opts = {
         default: {
             remote: 'production'
         }

@@ -1,9 +1,10 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
+const connExt = require('./lib/conn');
+const repoExt = require('./lib/repo');
 
 /**
  * Pushes changes to remote.
@@ -20,7 +21,7 @@ class Push extends Command {
         operand: 'remote'
     };
 
-    static localOpts = {
+    static opts = {
         alias: {
             force: 'f',
             commit: 'c',
@@ -217,7 +218,7 @@ class Push extends Command {
 
                     let err;
                     try {
-                        await myt.queryFromFile(pushConn,
+                        await connExt.queryFromFile(pushConn,
                             `${scriptsDir}/${script}`);
                     } catch (e) {
                         err = e;
@@ -261,7 +262,7 @@ class Push extends Command {
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        let changes = await myt.changedRoutines(version.gitCommit);
+        let changes = await this.changedRoutines(version.gitCommit);
         changes = this.parseChanges(changes);
 
         const routines = [];
@@ -334,7 +335,7 @@ class Push extends Command {
                     if (change.type.name === 'VIEW')
                         await pushConn.query(`USE ${scapedSchema}`);
 
-                    await myt.multiQuery(pushConn, newSql);
+                    await connExt.multiQuery(pushConn, newSql);
 
                     if (change.isRoutine) {
                         await conn.query(
@@ -416,6 +417,68 @@ class Push extends Command {
         );
     }
 
+    async changedRoutines(commitSha) {
+        const repo = await this.myt.openRepo();
+        const changes = [];
+        const changesMap = new Map();
+
+        async function pushChanges(diff) {
+            if (!diff) return;
+            const patches = await diff.patches();
+
+            for (const patch of patches) {
+                const path = patch.newFile().path();
+                const match = path.match(/^routines\/(.+)\.sql$/);
+                if (!match) continue;
+
+                let change = changesMap.get(match[1]);
+                if (!change) {
+                    change = {path: match[1]};
+                    changes.push(change);
+                    changesMap.set(match[1], change);
+                }
+                change.mark = patch.isDeleted() ? '-' : '+';
+            }
+        }
+
+        const head = await repo.getHeadCommit();
+
+        if (head && commitSha) {
+            let commit;
+            let notFound;
+
+            try {
+                commit = await repo.getCommit(commitSha);
+                notFound = false;
+            } catch (err) {
+                if (err.errorFunction == 'Commit.lookup')
+                    notFound = true;
+                else
+                    throw err;
+            }
+
+            if (notFound) {
+                console.warn(`Database commit not found, trying git fetch`.yellow);
+                await repo.fetchAll();
+                commit = await repo.getCommit(commitSha);
+            }
+
+            const commitTree = await commit.getTree();
+
+            const headTree = await head.getTree();
+            const diff = await headTree.diff(commitTree);
+            await pushChanges(diff);
+        }
+
+        await pushChanges(await repoExt.getUnstaged(repo));
+        await pushChanges(await repoExt.getStaged(repo));
+
+        return changes.sort((a, b) => {
+            if (b.mark != a.mark)
+                return b.mark == '-' ? 1 : -1;
+            return a.path.localeCompare(b.path);
+        });
+    }
 }
 
 const typeMap = {

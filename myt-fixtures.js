@@ -1,6 +1,6 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
+const Dumper = require('./lib/dumper');
 
 class Fixtures extends Command {
     static usage = {
@@ -8,16 +8,17 @@ class Fixtures extends Command {
         operand: 'remote'
     };
 
-    static localOpts = {
+    static opts = {
         default: {
             remote: 'docker'
         }
     };
 
     async run(myt, opts) {
-        const dumpStream = await myt.initDump('fixtures.sql');
-        await myt.dumpFixtures(dumpStream, opts.localFixtures, true);
-        await dumpStream.end();
+        const dumper = new Dumper(opts);
+        await dumper.init('fixtures.sql');
+        await dumper.dumpFixtures(opts.localFixtures, true);
+        await dumper.end();
     }
 }
 

@@ -1,4 +1,3 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const Container = require('./lib/docker').Container;

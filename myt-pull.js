@@ -1,9 +1,9 @@
-
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
+const repoExt = require('./lib/repo');
 
 class Pull extends Command {
     static usage = {
@@ -17,7 +17,7 @@ class Pull extends Command {
         operand: 'remote'
     };
 
-    static localOpts = {
+    static opts = {
         alias: {
             force: 'f',
             checkout: 'c',
@@ -52,14 +52,14 @@ class Pull extends Command {
 
             // Check for unstaged changes
 
-            const unstagedDiff = await myt.getUnstaged(repo);
+            const unstagedDiff = await repoExt.getUnstaged(repo);
 
             if (await hasChanges(unstagedDiff))
                 throw new Error('You have unstaged changes, save them before pull');
 
             // Check for staged changes
 
-            const stagedDiff = await myt.getStaged(repo);
+            const stagedDiff = await repoExt.getStaged(repo);
  
             if (await hasChanges(stagedDiff))
                 throw new Error('You have staged changes, save them before pull');
