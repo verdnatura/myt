@@ -349,7 +349,7 @@ class Push extends Command {
                         );
                     }
 
-                    if (opts.sums || oldSum)
+                    if (opts.sums || oldSum || (opts.sumViews && type === 'view'))
                         await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =

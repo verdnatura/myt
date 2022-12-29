@@ -52,16 +52,6 @@ class Dump extends Command {
         }
 
         await dumper.end();
-
-        console.log('Saving version.');
-        await myt.dbConnect();
-        const version = await myt.fetchDbVersion();
-        if (version) {
-            await fs.writeFile(
-                `${opts.dumpDir}/.dump.json`,
-                JSON.stringify(version)
-            );
-        }
     }
 }
 

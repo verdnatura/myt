@@ -45,6 +45,7 @@ class Myt {
             'Myt'.green,
             `v${packageJson.version}`.magenta
         );
+        this.packageJson = packageJson;
 
         let baseOpts = this.constructor.opts;
         baseOpts.default = Object.assign(baseOpts.default || {}, {

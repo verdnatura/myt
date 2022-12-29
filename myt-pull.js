@@ -125,9 +125,11 @@ class Pull extends Command {
         const {opts} = this;
 
         const res = await exporter.query(conn, schema);
-        if (!res.length) return; 
+        if (!res.length) return;
 
-        const routineDir = `${opts.routinesDir}/${schema}/${exporter.objectType}s`;
+        const type = exporter.objectType;
+
+        const routineDir = `${opts.routinesDir}/${schema}/${type}s`;
         if (!await fs.pathExists(routineDir))
             await fs.mkdir(routineDir);
 
@@ -140,8 +142,10 @@ class Pull extends Command {
             const match = routineFile.match(/^(.*)\.sql$/);
             if (!match) continue;
             const routine = match[1];
-            if (!routineSet.has(routine))
+            if (!routineSet.has(routine)) {
                 await fs.remove(`${routineDir}/${routine}.sql`);
+                engine.deleteShaSum(type, schema, routine)
+            }
         }
 
         for (const params of res) {
@@ -150,12 +154,11 @@ class Pull extends Command {
             const routineFile = `${routineDir}/${routineName}.sql`;
             let update = opts.update;
 
-            const oldSum = engine.getShaSum(routineName);
-            if (oldSum || opts.sums) {
+            const oldSum = engine.getShaSum(type, schema, routineName);
+            if (oldSum || opts.sums || (opts.sumViews && type === 'view')) {
                 const shaSum = engine.shaSum(sql);
                 if (oldSum !== shaSum) {
-                    engine.setShaSum(
-                        exporter.objectType, schema, routineName, shaSum);
+                    engine.setShaSum(type, schema, routineName, shaSum);
                     update = true;
                 }
             } else if (params.modified && engine.lastPull) {

@@ -1,6 +1,7 @@
 versionSchema: myt
 versionDigits: 5
 maxOldVersions: 30
+sumViews: true
 schemas:
   - myt
 fixtures:
