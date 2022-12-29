@@ -8,6 +8,12 @@ module.exports = {
         'executeAt',
         'comment'
     ],
+    defaults: {
+        type: 'RECURRING',
+        intervalValue: 1,
+        intervalField: 'DAY',
+        onCompletion: 'PRESERVE'
+    },
     formatter(params) {
         let status;
         switch(params.status){

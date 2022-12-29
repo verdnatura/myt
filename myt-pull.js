@@ -114,12 +114,63 @@ class Pull extends Command {
                 await fs.mkdir(schemaDir);
 
             for (const exporter of engine.exporters)
-                await exporter.export(routinesDir,
-                    schema, opts.update, opts.sums);
+                await this.export(conn, engine, exporter, schema);
         }
 
         await engine.refreshPullDate();
         await engine.saveInfo();
+    }
+
+    async export(conn, engine, exporter, schema) {
+        const {opts} = this;
+
+        const res = await exporter.query(conn, schema);
+        if (!res.length) return; 
+
+        const routineDir = `${opts.routinesDir}/${schema}/${exporter.objectType}s`;
+        if (!await fs.pathExists(routineDir))
+            await fs.mkdir(routineDir);
+
+        const routineSet = new Set();
+        for (const params of res)
+            routineSet.add(params.name);
+
+        const routines = await fs.readdir(routineDir);
+        for (const routineFile of routines) {
+            const match = routineFile.match(/^(.*)\.sql$/);
+            if (!match) continue;
+            const routine = match[1];
+            if (!routineSet.has(routine))
+                await fs.remove(`${routineDir}/${routine}.sql`);
+        }
+
+        for (const params of res) {
+            const routineName = params.name;
+            const sql = exporter.format(params);
+            const routineFile = `${routineDir}/${routineName}.sql`;
+            let update = opts.update;
+
+            const oldSum = engine.getShaSum(routineName);
+            if (oldSum || opts.sums) {
+                const shaSum = engine.shaSum(sql);
+                if (oldSum !== shaSum) {
+                    engine.setShaSum(
+                        exporter.objectType, schema, routineName, shaSum);
+                    update = true;
+                }
+            } else if (params.modified && engine.lastPull) {
+                if (params.modified > engine.lastPull)
+                    update = true;
+            } else if (await fs.pathExists(routineFile)) {
+                const currentSql = await fs.readFile(routineFile, 'utf8');
+                if (sql != currentSql)
+                    update = true;
+            } else
+                update = true;
+
+            if (update)
+                await fs.writeFile(routineFile, sql);
+        }
     }
 }
 

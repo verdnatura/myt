@@ -5,6 +5,10 @@ module.exports = {
     escapeCols: [
         'comment'
     ],
+    defaults: {
+        returns: 'INT',
+        isDeterministic: 'NO'
+    },
     formatter(params) {
         let dataAccess;
         switch(params.dataAccess) {

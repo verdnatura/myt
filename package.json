@@ -1,6 +1,6 @@
 {
   "name": "@verdnatura/myt",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "author": "Verdnatura Levante SL",
   "description": "MySQL version control",
   "license": "GPL-3.0",
@@ -12,7 +12,7 @@
     "url": "https://github.com/verdnatura/myt.git"
   },
   "dependencies": {
-    "@sqltools/formatter": "^1.2.3",
+    "@sqltools/formatter": "^1.2.5",
     "colors": "^1.4.0",
     "ejs": "^3.1.6",
     "fs-extra": "^8.1.0",

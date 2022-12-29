@@ -2,6 +2,6 @@ CREATE OR REPLACE DEFINER=<%- definer %>
 	SQL SECURITY <%- securityType %>
 	VIEW <%- schema %>.<%- name %>
 AS <%- definition %><%
-if (checkOption != 'NONE') { %>
+if (locals.checkOption != 'NONE') { %>
 WITH <%- checkOption %> CHECK OPTION<%
 } %>

@@ -45,6 +45,8 @@ Database versioning commands:
  * **pull**: Incorporate database routine changes into workspace.
  * **push**: Apply changes into database.
  * **version**: Creates a new version.
+ * **create**: Creates a new routine file.
+ * **clean**: Cleans old versions.
 
 Local server management commands:
 
@@ -193,6 +195,14 @@ name mixing a color with a plant name.
 
 ```text
 $ myt version [<name>]
+```
+
+### create
+
+Creates a new routine file with a default template.
+
+```text
+$ myt create [-t <type>] <schema>.<name>
 ```
 
 ### clean

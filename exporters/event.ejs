@@ -1,12 +1,12 @@
 DROP EVENT IF EXISTS <%- schema %>.<%- name %>;
 DELIMITER $$
 CREATE DEFINER=<%- definer %> EVENT <%- schema %>.<%- name %><%
-if (type == 'RECURRING') { %>
+if (locals.type == 'RECURRING') { %>
 	ON SCHEDULE EVERY <%- intervalValue %> <%- intervalField %><%
-	if (starts) { %>
+	if (locals.starts) { %>
 		STARTS <%- starts %><%
 	}
-	if (ends) { %>
+	if (locals.ends) { %>
 		ENDS <%- ends %><%
 	}
 } else { %>
@@ -14,7 +14,7 @@ if (type == 'RECURRING') { %>
 } %>
 	ON COMPLETION <%- onCompletion %>
 	<%- status %><%
-if (comment) { %>
+if (locals.comment) { %>
 	COMMENT <%- comment %><%
 } %>
 DO <%- body %>$$

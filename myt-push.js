@@ -5,6 +5,7 @@ const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
 const connExt = require('./lib/conn');
 const repoExt = require('./lib/repo');
+const SqlString = require('sqlstring');
 
 /**
  * Pushes changes to remote.
@@ -329,7 +330,7 @@ class Push extends Command {
             console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
 
             if (!isEqual) {
-                const scapedSchema = pushConn.escapeId(schema, true);
+                const scapedSchema = SqlString.escapeId(schema, true);
 
                 if (exists) {
                     if (change.type.name === 'VIEW')
@@ -353,7 +354,7 @@ class Push extends Command {
                 } else {
                     const escapedName =
                         scapedSchema + '.' +
-                        pushConn.escapeId(name, true);
+                        SqlString.escapeId(name, true);
 
                     const query = `DROP ${change.type.name} IF EXISTS ${escapedName}`;
                     await pushConn.query(query);
@@ -401,7 +402,7 @@ class Push extends Command {
     }
 
     async updateVersion(column, value) {
-        column = this.conn.escapeId(column, true);
+        column = SqlString.escapeId(column, true);
         await this.conn.query(
             `INSERT INTO version
                 SET code = ?,
