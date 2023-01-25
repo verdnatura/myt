@@ -146,12 +146,16 @@ class Push extends Command {
             return /\.undo\.sql$/.test(script);
         }
 
+        const skipFiles = new Set([
+            'README.md',
+            '.archive'
+        ]);
+
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
 
             for (const versionDir of versionDirs) {
-                if (versionDir == 'README.md')
-                    continue;
+                if (skipFiles.has(versionDir)) continue;
 
                 const dirVersion = myt.parseVersionDir(versionDir);
                 if (!dirVersion) {
