@@ -3,9 +3,9 @@ FROM myt/server
 USER root
 
 COPY \
-    dump/.dump.sql  \
-    dump/beforeDump.sql \
-    dump/afterDump.sql \
+    .dump.sql  \
+    beforeDump.sql \
+    afterDump.sql \
     dump/
 
 RUN gosu mysql docker-init.sh

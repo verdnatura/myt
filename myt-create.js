@@ -53,7 +53,7 @@ class Create extends Command {
                 break;
         }
 
-        const exporter = new Exporter(opts.type);
+        const exporter = new Exporter(opts.type, opts.replace);
         await exporter.init();
         const sql = exporter.format(params);
 

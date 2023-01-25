@@ -42,25 +42,30 @@ class Run extends Command {
 
         // Build base image
 
-        let serverDockerfile = path.join(dumpDir, 'Dockerfile');
-        if (!await fs.pathExists(serverDockerfile))
-            serverDockerfile = path.join(serverDir, 'Dockerfile.base');
+        let basePath = dumpDir;
+        let baseDockerfile = path.join(dumpDir, 'Dockerfile');
 
-        await docker.build(__dirname, {
+        if (!await fs.pathExists(baseDockerfile)) {
+            basePath = serverDir;
+            baseDockerfile = path.join(serverDir, 'Dockerfile.base');
+        }
+
+        await docker.build(basePath, {
             tag: 'myt/base',
-            file: serverDockerfile
+            file: baseDockerfile
         }, opts.debug);
 
         // Build server image
 
-        await docker.build(__dirname, {
+        await docker.build(serverDir, {
             tag: 'myt/server',
             file: path.join(serverDir, 'Dockerfile.server')
         }, opts.debug);
 
         // Build dump image
 
-        await docker.build(opts.mytDir, {
+        const dumpContext = path.join(opts.mytDir, 'dump');
+        await docker.build(dumpContext, {
             tag: opts.code,
             file: path.join(serverDir, 'Dockerfile.dump')
         }, opts.debug);

@@ -288,7 +288,7 @@ class Push extends Command {
             );
         }
 
-        const engine = new ExporterEngine(conn, opts.mytDir);
+        const engine = new ExporterEngine(conn, opts);
         await engine.init();
 
         async function finalize() {

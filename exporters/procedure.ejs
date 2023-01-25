@@ -1,14 +1,11 @@
-DROP PROCEDURE IF EXISTS <%- schema %>.<%- name %>;
-DELIMITER $$
-CREATE DEFINER=<%- definer %> PROCEDURE <%- schema %>.<%- name %>(<%- locals.paramList %>)<%
-if (locals.dataAccess) { %>
-	<%- dataAccess %><%
+<%- begin %> <%- typeAndName %>(<%- params.paramList %>)<%
+if (params.dataAccess) { %>
+	<%- params.dataAccess %><%
 }
-if (locals.securityType == 'INVOKER') { %>
-	SQL SECURITY  <%- securityType %><%
+if (params.securityType == 'INVOKER') { %>
+	SQL SECURITY  <%- params.securityType %><%
 }
-if (locals.comment) { %>
-	COMMENT <%- comment %><%
+if (params.comment) { %>
+	COMMENT <%- params.comment %><%
 } %>
-<%- body %>$$
-DELIMITER ;
+<%- params.body %><%- end %>

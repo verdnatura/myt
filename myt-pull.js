@@ -85,7 +85,7 @@ class Pull extends Command {
 
         console.log(`Incorporating routine changes.`);
 
-        const engine = new ExporterEngine(conn, opts.mytDir);
+        const engine = new ExporterEngine(conn, opts);
         await engine.init();
         const shaSums = engine.shaSums;
 

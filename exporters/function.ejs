@@ -1,20 +1,17 @@
-DROP FUNCTION IF EXISTS <%- schema %>.<%- name %>;
-DELIMITER $$
-CREATE DEFINER=<%- definer %> FUNCTION <%- schema %>.<%- name %>(<%- locals.paramList %>)
-	RETURNS <%- returns %><%
-if (locals.isDeterministic == 'NO') { %>
+<%- begin %> <%- typeAndName %>(<%- params.paramList %>)
+	RETURNS <%- params.returns %><%
+if (params.isDeterministic == 'NO') { %>
 	NOT DETERMINISTIC<%
 } else { %>
 	DETERMINISTIC<%
 }
-if (locals.dataAccess) { %>
-	<%- dataAccess %><%
+if (params.dataAccess) { %>
+	<%- params.dataAccess %><%
 }
-if (locals.securityType == 'INVOKER') { %>
-	SQL SECURITY  <%- securityType %><%
+if (params.securityType == 'INVOKER') { %>
+	SQL SECURITY  <%- params.securityType %><%
 }
-if (locals.comment) { %>
-	COMMENT <%- comment %><%
+if (params.comment) { %>
+	COMMENT <%- params.comment %><%
 } %>
-<%- body %>$$
-DELIMITER ;
+<%- params.body %><%- end %>

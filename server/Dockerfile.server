@@ -8,11 +8,11 @@ RUN mkdir /mysql-data \
 
 WORKDIR /workspace
 
-COPY server/docker.cnf /etc/mysql/conf.d/
+COPY docker.cnf /etc/mysql/conf.d/
 COPY \
-    server/docker-init.sh \
-    server/docker-import.sh \
-    server/docker-start.sh \
+    docker-init.sh \
+    docker-import.sh \
+    docker-start.sh \
     /usr/local/bin/
 
 USER mysql

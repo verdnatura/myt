@@ -1,7 +1,7 @@
-CREATE OR REPLACE DEFINER=<%- definer %>
-	SQL SECURITY <%- securityType %>
-	VIEW <%- schema %>.<%- name %>
-AS <%- definition %><%
-if (locals.checkOption != 'NONE') { %>
-WITH <%- checkOption %> CHECK OPTION<%
+<%- createOrReplace %>
+	SQL SECURITY <%- params.securityType %>
+	<%- typeAndName %>
+AS <%- params.definition %><%
+if (params.checkOption != 'NONE') { %>
+WITH <%- params.checkOption %> CHECK OPTION<%
 } %>

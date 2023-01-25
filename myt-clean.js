@@ -1,6 +1,7 @@
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
+const path = require('path');
 
 /**
  * Cleans old applied versions.
@@ -35,9 +36,15 @@ class Clean extends Command {
         && oldVersions.length > opts.maxOldVersions) {
             oldVersions.splice(-opts.maxOldVersions);
 
+            const archiveDir = path.join(opts.versionsDir, '.archive');
+            if (!await fs.pathExists(archiveDir))
+                await fs.mkdir(archiveDir);
+
             for (const oldVersion of oldVersions)
-                await fs.remove(`${opts.versionsDir}/${oldVersion}`,
-                    {recursive: true});
+                await fs.move(
+                    path.join(opts.versionsDir, oldVersion),
+                    path.join(archiveDir, oldVersion)
+                );
 
             console.log(`Old versions deleted: ${oldVersions.length}`);
         } else

@@ -1,7 +1,4 @@
-DROP TRIGGER IF EXISTS <%- schema %>.<%- name %>;
-DELIMITER $$
-CREATE DEFINER=<%- definer %> TRIGGER <%- schema %>.<%- name %>
-	<%- actionTiming %> <%- actionType %> ON `<%- table %>`
+<%- begin %> <%- typeAndName %>
+	<%- params.actionTiming %> <%- params.actionType %> ON `<%- params.table %>`
 	FOR EACH ROW
-<%- body %>$$
-DELIMITER ;
+<%- params.body %><%- end %>
