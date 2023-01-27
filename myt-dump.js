@@ -24,9 +24,9 @@ class Dump extends Command {
             '--default-character-set=utf8',
             '--no-data',
             '--comments',
-            '--triggers',
             '--routines',
             '--events',
+            '--skip-triggers',
             '--databases'
         ];
         dumpArgs = dumpArgs.concat(opts.schemas);
