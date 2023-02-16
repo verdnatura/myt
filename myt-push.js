@@ -267,8 +267,7 @@ class Push extends Command {
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        let changes = await this.changedRoutines(version.gitCommit);
-        changes = this.parseChanges(changes);
+        const changes = await this.changedRoutines(version.gitCommit);
 
         const routines = [];
         for (const change of changes)
@@ -397,14 +396,6 @@ class Push extends Command {
         await pushConn.end();
     }
 
-    parseChanges(changes) {
-        const routines = [];
-        if (changes)
-            for (const change of changes)
-                routines.push(new Routine(change));
-        return routines;
-    }
-
     async updateVersion(column, value) {
         column = SqlString.escapeId(column, true);
         await this.conn.query(
@@ -478,9 +469,21 @@ class Push extends Command {
         await pushChanges(await repoExt.getUnstaged(repo));
         await pushChanges(await repoExt.getStaged(repo));
 
-        return changes.sort((a, b) => {
+        const routines = [];
+        for (const change of changes)
+            routines.push(new Routine(change));
+
+        return routines.sort((a, b) => {
             if (b.mark != a.mark)
                 return b.mark == '-' ? 1 : -1;
+
+            if (b.type.name !== a.type.name) {
+                if (b.type.name == 'VIEW')
+                    return -1;
+                if (a.type.name == 'VIEW')
+                    return 1;
+            }
+
             return a.path.localeCompare(b.path);
         });
     }
