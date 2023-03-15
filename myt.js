@@ -120,8 +120,8 @@ class Myt {
                 const wsPackageJson = require(wsPackageFile);
                 try {
                     depVersion = wsPackageJson
-                        .dependencies
-                        .myt.match(versionRegex);
+                        .dependencies[packageJson.name]
+                        .match(versionRegex);
                 } catch (e) {}
             }
 

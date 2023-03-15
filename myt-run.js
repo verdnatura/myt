@@ -6,6 +6,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const Server = require('./lib/server');
 const connExt = require('./lib/conn');
+const SqlString = require('sqlstring');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the
@@ -150,6 +151,20 @@ class Run extends Command {
             const triggersDir = await fs.readdir(triggersPath);
             for (const triggerFile of triggersDir)
                 await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+        }
+
+        // Mock date functions
+
+        console.log('Mocking date functions.');
+        const mockDateScript = path.join(dumpDir, 'mockDate.sql');
+
+        if (opts.mockDate) {
+            if (!await fs.pathExists(mockDateScript))
+                throw new Error(`Date mock enabled but mock script does not exist: ${mockDateScript}`);
+
+            let sql = await fs.readFile(mockDateScript, 'utf8');
+            sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
+            await connExt.multiQuery(conn, sql);
         }
 
         return server;

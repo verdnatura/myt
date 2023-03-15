@@ -321,16 +321,26 @@ class Push extends Command {
             const oldSum = engine.getShaSum(type, schema, name);
             const isEqual = newSql == oldSql;
 
-            let actionMsg;
-            if ((exists && isEqual) || (!exists && !oldSql))
-                actionMsg = '[I]'.blue;
-            else if (exists)
-                actionMsg = '[+]'.green;
+            let statusMsg;
+            if (exists && !oldSql)
+                statusMsg = '[+]'.green;
+            else if (!exists)
+                statusMsg = '[-]'.red;
             else
-                actionMsg = '[-]'.red;
+                statusMsg = '[·]'.yellow;
+
+            let actionMsg;
+            if (isEqual)
+                actionMsg = '[I]'.blue;
+            else
+                actionMsg = '[A]'.green;
 
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
-            console.log('', actionMsg.bold, typeMsg.bold, change.fullName);
+            console.log('',
+                (statusMsg + actionMsg).bold,
+                typeMsg.bold,
+                change.fullName
+            );
 
             if (!isEqual) {
                 const scapedSchema = SqlString.escapeId(schema, true);
@@ -475,7 +485,7 @@ class Push extends Command {
 
         return routines.sort((a, b) => {
             if (b.mark != a.mark)
-                return b.mark == '-' ? 1 : -1;
+                return b.mark == '-' ? -1 : 1;
 
             if (b.type.name !== a.type.name) {
                 if (b.type.name == 'VIEW')
