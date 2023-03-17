@@ -17,7 +17,6 @@ class Myt {
         params: {
             remote: 'Name of remote to use',
             workspace: 'The base directory of the project',
-            socket: 'Wether to connect to database via socket',
             debug: 'Wether to enable debug mode',
             version: 'Display the version number and exit',
             help: 'Display this help message'
@@ -28,7 +27,6 @@ class Myt {
         alias: {
             remote: 'r',
             workspace: 'w',
-            socket: 'k',
             debug: 'd',
             version: 'v',
             help: 'h'
@@ -205,33 +203,41 @@ class Myt {
         
         let dbConfig;
         try {
-            const iniConfig = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
+            const iniData = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
+            const iniConfig = {};
+            for (const key in iniData) {
+                const value = iniData[key];
+                const newKey = key.replace(/-/g, '_');
+                iniConfig[newKey] = value !== undefined ? value : true;
+            }
             dbConfig = {
                 host: iniConfig.host,
                 port: iniConfig.port,
                 user: iniConfig.user,
                 password: iniConfig.password,
-                multipleStatements: true,
-                authPlugins: {
+                multipleStatements: true
+            };
+            if (iniConfig.enable_cleartext_plugin) {
+                dbConfig.authPlugins = {
                     mysql_clear_password() {
                         return () => iniConfig.password + '\0';
                     }
-                }
-            };
+                };
+            }
             if (iniConfig.ssl_ca) {
                 dbConfig.ssl = {
                     ca: await fs.readFile(`${opts.mytDir}/${iniConfig.ssl_ca}`),
                     rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
                 }
             }
+            if (iniConfig.socket) {
+                dbConfig.socketPath = iniConfig.socket;
+            }
         } catch(err) {
             const newErr = Error(`Cannot process the ini file, check that the syntax is correct: ${iniPath}`);
             newErr.stack += `\nCaused by: ${err.stack}`;
             throw newErr;
         }
-
-        if (opts.socket)
-            dbConfig.socketPath = '/var/run/mysqld/mysqld.sock';
 
         Object.assign(opts, {
             iniFile,
