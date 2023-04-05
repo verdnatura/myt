@@ -221,7 +221,7 @@ Exports database structure and fixtures from remote into hidden files located
 in *dump* folder. If no remote is specified *production* is used.
 
 ```text
-$ myt dump [<remote>]
+$ myt dump [<remote>] [-l|--lock]
 ```
 
 ### fixtures
