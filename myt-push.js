@@ -49,6 +49,12 @@ class Push extends Command {
         const [[row]] = await conn.query(
             `SELECT GET_LOCK('myt_push', 30) getLock`);
 
+        const pingTimeout = setInterval(async() => {
+            try {
+                await conn.ping()
+            } catch (e) {}
+        }, 60 * 1000);
+
         if (!row.getLock) {
             let isUsed = 0;
 
@@ -70,10 +76,10 @@ class Push extends Command {
         } catch(err) {
             try {
                 await releaseLock();
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) {}
             throw err;
+        } finally {
+            clearInterval(pingTimeout);
         }
 
         await releaseLock();
