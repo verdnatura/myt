@@ -135,7 +135,7 @@ class Run extends Command {
             'docker-import.sh',
             ['/workspace/dump/fixtures'],
             'spawn',
-            opts.debug
+            true
         );
 
         // Create triggers
