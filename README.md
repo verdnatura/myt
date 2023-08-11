@@ -13,6 +13,11 @@ development, so any help is welcomed! Feel free to contribute.
 
 ## Installation
 
+Required libraries to build with *node-gyp*.
+```text
+# apt install libkrb5-dev libssl-dev
+```
+
 It's recommended to install the package globally.
 
 ```text
@@ -148,9 +153,10 @@ routines.
 
 You can create your local fixture and structure files.
 
-* *dump/beforeDump.sql*
-* *dump/afterDump.sql*
-* *dump/fixtures.sql*
+* *dump/dump.before.sql*
+* *dump/dump.after.sql*
+* *dump/fixtures.before.sql*
+* *dump/fixtures.after.sql*
 
 ## Versioning commands
 
@@ -180,7 +186,7 @@ When *--checkout* option is provided, it does the following before export:
 Applies versions and routine changes into database.
 
 ```text
-$ myt push [<remote>] [-f|--force] [-c|--commit] [-s|--sums]
+$ myt push [<remote>] [-f|--force] [-c|--commit] [-s|--sums] [-t|--triggers]
 ```
 
 Commit is saved into database only if *--commit* option is provided, it
@@ -221,7 +227,7 @@ Exports database structure and fixtures from remote into hidden files located
 in *dump* folder. If no remote is specified *production* is used.
 
 ```text
-$ myt dump [<remote>] [-l|--lock]
+$ myt dump [<remote>] [-l|--lock] [-t|--triggers]
 ```
 
 ### fixtures

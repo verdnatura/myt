@@ -13,8 +13,11 @@ docker_temp_server_start "$CMD"
 docker_setup_db
 docker_process_init_files /docker-entrypoint-initdb.d/*
 
-docker-import.sh dump/beforeDump
-docker-import.sh dump/.dump
-docker-import.sh dump/afterDump
+docker-import.sh dump/dump.before
+docker-import.sh dump/.dump/structure
+docker-import.sh dump/.dump/data
+docker-import.sh dump/.dump/triggers
+docker-import.sh dump/.dump/privileges
+docker-import.sh dump/dump.after
 
 docker_temp_server_stop

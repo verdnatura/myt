@@ -1,13 +1,15 @@
 const Myt = require('./myt');
 const Command = require('./lib/command');
-const fs = require('fs-extra');
 const Dumper = require('./lib/dumper');
+const fs = require('fs-extra');
+const path = require('path');
 
 class Dump extends Command {
     static usage = {
         description: 'Dumps structure and fixtures from remote',
         params: {
-            lock: 'Whether to lock tables on dump'
+            lock: 'Whether to lock tables on dump',
+            triggers: 'Wether to include triggers into dump'
         },
         operand: 'remote'
     };
@@ -17,54 +19,111 @@ class Dump extends Command {
             remote: 'production'
         },
         alias: {
-            lock: 'l'
+            lock: 'l',
+            triggers: 't'
         },
         boolean: [
-            'lock'
+            'lock',
+            'triggers'
         ]
     };
 
+    static messages = {
+        dumpStructure: 'Dumping structure.',
+        dumpData: 'Dumping data.',
+        dumpPrivileges: 'Dumping privileges.',
+        dumpTriggers: 'Dumping triggers.'
+    };
+
     async run(myt, opts) {
-        const dumper = new Dumper(opts);
-        await dumper.init('.dump.sql');
+        let dumper;
+        const dumpDataDir = path.join(opts.dumpDir, '.dump');
         const baseArgs = [
             `--lock-tables=${opts.lock ? 'true' : 'false'}`
         ];
 
-        console.log('Dumping structure.');
+        await fs.remove(dumpDataDir);
+
+        // Structure
+
+        this.emit('dumpStructure');
+
+        dumper = new Dumper(opts);
+        await dumper.init(dumpDataDir, 'structure');
         let dumpArgs = [
             '--default-character-set=utf8',
             '--no-data',
             '--comments',
             '--routines',
             '--events',
-            '--skip-triggers',
-            '--databases'
+            '--skip-triggers'
         ].concat(baseArgs);
 
+        dumpArgs.push('--databases');
         dumpArgs = dumpArgs.concat(opts.schemas);
         await dumper.runDump('docker-dump.sh', dumpArgs);
+        await dumper.end();
 
-        console.log('Dumping fixtures.');
+        // Data
+
+        this.emit('dumpData');
+
+        dumper = new Dumper(opts);
+        await dumper.init(dumpDataDir, 'data');
         await dumper.dumpFixtures(opts.fixtures, false, baseArgs);
+        await dumper.end();
 
-        console.log('Dumping privileges.');
+        // Privileges
+
         const privs = opts.privileges;
-        if (privs && Array.isArray(privs.tables)) {
-            let args = [
-                '--no-create-info',
-                '--skip-triggers',
-                '--insert-ignore',
-                '--complete-insert'
-            ].concat(baseArgs);
-            if (privs.where) args.push('--where', privs.where);
-            args = args.concat(['mysql'], privs.tables);
+        if (privs) {
+            this.emit('dumpPrivileges');
 
-            await dumper.use('mysql');
-            await dumper.runDump('mysqldump', args);
+            dumper = new Dumper(opts);
+            await dumper.init(dumpDataDir, 'privileges');
+
+            const {tables, userTable, where} = privs;
+
+            if (tables)
+                await dumper.dumpPrivileges(tables, baseArgs, where);
+
+            if (userTable) {
+                let userWhere = '';
+                for (const cond of [where, privs.userWhere]) {
+                    if (!cond) continue;
+                    if (userWhere) userWhere += ' AND ';
+                    userWhere += cond;
+                }
+                await dumper.dumpPrivileges([userTable], baseArgs, userWhere);
+            }
+
+            await dumper.end();
         }
 
         await dumper.end();
+
+        // Triggers
+
+        if (opts.triggers) {
+            this.emit('dumpTriggers');
+
+            const dumper = new Dumper(opts);
+            await dumper.init(dumpDataDir, 'triggers');
+
+            let dumpArgs = [
+                '--default-character-set=utf8',
+                '--no-create-info',
+                '--no-data',
+                '--no-create-db',
+                '--skip-opt',
+                '--comments'
+            ].concat(baseArgs);
+
+            dumpArgs.push('--databases');
+            dumpArgs = dumpArgs.concat(opts.schemas);
+            await dumper.runDump('mysqldump', dumpArgs);
+            await dumper.end();
+        }
     }
 }
 

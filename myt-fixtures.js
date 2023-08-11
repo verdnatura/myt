@@ -16,8 +16,8 @@ class Fixtures extends Command {
 
     async run(myt, opts) {
         const dumper = new Dumper(opts);
-        await dumper.init('fixtures.sql');
-        await dumper.dumpFixtures(opts.localFixtures, true);
+        await dumper.init(opts.dumpDir, '.fixtures');
+        await dumper.dumpFixtures(opts.localFixtures, false);
         await dumper.end();
     }
 }
@@ -26,4 +26,3 @@ module.exports = Fixtures;
 
 if (require.main === module)
     new Myt().run(Fixtures);
-

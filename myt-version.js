@@ -123,7 +123,7 @@ class Version extends Command {
         } catch (err) {
             await conn.query('ROLLBACK');
             if (newVersionDir && await fs.pathExists(newVersionDir))
-                await fs.remove(newVersionDir, {recursive: true});
+                await fs.remove(newVersionDir);
             throw err;
         }
     }

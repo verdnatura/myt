@@ -98,7 +98,7 @@ class Pull extends Command {
         const schemas = await fs.readdir(routinesDir);
         for (const schema of schemas) {
             if (opts.schemas.indexOf(schema) == -1)
-                await fs.remove(`${routinesDir}/${schema}`, {recursive: true});
+                await fs.remove(`${routinesDir}/${schema}`);
         }
 
         for (const schema in shaSums) {

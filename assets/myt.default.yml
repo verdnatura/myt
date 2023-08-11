@@ -2,7 +2,24 @@ versionSchema: myt
 versionDigits: 5
 maxOldVersions: 20
 mockDate: false
+mockFunctions:
+  - mockTime
+  - mockUtcTime
 sumViews: true
+privileges:
+  userTable: global_priv
+  userWhere: >-
+    JSON_VALUE(`Priv`, '$.is_role')
+    AND JSON_VALUE(`Priv`, '$.authentication_string') IS NULL
+    AND JSON_VALUE(`Priv`, '$.mysql_old_password') IS NULL
+    AND JSON_VALUE(`Priv`, '$.mysql_native_password') IS NULL
+  tables:
+    - db
+    - tables_priv
+    - columns_priv
+    - procs_priv
+  where: >-
+    `Host` = ''
 schemas:
   - myt
 fixtures:

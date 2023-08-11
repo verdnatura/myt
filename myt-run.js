@@ -36,9 +36,10 @@ class Run extends Command {
 
     async run(myt, opts) {
         const dumpDir = opts.dumpDir;
+        const dumpDataDir = path.join(dumpDir, '.dump');
         const serverDir = path.join(__dirname, 'server');
 
-        if (!await fs.pathExists(`${dumpDir}/.dump.sql`))
+        if (!await fs.pathExists(`${dumpDataDir}/structure.sql`))
             throw new Error('To run local database you have to create a dump first');
 
         // Build base image
@@ -118,40 +119,7 @@ class Run extends Command {
         }
 
         await server.wait();
-
-        // Apply changes
-
-        Object.assign(opts, {
-            commit: true,
-            trigger: true,
-            dbConfig
-        });
-        await myt.runCommand(Push, opts);
-
-        // Apply fixtures
-
-        console.log('Applying fixtures.');
-        await ct.exec(null,
-            'docker-import.sh',
-            ['/workspace/dump/fixtures'],
-            'spawn',
-            true
-        );
-
-        // Create triggers
-
-        console.log('Creating triggers.');
         const conn = await myt.createConnection();
-
-        for (const schema of opts.schemas) {
-            const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
-            if (!await fs.pathExists(triggersPath))
-                continue;
-
-            const triggersDir = await fs.readdir(triggersPath);
-            for (const triggerFile of triggersDir)
-                await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
-        }
 
         // Mock date functions
 
@@ -165,6 +133,51 @@ class Run extends Command {
             let sql = await fs.readFile(mockDateScript, 'utf8');
             sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
             await connExt.multiQuery(conn, sql);
+        }
+
+        // Apply changes
+
+        const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
+
+        Object.assign(opts, {
+            triggers: hasTriggers,
+            commit: true,
+            dbConfig
+        });
+        await myt.runCommand(Push, opts);
+
+        // Apply fixtures
+
+        console.log('Applying fixtures.');
+        const fixturesFiles = [
+            'fixtures.before',
+            '.fixtures',
+            'fixtures.after',
+            'fixtures.local'
+        ]
+        for (const file of fixturesFiles) {
+            if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
+            await ct.exec(null, 'docker-import.sh',
+                [`/workspace/dump/${file}`],
+                'spawn',
+                true
+            );
+        }
+
+        // Create triggers
+
+        if (!hasTriggers) {
+            console.log('Creating triggers.');
+
+            for (const schema of opts.schemas) {
+                const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
+                if (!await fs.pathExists(triggersPath))
+                    continue;
+
+                const triggersDir = await fs.readdir(triggersPath);
+                for (const triggerFile of triggersDir)
+                    await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+            }
         }
 
         return server;

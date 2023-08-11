@@ -311,7 +311,7 @@ class Push extends Command {
 
         for (const change of changes)
         try {
-            if (opts.trigger && change.type.name === 'TRIGGER')
+            if (opts.triggers && change.type.name === 'TRIGGER')
                 continue;
 
             const schema = change.schema;
@@ -325,7 +325,14 @@ class Push extends Command {
                 newSql = await fs.readFile(fullPath, 'utf8');
             const oldSql = await engine.fetchRoutine(type, schema, name);
             const oldSum = engine.getShaSum(type, schema, name);
-            const isEqual = newSql == oldSql;
+
+            const isMockFn = type == 'function'
+                && schema == opts.versionSchema
+                && opts.remote == 'local'
+                && opts.mockDate
+                && opts.mockFunctions
+                && opts.mockFunctions.indexOf(name) !== -1;
+            const ignore = newSql == oldSql || isMockFn;
 
             let statusMsg;
             if (exists && !oldSql)
@@ -336,7 +343,7 @@ class Push extends Command {
                 statusMsg = '[·]'.yellow;
 
             let actionMsg;
-            if (isEqual)
+            if (ignore)
                 actionMsg = '[I]'.blue;
             else
                 actionMsg = '[A]'.green;
@@ -348,7 +355,7 @@ class Push extends Command {
                 change.fullName
             );
 
-            if (!isEqual) {
+            if (!ignore) {
                 const scapedSchema = SqlString.escapeId(schema, true);
 
                 if (exists) {

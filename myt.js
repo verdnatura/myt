@@ -170,12 +170,29 @@ class Myt {
     async load(opts) {
         // Configuration file
 
-        const config = require(`${__dirname}/assets/myt.default.yml`);
+        const defaultConfig = require(`${__dirname}/assets/myt.default.yml`);
+        const config = Object.assign({}, defaultConfig);
         
         const configFile = 'myt.config.yml';
         const configPath = path.join(opts.workspace, configFile);
-        if (await fs.pathExists(configPath))
-            Object.assign(config, require(configPath));
+
+        if (await fs.pathExists(configPath)) {
+            const mergeKeys = new Set([
+                'privileges'
+            ]);
+
+            const wsConfig = require(configPath);
+            for (const key in wsConfig) {
+                if (!mergeKeys.has(key)) {
+                    config[key] = wsConfig[key];
+                } else {
+                    config[key] = Object.assign({},
+                        config[key],
+                        wsConfig[key]
+                    );
+                }
+            }
+        }
 
         Object.assign(opts, config);
         opts.configFile = configFile;
