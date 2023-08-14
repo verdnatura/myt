@@ -157,6 +157,7 @@ You can create your local fixture and structure files.
 * *dump/dump.after.sql*
 * *dump/fixtures.before.sql*
 * *dump/fixtures.after.sql*
+* *dump/fixtures.local.sql*
 
 ## Versioning commands
 

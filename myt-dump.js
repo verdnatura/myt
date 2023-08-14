@@ -100,8 +100,6 @@ class Dump extends Command {
             await dumper.end();
         }
 
-        await dumper.end();
-
         // Triggers
 
         if (opts.triggers) {
