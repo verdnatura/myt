@@ -151,6 +151,21 @@ class Push extends Command {
         function isUndoScript(script) {
             return /\.undo\.sql$/.test(script);
         }
+        function isOtherEnvScript(script, env) {
+            const splitScript = script.split('.');
+            const envPart = splitScript[splitScript.length - 2];
+        
+            if (splitScript.length <= 2) {
+                return false;
+            }
+
+            if (!env) {
+                return !!envPart; 
+            }
+        
+            return envPart && envPart !== env;
+        }
+        
 
         const skipFiles = new Set([
             'README.md',
@@ -208,6 +223,9 @@ class Push extends Command {
                         continue;
                     }
                     if (isUndoScript(script))
+                        continue;
+
+                    if (isOtherEnvScript(script, opts.env))
                         continue;
 
                     const [[row]] = await conn.query(
