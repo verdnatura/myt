@@ -22,3 +22,8 @@ CREATE TABLE `versionLog` (
 
 ALTER TABLE `versionLog`
     ADD PRIMARY KEY (`code`,`number`,`file`);
+
+CREATE TABLE `util`.`versionConfig` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `realm` VARCHAR(16) NULL DEFAULT NULL COMMENT 'Data set on which the project runs'
+) ENGINE=InnoDB;

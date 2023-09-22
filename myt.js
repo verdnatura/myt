@@ -172,7 +172,7 @@ class Myt {
 
         const defaultConfig = require(`${__dirname}/assets/myt.default.yml`);
         const config = Object.assign({}, defaultConfig);
-        
+
         const configFile = 'myt.config.yml';
         const configPath = path.join(opts.workspace, configFile);
 
@@ -205,7 +205,7 @@ class Myt {
         opts.dumpDir = path.join(opts.mytDir, 'dump');
 
         // Database configuration
-        
+
         let iniDir = path.join(__dirname, 'assets');
         let iniFile = 'db.ini';
 
@@ -214,10 +214,10 @@ class Myt {
             iniFile = `${opts.remote}.ini`;
         }
         const iniPath = path.join(iniDir, iniFile);
-        
+
         if (!await fs.pathExists(iniPath))
             throw new Error(`Database config file not found: ${iniPath}`);
-        
+
         let dbConfig;
         try {
             const iniData = ini.parse(await fs.readFile(iniPath, 'utf8')).client;
@@ -299,7 +299,7 @@ class Myt {
                         AND TABLE_NAME = 'version'`,
                 [opts.versionSchema]
             );
-    
+
             if (!res.tableExists) {
                 const structure = await fs.readFile(
                     `${__dirname}/assets/structure.sql`, 'utf8');
@@ -323,6 +323,14 @@ class Myt {
         return version;
     }
 
+
+    async fetchDbRealm() {
+        const [[realm]] = await this.conn.query(
+            `SELECT realm
+                FROM versionConfig`
+        );
+        return realm?.realm;
+    }
     parseVersionDir(versionDir) {
         const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
         if (!match) return null;

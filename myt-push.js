@@ -151,19 +151,19 @@ class Push extends Command {
         function isUndoScript(script) {
             return /\.undo\.sql$/.test(script);
         }
-        function isOtherEnvScript(script, env) {
+        function isOtherRealmScript(script, realm) {
             const splitScript = script.split('.');
-            const envPart = splitScript[splitScript.length - 2];
+            const realmPart = splitScript[splitScript.length - 2];
         
             if (splitScript.length <= 2) {
                 return false;
             }
 
-            if (!env) {
-                return !!envPart; 
+            if (!realm) {
+                return !!realmPart;
             }
-        
-            return envPart && envPart !== env;
+            
+            return realmPart && realmPart !== realm;
         }
         
 
@@ -207,6 +207,8 @@ class Push extends Command {
                     [opts.code, versionNumber]
                 );
 
+                const realm = await myt.fetchDbRealm();
+
                 for (const script of scripts)
                 if (!isUndoScript(script)
                 && versionLog.findIndex(x => x.file == script) === -1) {
@@ -218,14 +220,14 @@ class Push extends Command {
                 logVersion(`[${versionNumber}]`.cyan, versionName);
 
                 for (const script of scripts) {
-                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+(.undo)?\.sql$/.test(script)) {
+                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+(\..+)?\.sql$/.test(script)) {
                         logScript('[W]'.yellow, script, `Wrong file name.`);
                         continue;
                     }
                     if (isUndoScript(script))
                         continue;
 
-                    if (isOtherEnvScript(script, opts.env))
+                    if (isOtherRealmScript(script, realm))
                         continue;
 
                     const [[row]] = await conn.query(
