@@ -151,22 +151,7 @@ class Push extends Command {
         function isUndoScript(script) {
             return /\.undo\.sql$/.test(script);
         }
-        function isOtherRealmScript(script, realm) {
-            const splitScript = script.split('.');
-            const realmPart = splitScript[splitScript.length - 2];
-        
-            if (splitScript.length <= 2) {
-                return false;
-            }
-
-            if (!realm) {
-                return !!realmPart;
-            }
-            
-            return realmPart && realmPart !== realm;
-        }
-        
-
+       
         const skipFiles = new Set([
             'README.md',
             '.archive'
@@ -235,13 +220,12 @@ class Push extends Command {
                         continue;
 
                     if (match[1]) {
-                        if (skipRealm) {
+                        if (skipRealm) 
                             continue;
-                        }
-
-                        if (!realm) {
+                        
+                        if (!realm) 
                             continue;
-                        }
+                        
                     }
                     const [[row]] = await conn.query(
                         `SELECT errorNumber FROM versionLog
