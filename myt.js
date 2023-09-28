@@ -323,14 +323,6 @@ class Myt {
         return version;
     }
 
-
-    async fetchDbRealm() {
-        const [[realm]] = await this.conn.query(
-            `SELECT realm
-                FROM versionConfig`
-        );
-        return realm?.realm;
-    }
     parseVersionDir(versionDir) {
         const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
         if (!match) return null;

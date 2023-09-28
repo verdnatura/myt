@@ -174,6 +174,10 @@ class Push extends Command {
 
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
+            const [[realm]] = await this.conn.query(
+                `SELECT realm
+                    FROM versionConfig`
+            );
 
             for (const versionDir of versionDirs) {
                 if (skipFiles.has(versionDir)) continue;
@@ -207,8 +211,6 @@ class Push extends Command {
                     [opts.code, versionNumber]
                 );
 
-                const realm = await myt.fetchDbRealm();
-
                 for (const script of scripts)
                 if (!isUndoScript(script)
                 && versionLog.findIndex(x => x.file == script) === -1) {
@@ -220,16 +222,27 @@ class Push extends Command {
                 logVersion(`[${versionNumber}]`.cyan, versionName);
 
                 for (const script of scripts) {
-                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+(\..+)?\.sql$/.test(script)) {
+                    const match = script.match(/^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(?:\.undo)?\.sql$/);
+                    
+                    if (!match) {
                         logScript('[W]'.yellow, script, `Wrong file name.`);
                         continue;
                     }
+
+                    const skipRealm = match & match[1] && match[1] !== realm;
+
                     if (isUndoScript(script))
                         continue;
 
-                    if (isOtherRealmScript(script, realm))
-                        continue;
+                    if (match[1]) {
+                        if (skipRealm) {
+                            continue;
+                        }
 
+                        if (!realm) {
+                            continue;
+                        }
+                    }
                     const [[row]] = await conn.query(
                         `SELECT errorNumber FROM versionLog
                             WHERE code = ?
