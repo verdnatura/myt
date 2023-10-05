@@ -214,19 +214,11 @@ class Push extends Command {
                         continue;
                     }
 
-                    const skipRealm = match & match[1] && match[1] !== realm;
+                    const skipRealm = match[1] && match[1] !== realm;
 
-                    if (isUndoScript(script))
+                    if (isUndoScript(script) || skipRealm)
                         continue;
 
-                    if (match[1]) {
-                        if (skipRealm) 
-                            continue;
-                        
-                        if (!realm) 
-                            continue;
-                        
-                    }
                     const [[row]] = await conn.query(
                         `SELECT errorNumber FROM versionLog
                             WHERE code = ?
