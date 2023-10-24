@@ -64,7 +64,7 @@ Each command can have its own specific commandline options.
 
 ## Basic information
 
-First of all you have to initalize the workspace.
+First of all you have to initialize the workspace.
 
 ```text
 $ myt init
@@ -72,7 +72,7 @@ $ myt init
 
 Now you can configure Myt using *myt.config.yml* file, located at the root of
 your workspace. This file should include the project codename and schemas/tables
-wich are exported when you use *pull* or *dump* commands.
+which are exported when you use *pull* or *dump* commands.
 
 Don't forget to initialize git (if it isn't initialized yet).
 
@@ -143,6 +143,38 @@ Don't place your PL/SQL objects here, use the routines folder!
      `- 00-sameNumbers.sql
 ```
 
+### Environment-Specific Versioning with Realms
+
+#### Overview
+
+We have introduced a new feature that allows users to apply version-specific changes based on their configured environment, or "realm". This ensures that certain changes are only applied when the user is operating within a specific realm, providing an additional layer of customization and control.
+
+#### Configuration
+
+To make use of this feature, you need to configure your realm in the `versionConfig` table. Set your realm by inserting or updating a record in this table. The `realm` field should contain the identifier of your environment.
+
+#### File Naming Convention
+
+To designate a file as realm-specific, include a `.your_realm.` segment before the file extension. For example, if your realm is set to 'ab', the file should be named like this: `filename.ab.sql`.
+
+#### How It Works
+
+1. **Set your Realm**: Configure your realm in the `versionConfig` table.
+  
+2. **Add Files**: Place your realm-specific files in the `versions` folder. Make sure to follow the naming convention.
+
+3. **Version Order**: Files are applied in the existing version order. In addition to that, the realm is validated.
+
+4. **Apply Changes**: Run the usual versioning commands. The realm-specific files will only be applied if your configured realm matches the realm in the file name.
+
+#### Important Notes
+
+- If no realm is configured, realm-specific files will be ignored.
+  
+- If you have a realm configured but the realm-specific files belong to a different realm, those files will also be ignored.
+
+This feature allows for greater flexibility when working in different environments, making it easier to manage realm-specific changes in a shared repository.
+
 ### Local server
 
 The local server is created as a MariaDB Docker container using the base dump 
@@ -168,6 +200,7 @@ Initializes an empty workspace.
 ```text
 $ myt init
 ```
+
 
 ### pull
 
@@ -263,14 +296,14 @@ $ myt start
 
 ## Why
 
-The main reason for starting this project it's because there are no fully free 
+The main reason for starting this project is because there are no fully free 
 and open source migration tools available that allow versioning database 
-routines with an standard CVS system as if they were normal application code.
+routines with a standard CVS system as if they were normal application code.
 
 Also, the existing tools are too complex and require too much knowledge to 
-start a small project.
+initiate a small project.
 
-## ToDo
+## To-Do
 
 * Undo changes when there is an error applying a version using "undo" files.
 * Console logging via events.
@@ -280,6 +313,6 @@ start a small project.
 ## Built With
 
 * [Git](https://git-scm.com/)
-* [nodejs](https://nodejs.org/)
+* [Node.js](https://nodejs.org/)
 * [NodeGit](https://www.nodegit.org/)
-* [docker](https://www.docker.com/)
+* [Docker](https://www.docker.com/)
