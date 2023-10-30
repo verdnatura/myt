@@ -151,7 +151,7 @@ class Push extends Command {
         function isUndoScript(script) {
             return /\.undo\.sql$/.test(script);
         }
-
+       
         const skipFiles = new Set([
             'README.md',
             '.archive'
@@ -159,6 +159,10 @@ class Push extends Command {
 
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
+            const [[realm]] = await this.conn.query(
+                `SELECT realm
+                    FROM versionConfig`
+            );
 
             for (const versionDir of versionDirs) {
                 if (skipFiles.has(versionDir)) continue;
@@ -203,11 +207,16 @@ class Push extends Command {
                 logVersion(`[${versionNumber}]`.cyan, versionName);
 
                 for (const script of scripts) {
-                    if (!/^[0-9]{2}-[a-zA-Z0-9_]+(.undo)?\.sql$/.test(script)) {
+                    const match = script.match(/^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(?:\.undo)?\.sql$/);
+                    
+                    if (!match) {
                         logScript('[W]'.yellow, script, `Wrong file name.`);
                         continue;
                     }
-                    if (isUndoScript(script))
+
+                    const skipRealm = match[1] && match[1] !== realm;
+
+                    if (isUndoScript(script) || skipRealm)
                         continue;
 
                     const [[row]] = await conn.query(
