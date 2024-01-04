@@ -32,6 +32,13 @@ class Pull extends Command {
         ]
     };
 
+    static reporter = {
+        creatingBranch: function(branchName) {
+            console.log(`Creating branch '${branchName}' from database commit.`);
+        },
+        routineChanges: 'Incorporating routine changes.'
+    };
+
     async run(myt, opts) {
         const conn = await myt.dbConnect();
         const repo = await myt.openRepo();
@@ -73,7 +80,7 @@ class Pull extends Command {
             if (version && version.gitCommit) {
                 const now = parseInt(new Date().toJSON());
                 const branchName = `myt-pull_${now}`;
-                console.log(`Creating branch '${branchName}' from database commit.`);
+                this.emit('creatingBranch', branchName);
                 const commit = await repo.getCommit(version.gitCommit);
                 const branch = await nodegit.Branch.create(repo,
                     `myt-pull_${now}`, commit, () => {});
@@ -83,7 +90,7 @@ class Pull extends Command {
 
         // Export routines to SQL files
 
-        console.log(`Incorporating routine changes.`);
+        this.emit('routineChanges', branchName);
 
         const engine = new ExporterEngine(conn, opts);
         await engine.init();
@@ -180,4 +187,4 @@ class Pull extends Command {
 module.exports = Pull;
 
 if (require.main === module)
-    new Myt().run(Pull);
+    new Myt().cli(Pull);

@@ -38,7 +38,9 @@ class Myt {
         ]
     };
 
-    async run(Command) {
+    async cli(Command) {
+        this.cliMode = true;
+
         console.log(
             'Myt'.green,
             `v${packageJson.version}`.magenta
@@ -142,9 +144,9 @@ class Myt {
             parameter('Workspace:', opts.workspace);
             parameter('Remote:', opts.remote || 'local');
 
-            await this.load(opts);
-            await this.runCommand(Command, opts);
-            await this.unload();
+            await this.init(opts);
+            await this.run(Command, opts);
+            await this.deinit();
         } catch (err) {
             if (err.name == 'Error' && !opts.debug) {
                 console.error('Error:'.gray, err.message.red);
@@ -162,12 +164,15 @@ class Myt {
         process.exit();
     }
 
-    async runCommand(Command, opts) {
+    async run(Command, opts) {
         const command = new Command(this, opts);
-        return await command.run(this, opts);
+        if (this.cliMode)
+            return await command.cli(this, opts);
+        else
+            return await command.run(this, opts);
     }
 
-    async load(opts) {
+    async init(opts) {
         // Configuration file
 
         const defaultConfig = require(`${__dirname}/assets/myt.default.yml`);
@@ -263,7 +268,7 @@ class Myt {
         this.opts = opts;
     }
 
-    async unload() {
+    async deinit() {
         if (this.conn)
             await this.conn.end();
     }
@@ -375,4 +380,4 @@ class Myt {
 module.exports = Myt;
 
 if (require.main === module)
-    new Myt().run();
+    new Myt().cli();

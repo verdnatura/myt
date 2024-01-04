@@ -33,4 +33,4 @@ class Init extends Command {
 module.exports = Init;
 
 if (require.main === module)
-    new Myt().run(Init);
+    new Myt().cli(Init);

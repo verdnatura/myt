@@ -25,4 +25,4 @@ class Fixtures extends Command {
 module.exports = Fixtures;
 
 if (require.main === module)
-    new Myt().run(Fixtures);
+    new Myt().cli(Fixtures);

@@ -37,6 +37,88 @@ class Push extends Command {
         ]
     };
 
+    static reporter = {
+        applyingVersions: 'Applying versions.',
+        applyingRoutines: 'Applying changed routines.',
+        dbInfo: function(version) {
+            console.log(
+                `Database information:`
+                + `\n -> Version: ${version.number}`
+                + `\n -> Commit: ${version.gitCommit}`
+            );
+        },
+        version(data, action) {
+            let {version} = data;
+            let name = data.dir;
+            let num, color;
+            switch(action) {
+                case 'apply':
+                    num = version.number;
+                    name = version.name;
+                    color = 'cyan';
+                    break;
+                case 'badVersion':
+                    num = '?????';
+                    color = 'yellow';
+                    break;
+                case 'wrongDirectory':
+                    num = '*****';
+                    color = 'gray';
+                    break;
+            }
+            console.log('', `[${num[color].bold}]`, name);
+        },
+        logScript(script, action, error) {
+            let actionMsg;
+            switch(action) {
+                case 'apply':
+                    actionMsg = '[+]'.green;
+                    break;
+                case 'ignore':
+                    actionMsg = '[I]'.blue;
+                    break;
+                default:
+                    actionMsg = '[W]'.yellow;
+                    break;
+            }
+            console.log(' ', actionMsg.bold, script);
+        },
+        change(status, ignore, change) {
+            let statusMsg;
+            switch(status) {
+                case 'added':
+                    statusMsg = '[+]'.green;
+                    break;
+                case 'deleted':
+                    statusMsg = '[-]'.red;
+                    break;
+                case 'modified':
+                    statusMsg = '[·]'.yellow;
+                    break;
+            }
+
+            let actionMsg;
+            if (ignore)
+                actionMsg = '[I]'.blue;
+            else
+                actionMsg = '[A]'.green;
+
+            const typeMsg = `[${change.type.abbr}]`[change.type.color];
+            console.log('',
+                (statusMsg + actionMsg).bold,
+                typeMsg.bold,
+                change.fullName
+            );
+        },
+        routinesApplied: function(nRoutines) {
+            if (nRoutines > 0) {
+                console.log(` -> ${nRoutines} routines have changed.`);
+            } else {
+                console.log(` -> No routines changed.`);
+            }
+        }
+    };
+
     async run(myt, opts) {
         const conn = await myt.dbConnect();
         this.conn = conn;
@@ -85,24 +167,7 @@ class Push extends Command {
         await releaseLock();
     }
 
-    async push(myt, opts, conn) {
-        const pushConn = await myt.createConnection();
-
-        // Get database version
-
-        const version = await myt.fetchDbVersion() || {};
-
-        console.log(
-            `Database information:`
-            + `\n -> Version: ${version.number}`
-            + `\n -> Commit: ${version.gitCommit}`
-        );
-
-        if (!version.number)
-            version.number = String('0').padStart(opts.versionDigits, '0');
-        if (!/^[0-9]*$/.test(version.number))
-            throw new Error('Wrong database version');
-
+    async cli(myt, opts) {
         // Prevent push to production by mistake
 
         if (opts.remote == 'production') {
@@ -134,20 +199,30 @@ class Push extends Command {
             }
         }
 
+        await super.cli(myt, opts);
+    }
+
+    async push(myt, opts, conn) {
+        const pushConn = await myt.createConnection();
+
+        // Get database version
+
+        const version = await myt.fetchDbVersion() || {};
+        this.emit('dbInfo', version);
+
+        if (!version.number)
+            version.number = String('0').padStart(opts.versionDigits, '0');
+        if (!/^[0-9]*$/.test(version.number))
+            throw new Error('Wrong database version');
+
         // Apply versions
 
-        console.log('Applying versions.');
+        this.emit('applyingVersions');
 
         let nChanges = 0;
         let silent = true;
         const versionsDir = opts.versionsDir;
 
-        function logVersion(version, name, error) {
-            console.log('', version.bold, name);
-        }
-        function logScript(type, message, error) {
-            console.log(' ', type.bold, message);
-        }
         function isUndoScript(script) {
             return /\.undo\.sql$/.test(script);
         }
@@ -159,29 +234,28 @@ class Push extends Command {
 
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
-            const [[realm]] = await this.conn.query(
-                `SELECT realm
-                    FROM versionConfig`
+            const [[row]] = await this.conn.query(
+                `SELECT realm FROM versionConfig`
             );
+            const realm = row?.realm;
 
             for (const versionDir of versionDirs) {
                 if (skipFiles.has(versionDir)) continue;
 
                 const dirVersion = myt.parseVersionDir(versionDir);
+                const versionData = {
+                    version: dirVersion,
+                    current: version
+                };
+
                 if (!dirVersion) {
-                    logVersion('[?????]'.yellow, versionDir,
-                        `Wrong directory name.`
-                    );
+                    this.emit('version', versionData, 'wrongDirectory');
                     continue;
                 }
 
                 const versionNumber = dirVersion.number;
-                const versionName = dirVersion.name;
-
                 if (versionNumber.length != version.number.length) {
-                    logVersion('[*****]'.gray, versionDir,
-                        `Bad version length, should have ${version.number.length} characters.`
-                    );
+                    this.emit('version', versionData, 'badVersion');
                     continue;
                 }
 
@@ -204,18 +278,17 @@ class Push extends Command {
                 }
 
                 if (silent) continue;
-                logVersion(`[${versionNumber}]`.cyan, versionName);
+                this.emit('version', versionData, 'apply');
 
                 for (const script of scripts) {
                     const match = script.match(/^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(?:\.undo)?\.sql$/);
                     
                     if (!match) {
-                        logScript('[W]'.yellow, script, `Wrong file name.`);
+                        this.emit('logScript', script, 'warn', 'wrongFile');
                         continue;
                     }
 
                     const skipRealm = match[1] && match[1] !== realm;
-
                     if (isUndoScript(script) || skipRealm)
                         continue;
 
@@ -231,9 +304,7 @@ class Push extends Command {
                         ]
                     );
                     const apply = !row || row.errorNumber;
-                    const actionMsg = apply ? '[+]'.green : '[I]'.blue;
-                    
-                    logScript(actionMsg, script);
+                    this.emit('logScript', script, apply ? 'apply' : 'ignore');
                     if (!apply) continue;
 
                     let err;
@@ -277,9 +348,7 @@ class Push extends Command {
 
         // Apply routines
 
-        console.log('Applying changed routines.');
-    
-        const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
+        this.emit('applyingRoutines');
 
         let nRoutines = 0;
         const changes = await this.changedRoutines(version.gitCommit);
@@ -343,26 +412,15 @@ class Push extends Command {
                 && opts.mockFunctions.indexOf(name) !== -1;
             const ignore = newSql == oldSql || isMockFn;
 
-            let statusMsg;
+            let status;
             if (exists && !oldSql)
-                statusMsg = '[+]'.green;
+                status = 'added';
             else if (!exists)
-                statusMsg = '[-]'.red;
+                status = 'deleted';
             else
-                statusMsg = '[·]'.yellow;
+                status = 'modified';
 
-            let actionMsg;
-            if (ignore)
-                actionMsg = '[I]'.blue;
-            else
-                actionMsg = '[A]'.green;
-
-            const typeMsg = `[${change.type.abbr}]`[change.type.color];
-            console.log('',
-                (statusMsg + actionMsg).bold,
-                typeMsg.bold,
-                change.fullName
-            );
+            this.emit('change', status, ignore, change);
 
             if (!ignore) {
                 const scapedSchema = SqlString.escapeId(schema, true);
@@ -410,10 +468,9 @@ class Push extends Command {
 
         await finalize();
 
-        if (nRoutines > 0) {
-            console.log(` -> ${nRoutines} routines have changed.`);
-        } else
-            console.log(` -> No routines changed.`);
+        this.emit('routinesApplied', nRoutines);
+
+        const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         if (gitExists && opts.commit) {
             const repo = await nodegit.Repository.open(this.opts.workspace);
@@ -581,4 +638,4 @@ class Routine {
 module.exports = Push;
 
 if (require.main === module)
-    new Myt().run(Push);
+    new Myt().cli(Push);

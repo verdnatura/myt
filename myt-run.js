@@ -10,9 +10,8 @@ const SqlString = require('sqlstring');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the
- * image when fixtures have been modified or when the day on which the
- * image was built is different to today. Some workarounds have been used
- * to avoid a bug with OverlayFS driver on MacOS.
+ * image when dump have been modified. Some workarounds have been used to avoid
+ * a bug with OverlayFS driver on MacOS.
  */
 class Run extends Command {
     static usage = {
@@ -34,6 +33,15 @@ class Run extends Command {
         ]
     };
 
+    static reporter = {
+        buildingImage: 'Building container image.',
+        runningContainer: 'Running container.',
+        waitingDb: 'Waiting for MySQL init process.',
+        mockingDate: 'Mocking date functions.',
+        applyingFixtures: 'Applying fixtures.',
+        creatingTriggers: 'Creating triggers.'
+    };
+
     async run(myt, opts) {
         const dumpDir = opts.dumpDir;
         const dumpDataDir = path.join(dumpDir, '.dump');
@@ -43,6 +51,8 @@ class Run extends Command {
             throw new Error('To run local database you have to create a dump first');
 
         // Build base image
+
+        this.emit('buildingImage');
 
         let basePath = dumpDir;
         let baseDockerfile = path.join(dumpDir, 'Dockerfile');
@@ -73,6 +83,8 @@ class Run extends Command {
         }, opts.debug);
 
         // Run container
+
+        this.emit('runningContainer');
 
         const isRandom = opts.random;
         const dbConfig = Object.assign({}, opts.dbConfig);
@@ -118,12 +130,13 @@ class Run extends Command {
             }
         }
 
+        this.emit('waitingDb');
         await server.wait();
         const conn = await myt.createConnection();
 
         // Mock date functions
 
-        console.log('Mocking date functions.');
+        this.emit('mockingDate');
         const mockDateScript = path.join(dumpDir, 'mockDate.sql');
 
         if (opts.mockDate) {
@@ -144,11 +157,11 @@ class Run extends Command {
             commit: true,
             dbConfig
         });
-        await myt.runCommand(Push, opts);
+        await myt.run(Push, opts);
 
         // Apply fixtures
 
-        console.log('Applying fixtures.');
+        this.emit('applyingFixtures');
         const fixturesFiles = [
             'fixtures.before',
             '.fixtures',
@@ -167,7 +180,7 @@ class Run extends Command {
         // Create triggers
 
         if (!hasTriggers) {
-            console.log('Creating triggers.');
+            this.emit('creatingTriggers');
 
             for (const schema of opts.schemas) {
                 const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
@@ -187,4 +200,4 @@ class Run extends Command {
 module.exports = Run;
 
 if (require.main === module)
-    new Myt().run(Run);
+    new Myt().cli(Run);

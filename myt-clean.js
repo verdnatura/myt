@@ -17,6 +17,13 @@ class Clean extends Command {
         }
     };
 
+    static reporter = {
+        versionsDeleted: function(nVersions) {
+            console.log(`Old versions deleted: ${nVersions}`);
+        },
+        noVersionsDeleted: 'No versions to delete.'
+    };
+
     async run(myt, opts) {
         await myt.dbConnect();
         const version = await myt.fetchDbVersion() || {};
@@ -46,13 +53,13 @@ class Clean extends Command {
                     path.join(archiveDir, oldVersion)
                 );
 
-            console.log(`Old versions deleted: ${oldVersions.length}`);
+            this.emit('versionsDeleted', oldVersions.length);
         } else
-            console.log(`No versions to delete.`);
+            this.emit('noVersionsDeleted');
     }
 }
 
 module.exports = Clean;
 
 if (require.main === module)
-    new Myt().run(Clean);
+    new Myt().cli(Clean);
