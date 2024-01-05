@@ -87,7 +87,7 @@ class Run extends Command {
         this.emit('runningContainer');
 
         const isRandom = opts.random;
-        const dbConfig = Object.assign({}, opts.dbConfig);
+        const dbConfig = opts.dbConfig;
 
         let runOptions;
 
@@ -193,6 +193,7 @@ class Run extends Command {
             }
         }
 
+        await conn.end();
         return server;
     }
 }

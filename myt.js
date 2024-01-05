@@ -165,6 +165,7 @@ class Myt {
     }
 
     async run(Command, opts) {
+        if (!opts) opts = this.opts;
         const command = new Command(this, opts);
         if (this.cliMode)
             return await command.cli(this, opts);
