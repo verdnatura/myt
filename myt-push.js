@@ -90,17 +90,17 @@ class Push extends Command {
 
         // Get database version
 
-        const version = await myt.fetchDbVersion() || {};
+        const dbVersion = await myt.fetchDbVersion() || {};
 
         console.log(
             `Database information:`
-            + `\n -> Version: ${version.number}`
-            + `\n -> Commit: ${version.gitCommit}`
+            + `\n -> Version: ${dbVersion.number}`
+            + `\n -> Commit: ${dbVersion.gitCommit}`
         );
 
-        if (!version.number)
-            version.number = String('0').padStart(opts.versionDigits, '0');
-        if (!/^[0-9]*$/.test(version.number))
+        if (!dbVersion.number)
+            dbVersion.number = String('0').padStart(opts.versionDigits, '0');
+        if (!/^[0-9]*$/.test(dbVersion.number))
             throw new Error('Wrong database version');
 
         // Prevent push to production by mistake
@@ -142,16 +142,25 @@ class Push extends Command {
         let silent = true;
         const versionsDir = opts.versionsDir;
 
-        function logVersion(version, name, error) {
-            console.log('', version.bold, name);
+        function logVersion(version, name, action, error) {
+            let actionMsg;
+            switch(action) {
+                case 'apply':
+                    actionMsg = '[A]'.green;
+                    break;
+                case 'ignore':
+                    actionMsg = '[I]'.blue;
+                    break;
+                default:
+                    actionMsg = '[W]'.yellow;
+            }
+
+            console.log('', (actionMsg + version).bold, name);
         }
         function logScript(type, message, error) {
             console.log(' ', type.bold, message);
         }
-        function isUndoScript(script) {
-            return /\.undo\.sql$/.test(script);
-        }
-       
+
         const skipFiles = new Set([
             'README.md',
             '.archive'
@@ -159,87 +168,49 @@ class Push extends Command {
 
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
-            const [[realm]] = await this.conn.query(
-                `SELECT realm
-                    FROM versionConfig`
-            );
-
             for (const versionDir of versionDirs) {
                 if (skipFiles.has(versionDir)) continue;
+                const version = await myt.loadVersion(versionDir);
 
-                const dirVersion = myt.parseVersionDir(versionDir);
-                if (!dirVersion) {
-                    logVersion('[?????]'.yellow, versionDir,
+                if (!version) {
+                    logVersion('[?????]'.yellow, versionDir, 'warn',
                         `Wrong directory name.`
                     );
                     continue;
                 }
-
-                const versionNumber = dirVersion.number;
-                const versionName = dirVersion.name;
-
-                if (versionNumber.length != version.number.length) {
-                    logVersion('[*****]'.gray, versionDir,
-                        `Bad version length, should have ${version.number.length} characters.`
+                if (version.number.length != dbVersion.number.length) {
+                    logVersion('[*****]'.gray, versionDir, 'warn'
+                        `Bad version length, should have ${dbVersion.number.length} characters.`
                     );
                     continue;
                 }
 
-                const scriptsDir = `${versionsDir}/${versionDir}`;
-                const scripts = await fs.readdir(scriptsDir);
-
-                const [versionLog] = await conn.query(
-                    `SELECT file FROM versionLog
-                        WHERE code = ?
-                            AND number = ?
-                            AND errorNumber IS NULL`,
-                    [opts.code, versionNumber]
-                );
-
-                for (const script of scripts)
-                if (!isUndoScript(script)
-                && versionLog.findIndex(x => x.file == script) === -1) {
-                    silent = false;
-                    break;
-                }
-
+                const {apply} = version;
+                if (apply) silent = false;
                 if (silent) continue;
-                logVersion(`[${versionNumber}]`.cyan, versionName);
 
-                for (const script of scripts) {
-                    const match = script.match(/^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(?:\.undo)?\.sql$/);
+                const action = apply ? 'apply' : 'ignore';
+                logVersion(`[${version.number}]`.cyan, version.name, action);
+
+                if (!apply) continue;
+
+                for (const script of version.scripts) {
+                    const scriptFile = script.file;
                     
-                    if (!match) {
-                        logScript('[W]'.yellow, script, `Wrong file name.`);
+                    if (!script.matchRegex) {
+                        logScript('[W]'.yellow, scriptFile, `Wrong file name.`);
                         continue;
                     }
 
-                    const skipRealm = match[1] && match[1] !== realm;
-
-                    if (isUndoScript(script) || skipRealm)
-                        continue;
-
-                    const [[row]] = await conn.query(
-                        `SELECT errorNumber FROM versionLog
-                            WHERE code = ?
-                                AND number = ?
-                                AND file = ?`,
-                        [
-                            opts.code,
-                            versionNumber,
-                            script
-                        ]
-                    );
-                    const apply = !row || row.errorNumber;
-                    const actionMsg = apply ? '[+]'.green : '[I]'.blue;
-                    
-                    logScript(actionMsg, script);
-                    if (!apply) continue;
+                    const actionMsg = script.apply ? '[+]'.green : '[I]'.blue;
+                    logScript(actionMsg, scriptFile);
+    
+                    if (!script.apply) continue;
 
                     let err;
                     try {
                         await connExt.queryFromFile(pushConn,
-                            `${scriptsDir}/${script}`);
+                            `${versionsDir}/${versionDir}/${scriptFile}`);
                     } catch (e) {
                         err = e;
                     }
@@ -260,8 +231,8 @@ class Push extends Command {
                                 errorMessage = VALUES(errorMessage)`,
                         [
                             opts.code,
-                            versionNumber,
-                            script,
+                            version.number,
+                            scriptFile,
                             err && err.errno,
                             err && err.message
                         ]
@@ -271,7 +242,7 @@ class Push extends Command {
                     nChanges++;
                 }
 
-                await this.updateVersion('number', versionNumber);
+                await this.updateVersion('number', version.number);
             }
         }
 
@@ -282,7 +253,7 @@ class Push extends Command {
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
 
         let nRoutines = 0;
-        const changes = await this.changedRoutines(version.gitCommit);
+        const changes = await this.changedRoutines(dbVersion.gitCommit);
 
         const routines = [];
         for (const change of changes)
@@ -359,7 +330,7 @@ class Push extends Command {
 
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
             console.log('',
-                (statusMsg + actionMsg).bold,
+                (actionMsg + statusMsg).bold,
                 typeMsg.bold,
                 change.fullName
             );
@@ -419,7 +390,7 @@ class Push extends Command {
             const repo = await nodegit.Repository.open(this.opts.workspace);
             const head = await repo.getHeadCommit();
 
-            if (head && version.gitCommit !== head.sha())
+            if (head && dbVersion.gitCommit !== head.sha())
                 await this.updateVersion('gitCommit', head.sha());
         }
 

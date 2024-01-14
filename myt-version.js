@@ -74,9 +74,9 @@ class Version extends Command {
             const versionNames = new Set();
             const versionDirs = await fs.readdir(opts.versionsDir);
             for (const versionDir of versionDirs) {
-                const dirVersion = myt.parseVersionDir(versionDir);
-                if (!dirVersion) continue;
-                versionNames.add(dirVersion.name);
+                const version = myt.parseVersionDir(versionDir);
+                if (!version) continue;
+                versionNames.add(version.name);
             }
 
             if (!versionName) {

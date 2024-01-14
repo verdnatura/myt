@@ -19,16 +19,19 @@ class Clean extends Command {
 
     async run(myt, opts) {
         await myt.dbConnect();
-        const version = await myt.fetchDbVersion() || {};
-        const number = version.number;
+        const dbVersion = await myt.fetchDbVersion() || {};
+        const number = parseInt(dbVersion.number);
 
         const oldVersions = [];
         const versionDirs = await fs.readdir(opts.versionsDir);
         for (const versionDir of versionDirs) {
-            const dirVersion = myt.parseVersionDir(versionDir);
-            if (!dirVersion) continue;
+            const version = await myt.loadVersion(versionDir);
+            const shouldArchive = version
+                && version.matchRegex
+                && !version.apply
+                && parseInt(version.number) < number;
 
-            if (parseInt(dirVersion.number) < parseInt(number))
+            if (shouldArchive)
                 oldVersions.push(versionDir);
         }
 
@@ -46,9 +49,9 @@ class Clean extends Command {
                     path.join(archiveDir, oldVersion)
                 );
 
-            console.log(`Old versions deleted: ${oldVersions.length}`);
+            console.log(`Old versions archived: ${oldVersions.length}`);
         } else
-            console.log(`No versions to delete.`);
+            console.log(`No versions to archive.`);
     }
 }
 

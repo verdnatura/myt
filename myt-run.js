@@ -140,7 +140,7 @@ class Run extends Command {
         const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
 
         Object.assign(opts, {
-            triggers: hasTriggers,
+            triggers: !hasTriggers,
             commit: true,
             dbConfig
         });
