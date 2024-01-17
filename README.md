@@ -250,7 +250,7 @@ $ myt create [-t <type>] <schema>.<name>
 Cleans all already applied versions older than  *maxOldVersions*.
 
 ```text
-$ myt clean
+$ myt clean [-p|--purge]
 ```
 
 ## Local server commands
@@ -276,8 +276,7 @@ $ myt fixtures [<remote>]
 ### run
 
 Builds and starts local database server container. It only rebuilds the image 
-when fixtures have been modified or when the day on which the image was built 
-is different to today.
+dump has been modified.
 
 ```text
 $ myt run [-c|--ci] [-r|--random]
