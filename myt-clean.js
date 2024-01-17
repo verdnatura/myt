@@ -52,11 +52,24 @@ class Clean extends Command {
             if (!await fs.pathExists(archiveDir))
                 await fs.mkdir(archiveDir);
 
-            for (const oldVersion of oldVersions)
-                await fs.move(
-                    path.join(opts.versionsDir, oldVersion),
-                    path.join(archiveDir, oldVersion)
-                );
+            for (const oldVersion of oldVersions) {
+                const srcDir = path.join(opts.versionsDir, oldVersion);
+                const dstDir = path.join(archiveDir, oldVersion);
+
+                if (!await fs.pathExists(dstDir))
+                    await fs.mkdir(dstDir);
+
+                const scripts = await fs.readdir(srcDir);
+                for (const script of scripts) {
+                    await fs.move(
+                        path.join(srcDir, script),
+                        path.join(dstDir, script),
+                        {overwrite: true}
+                    );
+                }
+
+                await fs.rmdir(srcDir);
+            }
 
             console.log(`Old versions archived: ${oldVersions.length}`);
         } else
