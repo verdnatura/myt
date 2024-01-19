@@ -28,7 +28,7 @@ class Dump extends Command {
         ]
     };
 
-    static messages = {
+    static reporter = {
         dumpStructure: 'Dumping structure.',
         dumpData: 'Dumping data.',
         dumpPrivileges: 'Dumping privileges.',
@@ -128,5 +128,4 @@ class Dump extends Command {
 module.exports = Dump;
 
 if (require.main === module)
-    new Myt().run(Dump);
-
+    new Myt().cli(Dump);

@@ -275,8 +275,8 @@ $ myt fixtures [<remote>]
 
 ### run
 
-Builds and starts local database server container. It only rebuilds the image 
-dump has been modified.
+Builds and starts local database server container. It only rebuilds the image
+when dump have been modified.
 
 ```text
 $ myt run [-c|--ci] [-r|--random]

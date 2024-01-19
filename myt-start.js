@@ -15,6 +15,10 @@ class Start extends Command {
         description: 'Start local database server container'
     };
 
+    static reporter = {
+        startingContainer: 'Starting container.'
+    };
+
     async run(myt, opts) {
         const ct = new Container(opts.code);
         let status;
@@ -27,7 +31,7 @@ class Start extends Command {
             });
             exists = true;
         } catch (err) {
-            server = await myt.runCommand(Run, opts);
+            server = await myt.run(Run, opts);
         }
 
         if (exists) {
@@ -35,6 +39,7 @@ class Start extends Command {
             case 'running':
                 break;
             case 'exited':
+                this.emit('startingContainer');
                 await ct.start();
                 server = new Server(ct, opts.dbConfig);
                 await server.wait();
@@ -51,4 +56,4 @@ class Start extends Command {
 module.exports = Start;
 
 if (require.main === module)
-    new Myt().run(Start);
+    new Myt().cli(Start);

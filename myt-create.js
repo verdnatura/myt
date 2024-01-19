@@ -27,6 +27,11 @@ class Create extends Command {
         }
     };
 
+    async cli(myt, opts) {
+        await super.cli(myt, opts);
+        console.log('Routine created.');
+    }
+
     async run(myt, opts) {
         const match = opts.name.match(/^(\w+)\.(\w+)$/);
         if (!match)
@@ -63,12 +68,10 @@ class Create extends Command {
 
         const routineFile = `${routineDir}/${name}.sql`;
         await fs.writeFile(routineFile, sql);
-
-        console.log('Routine created.');
     }
 }
 
 module.exports = Create;
 
 if (require.main === module)
-    new Myt().run(Create);
+    new Myt().cli(Create);

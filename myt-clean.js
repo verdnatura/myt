@@ -26,6 +26,21 @@ class Clean extends Command {
         }
     };
 
+    static reporter = {
+        versionsArchived: function(nVersions) {
+            if (nVersions)
+                console.log(` -> ${oldVersions.length} versions archived.`);
+            else
+                console.log(` -> No versions archived.`);
+        },
+        versionLogPurged: function(nPurged) {
+            if (nPurged)
+                console.log(` -> ${nPurged} changes purged from log.`);
+            else
+                console.log(` -> No logs purged.`);
+        }
+    };
+
     async run(myt, opts) {
         const conn = await myt.dbConnect();
         const archiveDir = path.join(opts.versionsDir, '.archive');
@@ -71,9 +86,9 @@ class Clean extends Command {
                 await fs.rmdir(srcDir);
             }
 
-            console.log(` -> ${oldVersions.length} versions archived.`);
+            this.emit('versionsArchived', oldVersions.length);
         } else
-            console.log(` -> No versions archived.`);
+            this.emit('versionsArchived');
 
         if (opts.purge) {
             const versionDb = new VersionDb(myt, opts.versionsDir);
@@ -103,11 +118,8 @@ class Clean extends Command {
                     nPurged++;
                 }
             }
-        
-            if (nPurged)
-                console.log(` -> ${nPurged} versions purged from log.`);
-            else
-                console.log(` -> No versions purged from log.`);
+
+            this.emit('versionLogPurged', nPurged);
         }
     }
 }
@@ -146,4 +158,4 @@ class VersionDb {
 module.exports = Clean;
 
 if (require.main === module)
-    new Myt().run(Clean);
+    new Myt().cli(Clean);

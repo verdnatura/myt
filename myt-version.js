@@ -26,6 +26,19 @@ class Version extends Command {
         }
     };
 
+    static reporter = {
+        dbInfo: function(number, lastNumber) {
+            console.log(
+                `Database information:`
+                + `\n -> Version: ${number}`
+                + `\n -> Last version: ${lastNumber}`
+            );
+        },
+        versionCreated: function(versionName) {
+            console.log(`New version created: ${versionName}`);
+        }
+    };
+
     async run(myt, opts) {
         let newVersionDir;
 
@@ -45,12 +58,7 @@ class Version extends Command {
             );
             const number = row && row.number;
             const lastNumber = row && row.lastNumber;
-
-            console.log(
-                `Database information:`
-                + `\n -> Version: ${number}`
-                + `\n -> Last version: ${lastNumber}`
-            );
+            this.emit('dbInfo', number, lastNumber);
 
             let newVersion;
             if (lastNumber)
@@ -117,7 +125,7 @@ class Version extends Command {
                 `${newVersionDir}/00-firstScript.sql`,
                 '-- Place your SQL code here\n'
             );
-            console.log(`New version created: ${versionFolder}`);
+            this.emit('versionCreated', versionFolder);
 
             await conn.query('COMMIT');
         } catch (err) {
@@ -215,4 +223,4 @@ const plants = [
 module.exports = Version;
 
 if (require.main === module)
-    new Myt().run(Version);
+    new Myt().cli(Version);
