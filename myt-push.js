@@ -138,6 +138,7 @@ class Push extends Command {
 
         console.log('Applying versions.');
 
+        let nVersions = 0;
         let nChanges = 0;
         let silent = true;
         const versionsDir = opts.versionsDir;
@@ -191,7 +192,6 @@ class Push extends Command {
 
                 const action = apply ? 'apply' : 'ignore';
                 logVersion(`[${version.number}]`.cyan, version.name, action);
-
                 if (!apply) continue;
 
                 for (const script of version.scripts) {
@@ -243,8 +243,14 @@ class Push extends Command {
                 }
 
                 await this.updateVersion('number', version.number);
+                nVersions++;
             }
         }
+
+        if (nVersions) {
+            console.log(` -> ${nVersions} versions with ${nChanges} changes applied.`);
+        } else
+            console.log(` -> No versions applied.`);
 
         // Apply routines
 
@@ -381,8 +387,8 @@ class Push extends Command {
 
         await finalize();
 
-        if (nRoutines > 0) {
-            console.log(` -> ${nRoutines} routines have changed.`);
+        if (nRoutines) {
+            console.log(` -> ${nRoutines} routines changed.`);
         } else
             console.log(` -> No routines changed.`);
 

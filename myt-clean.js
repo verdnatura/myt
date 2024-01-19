@@ -28,13 +28,13 @@ class Clean extends Command {
 
     async run(myt, opts) {
         const conn = await myt.dbConnect();
-        const versionDirs = await fs.readdir(opts.versionsDir);
         const archiveDir = path.join(opts.versionsDir, '.archive');
 
         const dbVersion = await myt.fetchDbVersion() || {};
         const number = parseInt(dbVersion.number);
 
         const oldVersions = [];
+        const versionDirs = await fs.readdir(opts.versionsDir);
         for (const versionDir of versionDirs) {
             const version = await myt.loadVersion(versionDir);
             const shouldArchive = version
@@ -71,9 +71,9 @@ class Clean extends Command {
                 await fs.rmdir(srcDir);
             }
 
-            console.log(`Old versions archived: ${oldVersions.length}`);
+            console.log(` -> ${oldVersions.length} versions archived.`);
         } else
-            console.log(`No versions to archive.`);
+            console.log(` -> No versions archived.`);
 
         if (opts.purge) {
             const versionDb = new VersionDb(myt, opts.versionsDir);
@@ -89,6 +89,7 @@ class Clean extends Command {
                 [opts.code]
             );
 
+            let nPurged = 0;
             for (const script of res) {
                 const hasVersion = await versionDb.hasScript(script);
                 const hasArchive = await archiveDb.hasScript(script);
@@ -99,8 +100,14 @@ class Clean extends Command {
                             WHERE code = ? AND number = ? AND file = ?`,
                         [opts.code, script.number, script.file]
                     );
+                    nPurged++;
                 }
             }
+        
+            if (nPurged)
+                console.log(` -> ${nPurged} versions purged from log.`);
+            else
+                console.log(` -> No versions purged from log.`);
         }
     }
 }
@@ -111,23 +118,28 @@ class VersionDb {
     }
 
     async load() {
-        const versionMap = this.versionMap = new Map();
+        const map = this.map = new Map();
         if (await fs.pathExists(this.baseDir)) {
             const dirs = await fs.readdir(this.baseDir);
             for (const dir of dirs) {
                 const version = this.myt.parseVersionDir(dir);
                 if (!version) continue;
-                versionMap.set(version.number, dir);
+                let subdirs = map.get(version.number);
+                if (!subdirs) map.set(version.number, subdirs = []);
+                subdirs.push(dir);
             }
         }
-        return versionMap;
+        return map;
     }
 
     async hasScript(script) {
-        const dir = this.versionMap.get(script.number);
-        if (!dir) return false;
-        const scriptPath = path.join(this.baseDir, dir, script.file);
-        return await fs.pathExists(scriptPath);
+        const dirs = this.map.get(script.number);
+        if (dirs)
+            for (const dir of dirs) {
+                const scriptPath = path.join(this.baseDir, dir, script.file);
+                if (await fs.pathExists(scriptPath)) return true;
+            }
+        return false;
     }
 }
 
