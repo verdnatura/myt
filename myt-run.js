@@ -9,9 +9,9 @@ const connExt = require('./lib/conn');
 const SqlString = require('sqlstring');
 
 /**
- * Builds the database image and runs a container. It only rebuilds the
- * image when dump have been modified. Some workarounds have been used to avoid
- * a bug with OverlayFS driver on MacOS.
+ * Builds the database image and runs a container. It only rebuilds the image
+ * when dump have been modified. Some workarounds have been used to avoid a bug
+ * with OverlayFS driver on MacOS.
  */
 class Run extends Command {
     static usage = {
@@ -153,7 +153,7 @@ class Run extends Command {
         const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
 
         Object.assign(opts, {
-            triggers: hasTriggers,
+            triggers: !hasTriggers,
             commit: true,
             dbConfig
         });

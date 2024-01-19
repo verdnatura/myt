@@ -250,7 +250,7 @@ $ myt create [-t <type>] <schema>.<name>
 Cleans all already applied versions older than  *maxOldVersions*.
 
 ```text
-$ myt clean
+$ myt clean [-p|--purge]
 ```
 
 ## Local server commands

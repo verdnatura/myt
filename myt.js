@@ -11,6 +11,8 @@ const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
 const camelToSnake = require('./lib/util').camelToSnake;
 
+const scriptRegex = /^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(\.undo)?\.sql$/;
+
 class Myt {
     static usage = {
         description: 'Utility for database versioning',
@@ -311,6 +313,11 @@ class Myt {
                     `${__dirname}/assets/structure.sql`, 'utf8');
                 await conn.query(structure);
             }
+
+            const [[realm]] = await conn.query(
+                `SELECT realm FROM versionConfig`
+            );
+            this.realm = realm;
         }
 
         return this.conn;
@@ -335,6 +342,58 @@ class Myt {
         return {
             number: match[1],
             name: match[2]
+        };
+    }
+
+    async loadVersion(versionDir) {
+        const {opts} = this;
+
+        const info = this.parseVersionDir(versionDir);
+        if (!info) return null;
+
+        const versionsDir = opts.versionsDir;
+        const scriptsDir = `${versionsDir}/${versionDir}`;
+        const scriptList = await fs.readdir(scriptsDir);
+
+        const [res] = await this.conn.query(
+            `SELECT file, errorNumber IS NOT NULL hasError
+                FROM versionLog
+                WHERE code = ?
+                    AND number = ?`,
+            [opts.code, info.number]
+        );
+        const versionLog = new Map();
+        res.map(x => versionLog.set(x.file, x));
+
+        let applyVersion = false;
+        const scripts = [];
+
+        for (const file of scriptList) {
+            const match = file.match(scriptRegex);
+            if (match) {
+                const scriptRealm = match[1];
+                const isUndo = !!match[2];
+
+                if ((scriptRealm && scriptRealm !== this.realm) || isUndo)
+                    continue;
+            }
+
+            const logInfo = versionLog.get(file);
+            const apply = !logInfo || logInfo.hasError;
+            if (apply) applyVersion = true;
+
+            scripts.push({
+                file,
+                matchRegex: !!match,
+                apply
+            });
+        }
+
+        return {
+            number: info.number,
+            name: info.name,
+            scripts,
+            apply: applyVersion
         };
     }
 

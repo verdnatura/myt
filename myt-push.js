@@ -47,43 +47,51 @@ class Push extends Command {
                 + `\n -> Commit: ${version.gitCommit}`
             );
         },
-        version(data, action) {
-            let {version} = data;
-            let name = data.dir;
-            let num, color;
-            switch(action) {
-                case 'apply':
-                    num = version.number;
-                    name = version.name;
-                    color = 'cyan';
-                    break;
-                case 'badVersion':
-                    num = '?????';
-                    color = 'yellow';
-                    break;
-                case 'wrongDirectory':
-                    num = '*****';
-                    color = 'gray';
-                    break;
-            }
-            console.log('', `[${num[color].bold}]`, name);
-        },
-        logScript(script, action, error) {
+        version(version, error) {
             let actionMsg;
-            switch(action) {
-                case 'apply':
-                    actionMsg = '[+]'.green;
-                    break;
-                case 'ignore':
-                    actionMsg = '[I]'.blue;
-                    break;
-                default:
-                    actionMsg = '[W]'.yellow;
-                    break;
+            let number, color;
+
+            if (!error) {
+                actionMsg = version.apply
+                    ? '[A]'.green
+                    : '[I]'.blue;
+                number = version.number;
+                color = 'cyan';
+            } else {
+                actionMsg = '[W]'.yellow;
+                switch(action) {
+                    case 'badVersion':
+                        number = '?????';
+                        color = 'yellow';
+                        break;
+                    case 'wrongDirectory':
+                        number = '*****';
+                        color = 'gray';
+                        break;
+                }
             }
-            console.log(' ', actionMsg.bold, script);
+
+            const numberMsg = `[${number}]`[color];
+            console.log('', `${actionMsg}${numberMsg}`.bold, version.name);
+        },
+        logScript(script) {
+            let actionMsg;
+            if (script.apply)
+                actionMsg = '[+]'.green;
+            else if (!script.matchRegex)
+                actionMsg = '[W]'.yellow;
+            else
+                actionMsg = '[I]'.blue;
+
+            console.log(' ', actionMsg.bold, script.file);
         },
         change(status, ignore, change) {
+            let actionMsg;
+            if (ignore)
+                actionMsg = '[I]'.blue;
+            else
+                actionMsg = '[A]'.green;
+
             let statusMsg;
             switch(status) {
                 case 'added':
@@ -97,25 +105,24 @@ class Push extends Command {
                     break;
             }
 
-            let actionMsg;
-            if (ignore)
-                actionMsg = '[I]'.blue;
-            else
-                actionMsg = '[A]'.green;
-
             const typeMsg = `[${change.type.abbr}]`[change.type.color];
             console.log('',
-                (statusMsg + actionMsg).bold,
+                (actionMsg + statusMsg).bold,
                 typeMsg.bold,
                 change.fullName
             );
         },
+        versionsApplied: function(nVersions, nChanges) {
+            if (nVersions) {
+                console.log(` -> ${nVersions} versions with ${nChanges} changes applied.`);
+            } else
+                console.log(` -> No versions applied.`);
+        },
         routinesApplied: function(nRoutines) {
-            if (nRoutines > 0) {
-                console.log(` -> ${nRoutines} routines have changed.`);
-            } else {
+            if (nRoutines) {
+                console.log(` -> ${nRoutines} routines changed.`);
+            } else
                 console.log(` -> No routines changed.`);
-            }
         }
     };
 
@@ -207,26 +214,23 @@ class Push extends Command {
 
         // Get database version
 
-        const version = await myt.fetchDbVersion() || {};
-        this.emit('dbInfo', version);
+        const dbVersion = await myt.fetchDbVersion() || {};
+        this.emit('dbInfo', dbVersion);
 
-        if (!version.number)
-            version.number = String('0').padStart(opts.versionDigits, '0');
-        if (!/^[0-9]*$/.test(version.number))
+        if (!dbVersion.number)
+            dbVersion.number = String('0').padStart(opts.versionDigits, '0');
+        if (!/^[0-9]*$/.test(dbVersion.number))
             throw new Error('Wrong database version');
 
         // Apply versions
 
         this.emit('applyingVersions');
 
+        let nVersions = 0;
         let nChanges = 0;
-        let silent = true;
+        let showLog = false;
         const versionsDir = opts.versionsDir;
 
-        function isUndoScript(script) {
-            return /\.undo\.sql$/.test(script);
-        }
-       
         const skipFiles = new Set([
             'README.md',
             '.archive'
@@ -234,83 +238,31 @@ class Push extends Command {
 
         if (await fs.pathExists(versionsDir)) {
             const versionDirs = await fs.readdir(versionsDir);
-            const [[row]] = await this.conn.query(
-                `SELECT realm FROM versionConfig`
-            );
-            const realm = row?.realm;
-
             for (const versionDir of versionDirs) {
                 if (skipFiles.has(versionDir)) continue;
+                const version = await myt.loadVersion(versionDir);
 
-                const dirVersion = myt.parseVersionDir(versionDir);
-                const versionData = {
-                    version: dirVersion,
-                    current: version
-                };
+                let apply = false;
 
-                if (!dirVersion) {
-                    this.emit('version', versionData, 'wrongDirectory');
-                    continue;
-                }
+                if (!version)
+                    this.emit('version', version, 'wrongDirectory');
+                else if (version.number.length != dbVersion.number.length)
+                    this.emit('version', version, 'badVersion');
+                else
+                    apply = version.apply;
 
-                const versionNumber = dirVersion.number;
-                if (versionNumber.length != version.number.length) {
-                    this.emit('version', versionData, 'badVersion');
-                    continue;
-                }
+                if (apply) showLog = true;
+                if (showLog) this.emit('version', version);
+                if (!apply) continue;
 
-                const scriptsDir = `${versionsDir}/${versionDir}`;
-                const scripts = await fs.readdir(scriptsDir);
-
-                const [versionLog] = await conn.query(
-                    `SELECT file FROM versionLog
-                        WHERE code = ?
-                            AND number = ?
-                            AND errorNumber IS NULL`,
-                    [opts.code, versionNumber]
-                );
-
-                for (const script of scripts)
-                if (!isUndoScript(script)
-                && versionLog.findIndex(x => x.file == script) === -1) {
-                    silent = false;
-                    break;
-                }
-
-                if (silent) continue;
-                this.emit('version', versionData, 'apply');
-
-                for (const script of scripts) {
-                    const match = script.match(/^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(?:\.undo)?\.sql$/);
-                    
-                    if (!match) {
-                        this.emit('logScript', script, 'warn', 'wrongFile');
-                        continue;
-                    }
-
-                    const skipRealm = match[1] && match[1] !== realm;
-                    if (isUndoScript(script) || skipRealm)
-                        continue;
-
-                    const [[row]] = await conn.query(
-                        `SELECT errorNumber FROM versionLog
-                            WHERE code = ?
-                                AND number = ?
-                                AND file = ?`,
-                        [
-                            opts.code,
-                            versionNumber,
-                            script
-                        ]
-                    );
-                    const apply = !row || row.errorNumber;
-                    this.emit('logScript', script, apply ? 'apply' : 'ignore');
-                    if (!apply) continue;
+                for (const script of version.scripts) {
+                    this.emit('logScript', script);
+                    if (!script.apply) continue;
 
                     let err;
                     try {
                         await connExt.queryFromFile(pushConn,
-                            `${scriptsDir}/${script}`);
+                            `${versionsDir}/${versionDir}/${script.file}`);
                     } catch (e) {
                         err = e;
                     }
@@ -331,8 +283,8 @@ class Push extends Command {
                                 errorMessage = VALUES(errorMessage)`,
                         [
                             opts.code,
-                            versionNumber,
-                            script,
+                            version.number,
+                            script.file,
                             err && err.errno,
                             err && err.message
                         ]
@@ -342,16 +294,19 @@ class Push extends Command {
                     nChanges++;
                 }
 
-                await this.updateVersion('number', versionNumber);
+                await this.updateVersion('number', version.number);
+                nVersions++;
             }
         }
+
+        this.emit('versionsApplied', nVersions, nChanges);
 
         // Apply routines
 
         this.emit('applyingRoutines');
 
         let nRoutines = 0;
-        const changes = await this.changedRoutines(version.gitCommit);
+        const changes = await this.changedRoutines(dbVersion.gitCommit);
 
         const routines = [];
         for (const change of changes)
@@ -471,12 +426,11 @@ class Push extends Command {
         this.emit('routinesApplied', nRoutines);
 
         const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
-
         if (gitExists && opts.commit) {
             const repo = await nodegit.Repository.open(this.opts.workspace);
             const head = await repo.getHeadCommit();
 
-            if (head && version.gitCommit !== head.sha())
+            if (head && dbVersion.gitCommit !== head.sha())
                 await this.updateVersion('gitCommit', head.sha());
         }
 
