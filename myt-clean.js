@@ -29,7 +29,7 @@ class Clean extends Command {
     static reporter = {
         versionsArchived: function(nVersions) {
             if (nVersions)
-                console.log(` -> ${oldVersions.length} versions archived.`);
+                console.log(` -> ${nVersions} versions archived.`);
             else
                 console.log(` -> No versions archived.`);
         },

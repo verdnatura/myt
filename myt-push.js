@@ -47,7 +47,7 @@ class Push extends Command {
                 + `\n -> Commit: ${version.gitCommit}`
             );
         },
-        version(version, error) {
+        version(version, dir, error) {
             let actionMsg;
             let number, color;
 
@@ -59,27 +59,27 @@ class Push extends Command {
                 color = 'cyan';
             } else {
                 actionMsg = '[W]'.yellow;
-                switch(action) {
+                switch(error) {
                     case 'badVersion':
-                        number = '?????';
-                        color = 'yellow';
-                        break;
-                    case 'wrongDirectory':
                         number = '*****';
                         color = 'gray';
+                        break;
+                    case 'wrongDirectory':
+                        number = '?????';
+                        color = 'yellow';
                         break;
                 }
             }
 
             const numberMsg = `[${number}]`[color];
-            console.log('', `${actionMsg}${numberMsg}`.bold, version.name);
+            console.log('', `${actionMsg}${numberMsg}`.bold, version?.name || dir);
         },
         logScript(script) {
             let actionMsg;
-            if (script.apply)
-                actionMsg = '[+]'.green;
-            else if (!script.matchRegex)
+            if (!script.matchRegex)
                 actionMsg = '[W]'.yellow;
+            else if (script.apply)
+                actionMsg = '[+]'.green;
             else
                 actionMsg = '[I]'.blue;
 
@@ -245,19 +245,19 @@ class Push extends Command {
                 let apply = false;
 
                 if (!version)
-                    this.emit('version', version, 'wrongDirectory');
+                    this.emit('version', version, versionDir, 'wrongDirectory');
                 else if (version.number.length != dbVersion.number.length)
-                    this.emit('version', version, 'badVersion');
+                    this.emit('version', version, versionDir, 'badVersion');
                 else
                     apply = version.apply;
 
                 if (apply) showLog = true;
-                if (showLog) this.emit('version', version);
+                if (showLog) this.emit('version', version, versionDir);
                 if (!apply) continue;
 
                 for (const script of version.scripts) {
                     this.emit('logScript', script);
-                    if (!script.apply) continue;
+                    if (!script.apply || !script.matchRegex) continue;
 
                     let err;
                     try {
