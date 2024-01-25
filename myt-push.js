@@ -461,13 +461,14 @@ class Push extends Command {
         const changes = [];
         const changesMap = new Map();
 
+        const {opts} = this;
         async function pushChanges(diff) {
             if (!diff) return;
             const patches = await diff.patches();
 
             for (const patch of patches) {
                 const path = patch.newFile().path();
-                const match = path.match(/^routines\/(.+)\.sql$/);
+                const match = path.match(opts.routinesRegex);
                 if (!match) continue;
 
                 let change = changesMap.get(match[1]);

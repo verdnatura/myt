@@ -205,12 +205,20 @@ class Myt {
         Object.assign(opts, config);
         opts.configFile = configFile;
 
+        const subdir = opts.subdir || '';
         if (!opts.mytDir)
-            opts.mytDir = path.join(opts.workspace, opts.subdir || '');
+            opts.mytDir = path.join(opts.workspace, subdir);
 
-        opts.routinesDir = path.join(opts.mytDir, 'routines');
-        opts.versionsDir = path.join(opts.mytDir, 'versions');
-        opts.dumpDir = path.join(opts.mytDir, 'dump');
+        const routinesBaseRegex = subdir
+            ? `${subdir}\/routines`
+            : 'routines';
+
+        Object.assign(opts, {
+            routinesRegex: new RegExp(`^${routinesBaseRegex}\/(.+)\.sql$`),
+            routinesDir: path.join(opts.mytDir, 'routines'),
+            versionsDir: path.join(opts.mytDir, 'versions'),
+            dumpDir: path.join(opts.mytDir, 'dump')
+        });
 
         // Database configuration
 

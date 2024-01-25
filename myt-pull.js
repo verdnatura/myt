@@ -50,7 +50,7 @@ class Pull extends Command {
                     const match = patch
                         .newFile()
                         .path()
-                        .match(/^routines\/(.+)\.sql$/);
+                        .match(opts.routinesRegex);
                     if (match) return true;
                 }
 
