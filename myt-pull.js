@@ -90,7 +90,7 @@ class Pull extends Command {
 
         // Export routines to SQL files
 
-        this.emit('routineChanges', branchName);
+        this.emit('routineChanges');
 
         const engine = new ExporterEngine(conn, opts);
         await engine.init();
