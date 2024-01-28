@@ -113,8 +113,7 @@ class Run extends Command {
 
         Object.assign(runOptions, null, {
             env: `RUN_CHOWN=${runChown}`,
-            detach: true,
-            volume: `${this.opts.mytDir}:/workspace`
+            detach: true
         });
         const ct = await docker.run(opts.code, null, runOptions);
         const server = new Server(ct, dbConfig);

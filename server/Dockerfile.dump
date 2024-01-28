@@ -10,4 +10,6 @@ RUN gosu mysql docker-init.sh
 RUN echo "[LOG] Import finished." \
     && rm -rf /workspace
 
+COPY fixtures.*.sql dump/
+
 USER mysql
