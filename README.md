@@ -279,7 +279,7 @@ Builds and starts local database server container. It only rebuilds the image
 when dump have been modified.
 
 ```text
-$ myt run [-c|--ci] [-r|--random]
+$ myt run [-c|--ci] [-r|--random] [-n|--network <string>]
 ```
 
 ### start

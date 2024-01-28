@@ -18,13 +18,15 @@ class Run extends Command {
         description: 'Build and start local database server container',
         params: {
             ci: 'Workaround for continuous integration system',
-            random: 'Whether to use a random container name or port'
+            network: 'Docker network to attach container to',
+            random: 'Whether to use a random container name and port'
         }
     };
 
     static opts = {
         alias: {
             ci: 'c',
+            network: 'n',
             random: 'r'
         },
         boolean: [
@@ -104,6 +106,9 @@ class Run extends Command {
             } catch (e) {}
         }
 
+        if (opts.network)
+            Object.assign(runOptions, {network: opts.network});
+
         const runChown = process.platform != 'linux';
 
         Object.assign(runOptions, null, {
@@ -120,10 +125,11 @@ class Run extends Command {
                     format: '{{json .NetworkSettings}}'
                 });
 
-                if (opts.ci)
-                    dbConfig.host = netSettings.Gateway;
-
-                dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
+                if (opts.ci) {
+                    dbConfig.host = netSettings.Networks[networkName].IPAddress;
+                    dbConfig.port = 3306;
+                } else
+                    dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
             } catch (err) {
                 await server.rm();
                 throw err;
