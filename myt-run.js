@@ -126,8 +126,8 @@ class Run extends Command {
                 });
 
                 if (opts.ci) {
-                    dbConfig.host = network
-                        ? netSettings.Networks[network].IPAddress
+                    dbConfig.host = opts.network
+                        ? netSettings.Networks[opts.network].IPAddress
                         : netSettings.Gateway;
                     dbConfig.port = 3306;
                 } else
