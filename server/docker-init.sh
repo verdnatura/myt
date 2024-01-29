@@ -1,15 +1,16 @@
 #!/bin/bash
+set -e
 
 . /usr/local/bin/docker-entrypoint.sh
-CMD=mysqld
+ARGS=(mysqld --datadir=/mysql-template)
 
-mysql_check_config "$CMD"
-docker_setup_env "$CMD"
+mysql_check_config ${ARGS[@]}
+docker_setup_env ${ARGS[@]}
 docker_create_db_directories
 
 docker_verify_minimum_env
-docker_init_database_dir "$CMD"
-docker_temp_server_start "$CMD"
+docker_init_database_dir ${ARGS[@]}
+docker_temp_server_start ${ARGS[@]}
 docker_setup_db
 docker_process_init_files /docker-entrypoint-initdb.d/*
 

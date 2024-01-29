@@ -19,7 +19,8 @@ class Run extends Command {
         params: {
             ci: 'Workaround for continuous integration system',
             network: 'Docker network to attach container to',
-            random: 'Whether to use a random container name and port'
+            random: 'Whether to use a random container name and port',
+            tmpfs: 'Whether to use tmpfs mount for MySQL data'
         }
     };
 
@@ -27,7 +28,8 @@ class Run extends Command {
         alias: {
             ci: 'c',
             network: 'n',
-            random: 'r'
+            random: 'r',
+            tmpfs: 'r'
         },
         boolean: [
             'ci',
@@ -107,12 +109,11 @@ class Run extends Command {
         }
 
         if (opts.network)
-            Object.assign(runOptions, {network: opts.network});
-
-        const runChown = process.platform != 'linux';
+            runOptions.network = opts.network;
+        if (opts.tmpfs)
+            runOptions.tmpfs = '/var/lib/mysql';
 
         Object.assign(runOptions, null, {
-            env: `RUN_CHOWN=${runChown}`,
             detach: true
         });
         const ct = await docker.run(opts.code, null, runOptions);

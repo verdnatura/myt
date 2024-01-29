@@ -1,12 +1,6 @@
 FROM myt/base
 
-USER root
 ENV MYSQL_ROOT_PASSWORD root
-
-RUN mkdir /mysql-data \
-    && chown -R mysql:mysql /mysql-data
-
-WORKDIR /workspace
 
 COPY docker.cnf /etc/mysql/conf.d/
 COPY \
@@ -15,10 +9,7 @@ COPY \
     docker-start.sh \
     /usr/local/bin/
 
-USER mysql
-
 ENTRYPOINT ["docker-start.sh"]
-
 CMD ["mysqld"]
 
 HEALTHCHECK --interval=2s --timeout=10s --retries=200 \

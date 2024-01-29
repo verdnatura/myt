@@ -1,15 +1,14 @@
 FROM myt/server
 
-USER root
-
+WORKDIR /workspace
 COPY .dump dump/.dump
 COPY dump.*.sql dump/
 
-RUN gosu mysql docker-init.sh
+RUN mkdir -p /mysql-template \
+    && chown mysql:mysql /mysql-template \
+    && gosu mysql docker-init.sh
 
 RUN echo "[LOG] Import finished." \
-    && rm -rf /workspace
+    && rm -rf dump
 
 COPY fixtures.*.sql dump/
-
-USER mysql
