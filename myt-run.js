@@ -29,7 +29,7 @@ class Run extends Command {
             ci: 'c',
             network: 'n',
             random: 'r',
-            tmpfs: 'r'
+            tmpfs: 't'
         },
         boolean: [
             'ci',
