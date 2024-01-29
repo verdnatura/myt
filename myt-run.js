@@ -33,7 +33,8 @@ class Run extends Command {
         },
         boolean: [
             'ci',
-            'random'
+            'random',
+            'tmpfs'
         ]
     };
 
