@@ -118,92 +118,100 @@ class Run extends Command {
             detach: true
         });
         const ct = await docker.run(opts.code, null, runOptions);
-        const server = new Server(ct, dbConfig);
 
-        if (isRandom) {
+        try {
+            const server = new Server(ct, dbConfig);
+
+            if (isRandom) {
+                try {
+                    const netSettings = await ct.inspect({
+                        format: '{{json .NetworkSettings}}'
+                    });
+
+                    if (opts.ci || opts.network) {
+                        dbConfig.host = opts.network
+                            ? netSettings.Networks[opts.network].IPAddress
+                            : netSettings.Gateway;
+                        dbConfig.port = 3306;
+                    } else
+                        dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
+                } catch (err) {
+                    await server.rm();
+                    throw err;
+                }
+            }
+
+            this.emit('waitingDb');
+            await server.wait();
+            const conn = await myt.createConnection();
+
+            // Mock date functions
+
+            this.emit('mockingDate');
+            const mockDateScript = path.join(dumpDir, 'mockDate.sql');
+
+            if (opts.mockDate) {
+                if (!await fs.pathExists(mockDateScript))
+                    throw new Error(`Date mock enabled but mock script does not exist: ${mockDateScript}`);
+
+                let sql = await fs.readFile(mockDateScript, 'utf8');
+                sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
+                await connExt.multiQuery(conn, sql);
+            }
+
+            // Apply changes
+
+            const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
+
+            Object.assign(opts, {
+                triggers: !hasTriggers,
+                commit: true,
+                dbConfig
+            });
+            await myt.run(Push, opts);
+
+            // Apply fixtures
+
+            this.emit('applyingFixtures');
+            const fixturesFiles = [
+                'fixtures.before',
+                '.fixtures',
+                'fixtures.after',
+                'fixtures.local'
+            ]
+            for (const file of fixturesFiles) {
+                if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
+                await ct.exec(null, 'docker-import.sh',
+                    [`/workspace/dump/${file}`],
+                    'spawn',
+                    true
+                );
+            }
+
+            // Create triggers
+
+            if (!hasTriggers) {
+                this.emit('creatingTriggers');
+
+                for (const schema of opts.schemas) {
+                    const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
+                    if (!await fs.pathExists(triggersPath))
+                        continue;
+
+                    const triggersDir = await fs.readdir(triggersPath);
+                    for (const triggerFile of triggersDir)
+                        await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+                }
+            }
+
+            await conn.end();
+            return server;
+        } catch (err) {
             try {
-                const netSettings = await ct.inspect({
-                    format: '{{json .NetworkSettings}}'
-                });
-
-                if (opts.ci) {
-                    dbConfig.host = opts.network
-                        ? netSettings.Networks[opts.network].IPAddress
-                        : netSettings.Gateway;
-                    dbConfig.port = 3306;
-                } else
-                    dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
-            } catch (err) {
-                await server.rm();
-                throw err;
-            }
+                await ct.rm({force: true});
+            } catch (e) {}
+            throw err;
         }
-
-        this.emit('waitingDb');
-        await server.wait();
-        const conn = await myt.createConnection();
-
-        // Mock date functions
-
-        this.emit('mockingDate');
-        const mockDateScript = path.join(dumpDir, 'mockDate.sql');
-
-        if (opts.mockDate) {
-            if (!await fs.pathExists(mockDateScript))
-                throw new Error(`Date mock enabled but mock script does not exist: ${mockDateScript}`);
-
-            let sql = await fs.readFile(mockDateScript, 'utf8');
-            sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
-            await connExt.multiQuery(conn, sql);
-        }
-
-        // Apply changes
-
-        const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
-
-        Object.assign(opts, {
-            triggers: !hasTriggers,
-            commit: true,
-            dbConfig
-        });
-        await myt.run(Push, opts);
-
-        // Apply fixtures
-
-        this.emit('applyingFixtures');
-        const fixturesFiles = [
-            'fixtures.before',
-            '.fixtures',
-            'fixtures.after',
-            'fixtures.local'
-        ]
-        for (const file of fixturesFiles) {
-            if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
-            await ct.exec(null, 'docker-import.sh',
-                [`/workspace/dump/${file}`],
-                'spawn',
-                true
-            );
-        }
-
-        // Create triggers
-
-        if (!hasTriggers) {
-            this.emit('creatingTriggers');
-
-            for (const schema of opts.schemas) {
-                const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
-                if (!await fs.pathExists(triggersPath))
-                    continue;
-
-                const triggersDir = await fs.readdir(triggersPath);
-                for (const triggerFile of triggersDir)
-                    await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
-            }
-        }
-
-        await conn.end();
-        return server;
     }
 }
 
