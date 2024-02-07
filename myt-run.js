@@ -20,7 +20,8 @@ class Run extends Command {
             ci: 'Workaround for continuous integration system',
             network: 'Docker network to attach container to',
             random: 'Whether to use a random container name and port',
-            tmpfs: 'Whether to use tmpfs mount for MySQL data'
+            tmpfs: 'Whether to use tmpfs mount for MySQL data',
+            keep: 'Keep container on failure'
         }
     };
 
@@ -29,12 +30,14 @@ class Run extends Command {
             ci: 'c',
             network: 'n',
             random: 'r',
-            tmpfs: 't'
+            tmpfs: 't',
+            keep: 'k'
         },
         boolean: [
             'ci',
             'random',
-            'tmpfs'
+            'tmpfs',
+            'keep'
         ]
     };
 
@@ -208,7 +211,7 @@ class Run extends Command {
             return server;
         } catch (err) {
             try {
-                await ct.rm({force: true});
+                if (!opts.keep) await ct.rm({force: true});
             } catch (e) {}
             throw err;
         }
