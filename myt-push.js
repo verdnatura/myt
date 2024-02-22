@@ -244,13 +244,15 @@ class Push extends Command {
 
                 let apply = false;
 
-                if (!version)
+                if (!version) {
                     this.emit('version', version, versionDir, 'wrongDirectory');
-                else if (version.number.length != dbVersion.number.length)
+                    continue;
+                } else if (version.number.length != dbVersion.number.length) {
                     this.emit('version', version, versionDir, 'badVersion');
-                else
-                    apply = version.apply;
+                    continue;
+                }
 
+                apply = version.apply;
                 if (apply) showLog = true;
                 if (showLog) this.emit('version', version, versionDir);
                 if (!apply) continue;
