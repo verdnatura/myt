@@ -225,6 +225,7 @@ class Push extends Command {
         // Apply versions
 
         this.emit('applyingVersions');
+        await this.eventScheduler(false);
 
         let nVersions = 0;
         let nChanges = 0;
@@ -342,6 +343,7 @@ class Push extends Command {
                 await conn.query('FLUSH PRIVILEGES');
                 await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
             }
+            await this.eventScheduler(true);
         }
 
         for (const change of changes)
@@ -532,6 +534,12 @@ class Push extends Command {
 
             return a.path.localeCompare(b.path);
         });
+    }
+
+    async eventScheduler(isActive) {
+        await conn.query(
+            `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
+        );
     }
 }
 
