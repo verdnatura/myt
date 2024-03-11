@@ -156,11 +156,19 @@ class Push extends Command {
             throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
         }
 
+        async function eventScheduler(isActive) {
+            await conn.query(
+                `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
+            );
+        }
+
         async function releaseLock() {
             await conn.query(`DO RELEASE_LOCK('myt_push')`);
+            await eventScheduler(true);
         }
 
         try {
+            await eventScheduler(false);
             await this.push(myt, opts, conn);
         } catch(err) {
             try {
@@ -225,7 +233,6 @@ class Push extends Command {
         // Apply versions
 
         this.emit('applyingVersions');
-        await this.eventScheduler(false);
 
         let nVersions = 0;
         let nChanges = 0;
@@ -343,7 +350,6 @@ class Push extends Command {
                 await conn.query('FLUSH PRIVILEGES');
                 await conn.query(`DROP TEMPORARY TABLE tProcsPriv`);
             }
-            await this.eventScheduler(true);
         }
 
         for (const change of changes)
@@ -534,12 +540,6 @@ class Push extends Command {
 
             return a.path.localeCompare(b.path);
         });
-    }
-
-    async eventScheduler(isActive) {
-        await conn.query(
-            `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
-        );
     }
 }
 
