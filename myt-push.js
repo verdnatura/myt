@@ -133,6 +133,9 @@ class Push extends Command {
         if (opts.remote == 'local')
             opts.commit = true;
 
+        const [[scheduler]] = await conn.query(`SELECT @@event_scheduler state`);
+        if (scheduler.state === 'ON') await eventScheduler(false);
+
         // Obtain exclusive lock
 
         const [[row]] = await conn.query(
@@ -153,22 +156,22 @@ class Push extends Command {
                 isUsed = row.isUsed;
             }
 
+            if (scheduler.state === 'ON') await eventScheduler(false);
             throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
         }
 
         async function eventScheduler(isActive) {
-            await conn.query(
-                `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
-            );
+                await conn.query(
+                    `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
+                );
         }
 
         async function releaseLock() {
             await conn.query(`DO RELEASE_LOCK('myt_push')`);
-            await eventScheduler(true);
+            if (scheduler.state === 'ON') await eventScheduler(true);
         }
 
         try {
-            await eventScheduler(false);
             await this.push(myt, opts, conn);
         } catch(err) {
             try {
