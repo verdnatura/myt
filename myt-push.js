@@ -156,7 +156,17 @@ class Push extends Command {
             throw new Error(`Cannot obtain exclusive lock, used by connection ${isUsed}`);
         }
 
+        const [[scheduler]] = await conn.query(`SELECT @@event_scheduler state`);
+        if (scheduler.state === 'ON') await eventScheduler(false);
+
+        async function eventScheduler(isActive) {
+                await conn.query(
+                    `SET GLOBAL event_scheduler = ${isActive ? 'ON' : 'OFF'}` 
+                );
+        }
+
         async function releaseLock() {
+            if (scheduler.state === 'ON') await eventScheduler(true);
             await conn.query(`DO RELEASE_LOCK('myt_push')`);
         }
 
