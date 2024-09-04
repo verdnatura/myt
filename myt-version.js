@@ -127,12 +127,19 @@ class Version extends Command {
                 [opts.code, newVersion]
             );
             await fs.mkdir(newVersionDir);
+
+            let content;
+            if (opts.deprecate) {
+                this.emit('deprecate');
+                content = await deprecate();
+            } else
+                content = '-- Place your SQL code here\n'
+
             await fs.writeFile(
                 `${newVersionDir}/00-firstScript.sql`,
-                opts.deprecate
-                    ? this.emit('deprecate') && await deprecate()
-                    : '-- Place your SQL code here\n'
+                content
             );
+
             this.emit('versionCreated', versionFolder);
 
             await conn.query('COMMIT');
