@@ -9,7 +9,7 @@ class Dump extends Command {
         description: 'Dumps structure and fixtures from remote',
         params: {
             lock: 'Whether to lock tables on dump',
-            triggers: 'Wether to include triggers into dump'
+            triggers: 'Whether to include triggers into dump'
         },
         operand: 'remote'
     };

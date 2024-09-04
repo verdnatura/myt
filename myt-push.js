@@ -15,9 +15,9 @@ class Push extends Command {
         description: 'Apply changes into database',
         params: {
             force: 'Answer yes to all questions',
-            commit: 'Wether to save the commit SHA into database',
+            commit: 'Whether to save the commit SHA into database',
             sums: 'Save SHA sums of pushed objects',
-            triggers: 'Wether to exclude triggers, used to generate local DB'
+            triggers: 'Whether to exclude triggers, used to generate local DB'
         },
         operand: 'remote'
     };

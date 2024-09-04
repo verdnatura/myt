@@ -9,17 +9,22 @@ class Version extends Command {
     static usage = {
         description: 'Creates a new version',
         params: {
-            name: 'Name for the new version'
+            name: 'Name for the new version',
+            deprecate: 'Whether to generate sql to delete deprecated objects'
         },
         operand: 'name'
     };
 
     static opts = {
         alias: {
-            name: 'n'
+            name: 'n',
+            deprecate: 'kk'
         },
         string: [
             'name'
+        ],
+        boolean: [
+            'deprecate'
         ],
         default: {
             remote: 'production'
@@ -36,7 +41,8 @@ class Version extends Command {
         },
         versionCreated: function(versionName) {
             console.log(`New version created: ${versionName}`);
-        }
+        },
+        deprecate: 'Generating sql.'
     };
 
     async run(myt, opts) {
@@ -123,7 +129,9 @@ class Version extends Command {
             await fs.mkdir(newVersionDir);
             await fs.writeFile(
                 `${newVersionDir}/00-firstScript.sql`,
-                '-- Place your SQL code here\n'
+                opts.deprecate
+                    ? this.emit('deprecate') && await deprecate()
+                    : '-- Place your SQL code here\n'
             );
             this.emit('versionCreated', versionFolder);
 
@@ -135,6 +143,66 @@ class Version extends Command {
             throw err;
         }
     }
+}
+
+async function deprecate() {
+    const [[config]] = await conn.query(`
+        SELECT dateRegex,
+                deprecatedMarkRegex,
+                VN_CURDATE() - INTERVAL daysKeepDeprecatedObjects DAY dated
+            FROM config
+    `);
+
+    const sql = await conn.query(`
+        WITH variables AS (
+            SELECT ? markRegex, ? dateRegex, ? dated
+        )
+        SELECT CONCAT('ALTER TABLE ', c.TABLE_SCHEMA, '.', c.TABLE_NAME, ' DROP PRIMARY KEY;') sql
+            FROM information_schema.COLUMNS c
+                LEFT JOIN information_schema.VIEWS v ON v.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND v.TABLE_NAME = c.TABLE_NAME
+                JOIN information_schema.STATISTICS s ON s.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND s.TABLE_NAME = c.TABLE_NAME
+                    AND s.COLUMN_NAME = c.COLUMN_NAME
+                JOIN variables var
+            WHERE c.COLUMN_NAME REGEXP var.markRegex COLLATE utf8mb4_unicode_ci
+                AND REGEXP_SUBSTR(c.COLUMN_COMMENT, var.dateRegex COLLATE utf8mb4_unicode_ci) < var.dated
+                AND v.TABLE_NAME IS NULL
+                AND s.INDEX_NAME = 'PRIMARY'
+        UNION
+        SELECT CONCAT('ALTER TABLE ', c.TABLE_SCHEMA, '.', c.TABLE_NAME, ' DROP FOREIGN KEY ', kcu.CONSTRAINT_NAME, ';')
+            FROM information_schema.COLUMNS c
+                LEFT JOIN information_schema.VIEWS v ON v.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND v.TABLE_NAME = c.TABLE_NAME
+                JOIN information_schema.KEY_COLUMN_USAGE kcu ON kcu.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND kcu.TABLE_NAME = c.TABLE_NAME
+                    AND kcu.COLUMN_NAME = c.COLUMN_NAME
+                JOIN variables var
+            WHERE c.COLUMN_NAME REGEXP var.markRegex COLLATE utf8mb4_unicode_ci
+                AND REGEXP_SUBSTR(c.COLUMN_COMMENT, var.dateRegex COLLATE utf8mb4_unicode_ci) < var.dated
+                AND v.TABLE_NAME IS NULL
+                AND kcu.REFERENCED_COLUMN_NAME IS NOT NULL
+        UNION
+        SELECT CONCAT('ALTER TABLE ', c.TABLE_SCHEMA, '.', c.TABLE_NAME, ' DROP COLUMN ', c.COLUMN_NAME, ';')
+            FROM information_schema.COLUMNS c
+                LEFT JOIN information_schema.VIEWS v ON v.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND v.TABLE_NAME = c.TABLE_NAME
+                LEFT JOIN information_schema.KEY_COLUMN_USAGE kcu ON kcu.TABLE_SCHEMA = c.TABLE_SCHEMA
+                    AND kcu.TABLE_NAME = c.TABLE_NAME
+                    AND kcu.COLUMN_NAME = c.COLUMN_NAME
+                JOIN variables var
+            WHERE c.COLUMN_NAME REGEXP var.markRegex COLLATE utf8mb4_unicode_ci
+                AND REGEXP_SUBSTR(c.COLUMN_COMMENT, var.dateRegex COLLATE utf8mb4_unicode_ci) < var.dated
+                AND v.TABLE_NAME IS NULL
+        UNION
+        SELECT CONCAT('DROP TABLE ', t.TABLE_SCHEMA, '.', t.TABLE_NAME, ';')
+            FROM information_schema.TABLES t
+                JOIN variables var
+            WHERE t.TABLE_NAME REGEXP var.markRegex COLLATE utf8mb4_unicode_ci
+                AND REGEXP_SUBSTR(t.TABLE_COMMENT, var.dateRegex COLLATE utf8mb4_unicode_ci) < var.dated
+    `, [config.deprecatedMarkRegex, config.dateRegex, config.dated]);
+
+    return sql.map(row => row.sql).join('\n');
 }
 
 function randomName() {

@@ -10,7 +10,7 @@ class Clean extends Command {
     static usage = {
         description: 'Cleans old applied versions',
         params: {
-            purge: 'Wether to remove non-existent scripts from DB log'
+            purge: 'Whether to remove non-existent scripts from DB log'
         }
     };
 
