@@ -42,7 +42,7 @@ class Version extends Command {
         versionCreated: function(versionName) {
             console.log(`New version created: ${versionName}`);
         },
-        deprecate: 'Generating sql.'
+        deprecate: 'Generating SQL for deprecate.'
     };
 
     async run(myt, opts) {
@@ -128,16 +128,11 @@ class Version extends Command {
             );
             await fs.mkdir(newVersionDir);
 
-            let content;
-            if (opts.deprecate) {
-                this.emit('deprecate');
-                content = await deprecate();
-            } else
-                content = '-- Place your SQL code here\n'
-
             await fs.writeFile(
                 `${newVersionDir}/00-firstScript.sql`,
-                content
+                opts.deprecate
+                    ? (this.emit('deprecate'), await deprecate(conn))
+                    : '-- Place your SQL code here\n'
             );
 
             this.emit('versionCreated', versionFolder);
@@ -152,7 +147,7 @@ class Version extends Command {
     }
 }
 
-async function deprecate() {
+async function deprecate(conn) {
     const [[config]] = await conn.query(`
         SELECT dateRegex,
                 deprecatedMarkRegex,
@@ -160,11 +155,14 @@ async function deprecate() {
             FROM config
     `);
 
-    const sql = await conn.query(`
+    if (!config || Object.values(config).some(value => value == null || value === ''))
+        throw new Error('missing configuration variables');
+
+    const [sql] = await conn.query(`
         WITH variables AS (
             SELECT ? markRegex, ? dateRegex, ? dated
         )
-        SELECT CONCAT('ALTER TABLE ', c.TABLE_SCHEMA, '.', c.TABLE_NAME, ' DROP PRIMARY KEY;') sql
+        SELECT CONCAT('ALTER TABLE ', c.TABLE_SCHEMA, '.', c.TABLE_NAME, ' DROP PRIMARY KEY;') "sql"
             FROM information_schema.COLUMNS c
                 LEFT JOIN information_schema.VIEWS v ON v.TABLE_SCHEMA = c.TABLE_SCHEMA
                     AND v.TABLE_NAME = c.TABLE_NAME
