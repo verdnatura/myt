@@ -43,7 +43,7 @@ class Version extends Command {
         versionCreated: function(versionName) {
             console.log(`New version created: ${versionName}`);
         },
-        deprecate: 'Generating SQL for deprecate.'
+        deprecate: 'Generating SQL for deprecated objects deletion.'
     };
 
     async run(myt, opts) {
@@ -132,8 +132,7 @@ class Version extends Command {
             if (opts.deprecate) {
                 this.emit('deprecate');
                 await deprecate(conn, opts, newVersionDir);
-            } 
-            else
+            } else
                 await fs.writeFile(
                     `${newVersionDir}/00-firstScript.sql`,
                     '-- Place your SQL code here\n'
