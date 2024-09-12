@@ -19,7 +19,7 @@ class Myt {
         params: {
             remote: 'Name of remote to use',
             workspace: 'The base directory of the project',
-            debug: 'Wether to enable debug mode',
+            debug: 'Whether to enable debug mode',
             version: 'Display the version number and exit',
             help: 'Display this help message'
         }

@@ -6,6 +6,11 @@ mockFunctions:
   - mockTime
   - mockUtcTime
 sumViews: true
+defaultDefiner: root@localhost
+deprecMarkRegex: __$
+deprecCommentRegex: ^@deprecated [0-9]{4}-[0-9]{2}-[0-9]{2}
+deprecDateRegex: '[0-9]{4}-[0-9]{2}-[0-9]{2}'
+deprecRetentionPeriod: 60 # Days
 privileges:
   userTable: global_priv
   userWhere: >-

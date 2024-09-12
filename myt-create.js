@@ -43,7 +43,7 @@ class Create extends Command {
         const params = {
             schema,
             name,
-            definer: 'root@localhost'
+            definer: opts.defaultDefiner
         };
 
         switch (opts.type) {
