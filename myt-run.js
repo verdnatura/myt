@@ -125,13 +125,14 @@ class Run extends Command {
         try {
             const server = new Server(ct, dbConfig);
 
-            if (isRandom) {
+            const useCustom = opts.ci || opts.network
+            if (isRandom || useCustom) {
                 try {
                     const netSettings = await ct.inspect({
                         format: '{{json .NetworkSettings}}'
                     });
 
-                    if (opts.ci || opts.network) {
+                    if (useCustom) {
                         dbConfig.host = opts.network
                             ? netSettings.Networks[opts.network].IPAddress
                             : netSettings.Gateway;
