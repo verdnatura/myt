@@ -371,9 +371,12 @@ class Push extends Command {
             const oldSql = await engine.fetchRoutine(type, schema, name);
             const oldSum = engine.getShaSum(type, schema, name);
 
+            const localRemote = opts.remote == null
+                || opts.localRemotes?.indexOf(opts.remote) !== -1;
+
             const isMockFn = type == 'function'
                 && schema == opts.versionSchema
-                && opts.remote == 'local'
+                && localRemote
                 && opts.mockDate
                 && opts.mockFunctions
                 && opts.mockFunctions.indexOf(name) !== -1;

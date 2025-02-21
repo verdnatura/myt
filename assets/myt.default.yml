@@ -7,6 +7,9 @@ mockFunctions:
   - mockUtcTime
 sumViews: true
 defaultDefiner: root@localhost
+localRemotes:
+  - local
+  - docker
 deprecMarkRegex: __$
 deprecCommentRegex: ^@deprecated [0-9]{4}-[0-9]{2}-[0-9]{2}
 deprecDateRegex: '[0-9]{4}-[0-9]{2}-[0-9]{2}'
