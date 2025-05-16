@@ -191,6 +191,23 @@ You can create your local fixture and structure files.
 * *dump/fixtures.after.sql*
 * *dump/fixtures.local.sql*
 
+### Realms
+
+You can create your local realms folders.
+
+```text
+   dump
+   `- realms
+      |- marvel
+      |  `- 00-spiderman.sql
+      |  `- 01-hulk.sql
+      `- dc
+         `- 00-superman.sql
+         `- 01-batman.sql
+         `- 02-wonder_woman.sql
+         `- 03-flash.sql
+```
+
 ## Versioning commands
 
 ### init
@@ -279,7 +296,7 @@ Builds and starts local database server container. It only rebuilds the image
 when dump have been modified.
 
 ```text
-$ myt run [-c|--ci] [-r|--random] [-t|--tmpfs] [-n|--network <string>]
+$ myt run [-c|--ci] [-r|--random] [-t|--tmpfs] [-n|--network <string>] [--realm <string>]
 ```
 
 ### start
