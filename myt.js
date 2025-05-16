@@ -21,7 +21,8 @@ class Myt {
             workspace: 'The base directory of the project',
             debug: 'Whether to enable debug mode',
             version: 'Display the version number and exit',
-            help: 'Display this help message'
+            help: 'Display this help message',
+            realm: 'Name of fixture realm to use',
         }
     };
 

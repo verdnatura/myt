@@ -47,6 +47,7 @@ class Run extends Command {
         waitingDb: 'Waiting for MySQL init process.',
         mockingDate: 'Mocking date functions.',
         applyingFixtures: 'Applying fixtures.',
+        applyingRealms: (realm) => console.log(`Applying '${realm}' realm fixtures.`),
         creatingTriggers: 'Creating triggers.'
     };
 
@@ -185,11 +186,19 @@ class Run extends Command {
             ]
             for (const file of fixturesFiles) {
                 if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
-                await ct.exec(null, 'docker-import.sh',
-                    [`/workspace/dump/${file}`],
-                    'spawn',
-                    true
-                );
+                await execFile(`dump/${file}`)
+            }
+
+            // Apply realms
+
+            if(opts.realm) {
+                this.emit('applyingRealms', opts.realm);
+                const realmDir = `realms/${opts.realm}`;
+                let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
+                realmFiles = realmFiles.map(file => path.parse(file).name);
+                for (const file of realmFiles) {
+                    await execFile(`${realmDir}/${file}`)
+                }
             }
 
             // Create triggers
@@ -216,6 +225,14 @@ class Run extends Command {
             } catch (e) {}
             throw err;
         }
+
+        async function execFile(path){
+            await ct.exec(null, 'docker-import.sh',
+                [`/workspace/${path}` ],
+                'spawn',
+                true
+            );
+        }
     }
 }
 
@@ -223,3 +240,5 @@ module.exports = Run;
 
 if (require.main === module)
     new Myt().cli(Run);
+
+
