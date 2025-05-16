@@ -240,5 +240,3 @@ module.exports = Run;
 
 if (require.main === module)
     new Myt().cli(Run);
-
-
