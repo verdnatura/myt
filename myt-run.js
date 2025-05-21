@@ -21,8 +21,10 @@ class Run extends Command {
             network: 'Docker network to attach container to',
             random: 'Whether to use a random container name and port',
             tmpfs: 'Whether to use tmpfs mount for MySQL data',
-            keep: 'Keep container on failure'
-        }
+            keep: 'Keep container on failure',
+            realm: 'Name of fixture realm to use'
+        },
+        operand: 'realm'
     };
 
     static opts = {
@@ -31,7 +33,8 @@ class Run extends Command {
             network: 'n',
             random: 'r',
             tmpfs: 't',
-            keep: 'k'
+            keep: 'k',
+            realm: 'm'
         },
         boolean: [
             'ci',
@@ -47,7 +50,7 @@ class Run extends Command {
         waitingDb: 'Waiting for MySQL init process.',
         mockingDate: 'Mocking date functions.',
         applyingFixtures: 'Applying fixtures.',
-        applyingRealms: (realm) => console.log(`Applying '${realm}' realm fixtures.`),
+        applyingRealms: 'Applying realm fixtures.',
         creatingTriggers: 'Creating triggers.'
     };
 
@@ -192,7 +195,7 @@ class Run extends Command {
             // Apply realms
 
             if(opts.realm) {
-                this.emit('applyingRealms', opts.realm);
+                this.emit('applyingRealms');
                 const realmDir = `realms/${opts.realm}`;
                 let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
                 realmFiles = realmFiles.map(file => path.parse(file).name);

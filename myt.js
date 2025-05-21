@@ -22,7 +22,6 @@ class Myt {
             debug: 'Whether to enable debug mode',
             version: 'Display the version number and exit',
             help: 'Display this help message',
-            realm: 'Name of fixture realm to use',
         }
     };
 
