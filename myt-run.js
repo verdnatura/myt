@@ -21,8 +21,10 @@ class Run extends Command {
             network: 'Docker network to attach container to',
             random: 'Whether to use a random container name and port',
             tmpfs: 'Whether to use tmpfs mount for MySQL data',
-            keep: 'Keep container on failure'
-        }
+            keep: 'Keep container on failure',
+            realm: 'Name of fixture realm to use'
+        },
+        operand: 'realm'
     };
 
     static opts = {
@@ -31,7 +33,8 @@ class Run extends Command {
             network: 'n',
             random: 'r',
             tmpfs: 't',
-            keep: 'k'
+            keep: 'k',
+            realm: 'm'
         },
         boolean: [
             'ci',
@@ -47,6 +50,7 @@ class Run extends Command {
         waitingDb: 'Waiting for MySQL init process.',
         mockingDate: 'Mocking date functions.',
         applyingFixtures: 'Applying fixtures.',
+        applyingRealms: 'Applying realm fixtures.',
         creatingTriggers: 'Creating triggers.'
     };
 
@@ -185,11 +189,19 @@ class Run extends Command {
             ]
             for (const file of fixturesFiles) {
                 if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
-                await ct.exec(null, 'docker-import.sh',
-                    [`/workspace/dump/${file}`],
-                    'spawn',
-                    true
-                );
+                await execFile(`dump/${file}`)
+            }
+
+            // Apply realms
+
+            if(opts.realm) {
+                this.emit('applyingRealms');
+                const realmDir = `realms/${opts.realm}`;
+                let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
+                realmFiles = realmFiles.map(file => path.parse(file).name);
+                for (const file of realmFiles) {
+                    await execFile(`${realmDir}/${file}`)
+                }
             }
 
             // Create triggers
@@ -215,6 +227,14 @@ class Run extends Command {
                 if (!opts.keep) await ct.rm({force: true});
             } catch (e) {}
             throw err;
+        }
+
+        async function execFile(path){
+            await ct.exec(null, 'docker-import.sh',
+                [`/workspace/${path}` ],
+                'spawn',
+                true
+            );
         }
     }
 }

@@ -12,3 +12,4 @@ RUN echo "[LOG] Import finished." \
     && rm -rf dump
 
 COPY fixtures.*.sql dump/
+COPY realms realms/
