@@ -10,7 +10,7 @@ COPY \
     /usr/local/bin/
 
 ENTRYPOINT ["docker-start.sh"]
-CMD ["mysqld"]
+CMD ["mariadbd"]
 
 HEALTHCHECK --interval=2s --timeout=10s --retries=200 \
     CMD mysqladmin ping -h 127.0.0.1 -u root --password=root || exit 1

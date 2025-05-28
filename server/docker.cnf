@@ -1,4 +1,4 @@
-[mysqld]
+[mariadbd]
 innodb_log_file_size = 4M
 innodb_autoextend_increment = 4
 innodb_page_size = 16K
