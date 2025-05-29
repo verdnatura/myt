@@ -2,7 +2,7 @@
 set -e
 
 . /usr/local/bin/docker-entrypoint.sh
-ARGS=(mysqld --datadir=/mysql-template)
+ARGS=(mariadbd --datadir=/mysql-template)
 
 mysql_check_config ${ARGS[@]}
 docker_setup_env ${ARGS[@]}
