@@ -35,6 +35,9 @@ dependencies:
   sha.js:
     specifier: ^2.4.11
     version: 2.4.11
+  sqlstring:
+    specifier: ^2.3.3
+    version: 2.3.3
 
 packages:
 
