@@ -1,6 +1,6 @@
 FROM myt/base
 
-ENV MYSQL_ROOT_PASSWORD root
+ENV MYSQL_ROOT_PASSWORD=root
 
 COPY docker.cnf /etc/mysql/conf.d/
 COPY \

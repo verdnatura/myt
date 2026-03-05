@@ -1,6 +1,6 @@
 {
   "name": "@verdnatura/myt",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "author": "Verdnatura Levante SL",
   "description": "MySQL version control",
   "license": "GPL-3.0",
@@ -11,6 +11,10 @@
     "type": "git",
     "url": "https://github.com/verdnatura/myt.git"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.28.2",
   "dependencies": {
     "@sqltools/formatter": "^1.2.5",
     "colors": "^1.4.0",
@@ -19,7 +23,7 @@
     "getopts": "^2.3.0",
     "ini": "^4.1.1",
     "mysql2": "^3.3.4",
-    "nodegit": "^0.27.0",
+    "nodegit": "0.28.0-alpha.28",
     "require-yaml": "^0.0.1",
     "sha.js": "^2.4.11",
     "sqlstring": "^2.3.3"
