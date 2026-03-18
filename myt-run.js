@@ -20,7 +20,7 @@ class Run extends Command {
             ci: 'Workaround for continuous integration system',
             network: 'Docker network to attach container to',
             random: 'Whether to use a random container name and port',
-            tmpfs: 'Whether to use tmpfs mount for MySQL data',
+            persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
             realm: 'Name of fixture realm to use'
         },
@@ -29,17 +29,16 @@ class Run extends Command {
 
     static opts = {
         alias: {
-            ci: 'c',
             network: 'n',
             random: 'r',
-            tmpfs: 't',
+            persist: 'p',
             keep: 'k',
             realm: 'm'
         },
         boolean: [
             'ci',
             'random',
-            'tmpfs',
+            'persist',
             'keep'
         ]
     };
@@ -47,11 +46,13 @@ class Run extends Command {
     static reporter = {
         buildingImage: 'Building container image.',
         runningContainer: 'Running container.',
-        waitingDb: 'Waiting for MySQL init process.',
         mockingDate: 'Mocking date functions.',
         applyingFixtures: 'Applying fixtures.',
         applyingRealms: 'Applying realm fixtures.',
-        creatingTriggers: 'Creating triggers.'
+        creatingTriggers: 'Creating triggers.',
+        waitingDb: function(dbConfig) {
+            console.log(`Waiting for MySQL: ${dbConfig.host}:${dbConfig.port}`);
+        }
     };
 
     async run(myt, opts) {
@@ -116,9 +117,10 @@ class Run extends Command {
             } catch (e) {}
         }
 
+        const {network} = opts;
         if (opts.network)
-            runOptions.network = opts.network;
-        if (opts.tmpfs)
+            runOptions.network = network;
+        if (!opts.persist)
             runOptions.tmpfs = '/var/lib/mysql';
 
         Object.assign(runOptions, null, {
@@ -129,27 +131,34 @@ class Run extends Command {
         try {
             const server = new Server(ct, dbConfig);
 
-            const useCustom = opts.ci || opts.network
-            if (isRandom || useCustom) {
-                try {
-                    const netSettings = await ct.inspect({
-                        format: '{{json .NetworkSettings}}'
-                    });
+            try {
+                const netSettings = await ct.inspect({
+                    format: '{{json .NetworkSettings}}'
+                });
+                const ctNetworks = netSettings.Networks;
 
-                    if (useCustom) {
-                        dbConfig.host = opts.network
-                            ? netSettings.Networks[opts.network].IPAddress
-                            : netSettings.Gateway;
-                        dbConfig.port = 3306;
-                    } else
-                        dbConfig.port = netSettings.Ports['3306/tcp'][0].HostPort;
-                } catch (err) {
-                    await server.rm();
-                    throw err;
+                let host;
+                if (network) {
+                    host = network != 'host'
+                        ? ctNetworks[network].IPAddress
+                        : '127.0.0.1'
+                } else {
+                    host = netSettings.IPAddress
+                        ?? ctNetworks.bridge?.IPAddress
                 }
+                if (!host)
+                    throw new Error(`Cannot get database host`);
+
+                Object.assign(dbConfig, {
+                    host,
+                    port: 3306
+                });
+            } catch (err) {
+                await server.rm();
+                throw err;
             }
 
-            this.emit('waitingDb');
+            this.emit('waitingDb', dbConfig);
             await server.wait();
             const conn = await myt.createConnection();
 
