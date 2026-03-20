@@ -22,7 +22,8 @@ class Run extends Command {
             random: 'Whether to use a random container name and port',
             persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
-            realm: 'Name of fixture realm to use'
+            realm: 'Name of fixture realm to use',
+            realm: 'Use container IP instead of localhost'
         },
         operand: 'realm'
     };
@@ -33,7 +34,8 @@ class Run extends Command {
             random: 'r',
             persist: 'p',
             keep: 'k',
-            realm: 'm'
+            realm: 'm',
+            ip: 'i'
         },
         boolean: [
             'ci',
@@ -138,21 +140,27 @@ class Run extends Command {
                 const ctNetworks = netSettings.Networks;
 
                 let host;
-                if (network) {
-                    host = network != 'host'
-                        ? ctNetworks[network].IPAddress
-                        : '127.0.0.1'
+                let port;
+                let localhost = '127.0.0.1';
+                if (opts.ip) {
+                    if (network) {
+                        host = network != 'host'
+                            ? ctNetworks[network].IPAddress
+                            : localhost
+                    } else {
+                        host = netSettings.IPAddress
+                            ?? ctNetworks.bridge?.IPAddress
+                    }
+                    port = 3306;
                 } else {
-                    host = netSettings.IPAddress
-                        ?? ctNetworks.bridge?.IPAddress
+                    host = localhost;
+                    port = netSettings.Ports['3306/tcp'][0].HostPort
                 }
+
                 if (!host)
                     throw new Error(`Cannot get database host`);
 
-                Object.assign(dbConfig, {
-                    host,
-                    port: 3306
-                });
+                Object.assign(dbConfig, {host, port});
             } catch (err) {
                 await server.rm();
                 throw err;
