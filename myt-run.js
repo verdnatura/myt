@@ -198,7 +198,7 @@ class Run extends Command {
             const [triggers] = await conn.query(`
                 SELECT TRIGGER_SCHEMA, TRIGGER_NAME 
                     FROM information_schema.TRIGGERS 
-                WHERE TRIGGER_SCHEMA = 'vn'
+                    WHERE TRIGGER_SCHEMA = 'vn'
             `);
             for (const {TRIGGER_SCHEMA, TRIGGER_NAME} of triggers)
                 await conn.query(`DROP TRIGGER IF EXISTS \`${TRIGGER_SCHEMA}\`.\`${TRIGGER_NAME}\``);
