@@ -296,7 +296,7 @@ Builds and starts local database server container. It only rebuilds the image
 when dump have been modified.
 
 ```text
-$ myt run [<realm>|-m|--realm <string>] [-c|--ci] [-r|--random] [-t|--tmpfs] [-n|--network <string>]
+$ myt run [<realm>|-m|--realm <string>] [-c|--ci] [-r|--random] [-p|--persist] [-n|--network <string>] [-i|--ip]
 ```
 
 ### start

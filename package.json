@@ -1,6 +1,6 @@
 {
   "name": "@verdnatura/myt",
-  "version": "1.7.2",
+  "version": "1.8.4",
   "author": "Verdnatura Levante SL",
   "description": "MySQL version control",
   "license": "GPL-3.0",
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/verdnatura/myt.git"
+    "url": "git+https://github.com/verdnatura/myt.git"
   },
   "engines": {
     "node": ">=20"
