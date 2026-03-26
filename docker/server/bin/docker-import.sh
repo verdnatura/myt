@@ -6,5 +6,4 @@ if [[ ! -f "$FILE" ]] ; then
 fi
 
 echo "[LOG] -> Importing $FILE"
-export MYSQL_PWD=root
-mariadb -u root --default-character-set=utf8 --comments -f < "$FILE"
+mariadb --default-character-set=utf8 --comments --force < "$FILE"

@@ -244,12 +244,13 @@ class Myt {
                 iniConfig[newKey] = value !== undefined ? value : true;
             }
             dbConfig = {
-                host: iniConfig.host,
-                port: iniConfig.port,
-                user: iniConfig.user,
-                password: iniConfig.password,
                 multipleStatements: true
             };
+            const params = ['host', 'port', 'user', 'password'];
+            for (const param of params) {
+                if (iniConfig[param])
+                    dbConfig[param] = iniConfig[param];
+            }
             if (iniConfig.enable_cleartext_plugin) {
                 dbConfig.authPlugins = {
                     mysql_clear_password() {

@@ -1,0 +1,20 @@
+FROM myt/server
+
+ARG MYT_DIR=.
+ARG ROOT_PASS
+
+RUN mkdir -p /mysql-template \
+    && chown mysql:mysql /mysql-template \
+    && gosu mysql docker-init.sh
+
+WORKDIR /workspace
+
+COPY myt.config.yml ./
+
+COPY ${MYT_DIR}/dump/.dump dump/.dump
+COPY ${MYT_DIR}/dump/dump.*.sql dump/
+RUN gosu mysql docker-apply.sh --structure \
+    && rm -rf dump
+
+RUN --mount=type=bind,source=.,target=/workspace \
+    gosu mysql docker-apply.sh --changes

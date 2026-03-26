@@ -354,6 +354,11 @@ class Push extends Command {
             }
         }
 
+        const localRemote = opts.remote == null
+            || opts.localRemotes?.indexOf(opts.remote) !== -1;
+        let mockFunctions = localRemote && opts.mockDate && opts.mockFunctions;
+        mockFunctions = new Set(mockFunctions || []);
+
         for (const change of changes)
         try {
             if (opts.triggers && change.type.name === 'TRIGGER')
@@ -371,15 +376,9 @@ class Push extends Command {
             const oldSql = await engine.fetchRoutine(type, schema, name);
             const oldSum = engine.getShaSum(type, schema, name);
 
-            const localRemote = opts.remote == null
-                || opts.localRemotes?.indexOf(opts.remote) !== -1;
-
             const isMockFn = type == 'function'
                 && schema == opts.versionSchema
-                && localRemote
-                && opts.mockDate
-                && opts.mockFunctions
-                && opts.mockFunctions.indexOf(name) !== -1;
+                && mockFunctions.has(name);
             const ignore = newSql == oldSql || isMockFn;
 
             let status;

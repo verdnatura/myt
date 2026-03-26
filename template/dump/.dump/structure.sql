@@ -1,3 +1,5 @@
+CREATE DATABASE /*!32312 IF NOT EXISTS*/ `myt`;
+USE `myt`;
 
 CREATE TABLE `version` (
     `code` VARCHAR(50) NOT NULL,
@@ -25,5 +27,6 @@ ALTER TABLE `versionLog`
 
 CREATE TABLE `versionConfig` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `realm` VARCHAR(16) NULL DEFAULT NULL COMMENT 'Data set on which the project runs'
+    `realm` VARCHAR(16) NULL DEFAULT NULL
+        COMMENT 'Data set on which the project runs'
 ) ENGINE=InnoDB;

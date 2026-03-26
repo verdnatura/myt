@@ -23,7 +23,7 @@ class Run extends Command {
             persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
             realm: 'Name of fixture realm to use',
-            realm: 'Use container IP instead of localhost'
+            ip: 'Bind to container IP instead of localhost'
         },
         operand: 'realm'
     };
@@ -41,7 +41,8 @@ class Run extends Command {
             'ci',
             'random',
             'persist',
-            'keep'
+            'keep',
+            'ip'
         ]
     };
 
@@ -53,7 +54,7 @@ class Run extends Command {
         applyingRealms: 'Applying realm fixtures.',
         creatingTriggers: 'Creating triggers.',
         waitingDb: function(dbConfig) {
-            console.log(`Waiting for MySQL: ${dbConfig.host}:${dbConfig.port}`);
+            console.log(`Waiting for database: ${dbConfig.host}:${dbConfig.port}`);
         }
     };
 
@@ -104,15 +105,17 @@ class Run extends Command {
         const isRandom = opts.random;
         const dbConfig = opts.dbConfig;
 
-        let runOptions;
+        let runOptions = {
+            env: `MYSQL_ROOT_PASSWORD=${opts.dbPassword}`
+        };
 
         if (isRandom)
-            runOptions = {publish: '3306'};
+            Object.assign(runOptions, {publish: '3306'});
         else {
-            runOptions = {
+            Object.assign(runOptions, {
                 name: opts.code,
                 publish: `3306:${dbConfig.port}`
-            };
+            });
             try {
                 const server = new Server(new docker.Container(opts.code));
                 await server.rm();
@@ -146,15 +149,15 @@ class Run extends Command {
                     if (network) {
                         host = network != 'host'
                             ? ctNetworks[network].IPAddress
-                            : localhost
+                            : localhost;
                     } else {
                         host = netSettings.IPAddress
-                            ?? ctNetworks.bridge?.IPAddress
+                            ?? ctNetworks.bridge?.IPAddress;
                     }
                     port = 3306;
                 } else {
                     host = localhost;
-                    port = netSettings.Ports['3306/tcp'][0].HostPort
+                    port = netSettings.Ports['3306/tcp'][0].HostPort;
                 }
 
                 if (!host)

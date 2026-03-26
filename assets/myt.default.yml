@@ -28,6 +28,8 @@ privileges:
     - procs_priv
   where: >-
     `Host` = ''
+baseImage: mariadb
+baseImageTag: 10.11.16-jammy
 schemas:
   - myt
 fixtures:
