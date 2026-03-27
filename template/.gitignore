@@ -3,5 +3,5 @@ node_modules
 remotes/*.ini
 !remotes/local.ini
 !remotes/docker.ini
-dump/.changes
+!remotes/socket.ini
 dump/fixtures.local.sql

@@ -11,10 +11,14 @@ WORKDIR /workspace
 
 COPY myt.config.yml ./
 
-COPY ${MYT_DIR}/dump/.dump dump/.dump
-COPY ${MYT_DIR}/dump/dump.*.sql dump/
-RUN gosu mysql docker-apply.sh --structure \
+COPY ${MYT_DIR}/dump/.dump ${MYT_DIR}/dump/.dump
+COPY ${MYT_DIR}/dump/dump.*.sql ${MYT_DIR}/dump/
+RUN --mount=type=tmpfs,target=/mysql-tmpfs \
+    chown mysql:mysql /mysql-tmpfs \
+    && gosu mysql docker-apply.sh --structure \
     && rm -rf dump
 
-RUN --mount=type=bind,source=.,target=/workspace \
-    gosu mysql docker-apply.sh --changes
+RUN --mount=type=tmpfs,target=/mysql-tmpfs \
+    --mount=type=bind,source=.,target=/workspace \
+    chown mysql:mysql /mysql-tmpfs \
+    && gosu mysql docker-apply.sh --changes

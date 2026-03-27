@@ -38,41 +38,6 @@ class Run extends Command {
         creatingTriggers: 'Creating triggers.',
     };
 
-    async importFile(file) {
-        if (!await fs.exists(file))
-            return;
-
-        const execArgs = [
-            '--default-character-set=utf8',
-            '--comments',
-            '--force'
-        ];
-
-        let stdio;
-        if (this.opts.debug === true) {
-            const quotedArgs = execArgs
-                .map(x => /\s/g.test(x) ? `"${x}"` : x)
-                .join(' ');
-            console.debug('Command:', `mysql ${quotedArgs} < ${file}`.yellow);
-
-            stdio: ['pipe', 'inherit', 'inherit'];
-        } else {
-            stdio: ['pipe', 'ignore', 'ignore'];
-        }
-        
-        const child = spawn('mysql', execArgs, {stdio});
-        fs.createReadStream(file).pipe(child.stdin);
-
-        return await new Promise((resolve, reject) => {
-            child.on('exit', code => {
-                if (code !== 0)
-                    reject(new Error(`mysql exit code ${code}`));
-                else
-                    resolve(code);
-            });
-        });
-    }
-
     async run(myt, opts) {
         if (opts.docker)
             opts.dbConfig = {
@@ -81,23 +46,24 @@ class Run extends Command {
             };
 
         const dbConfig = opts.dbConfig;
+        const dumpDir = opts.dumpDir;
 
         if (opts.structure) {
+            await this.importFile(`${dumpDir}/dump.before.sql`);
+
             const importFiles = [
-                'dump.before.sql',
-                '.dump/structure.sql',
-                '.dump/data.sql',
-                '.dump/triggers.sql',
-                '.dump/privileges.sql',
-                'dump.after.sql'
+                'structure.sql',
+                'data.sql',
+                'triggers.sql',
+                'privileges.sql',
             ];
             for (const file of importFiles)
-                await this.importFile(`${opts.mytDir}/dump/${file}`);
+                await this.importFile(`${dumpDir}/.dump/${file}`, true);
+
+            await this.importFile(`${dumpDir}/dump.after.sql`);
         }
 
         if (opts.changes) {
-            const dumpDir = opts.dumpDir;
-            const dumpDataDir = path.join(dumpDir, '.dump');
             const conn = await myt.createConnection();
 
             // Mock date functions
@@ -116,7 +82,7 @@ class Run extends Command {
 
             // Apply changes
 
-            const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
+            const hasTriggers = await fs.exists(`${dumpDir}/.dump/triggers.sql`);
 
             Object.assign(opts, {
                 triggers: !hasTriggers,
@@ -128,16 +94,10 @@ class Run extends Command {
             // Apply fixtures
 
             this.emit('applyingFixtures');
-            const fixturesFiles = [
-                'fixtures.before',
-                '.fixtures',
-                'fixtures.after',
-                'fixtures.local'
-            ]
-            for (const file of fixturesFiles) {
-                if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
-                await this.importFile(`dump/${file}.sql`);
-            }
+            await this.importFile(`${dumpDir}/fixtures.before.sql`);
+            await this.importFile(`${dumpDir}/.fixtures.sql`, true);
+            await this.importFile(`${dumpDir}/fixtures.after.sql`);
+            await this.importFile(`${dumpDir}/fixtures.local.sql`);
 
             // Apply realms
 
@@ -169,6 +129,48 @@ class Run extends Command {
 
             await conn.end();
         }
+    }
+
+    async importFile(file, force) {
+        if (!await fs.exists(file))
+            return;
+
+        const execArgs = [
+            '--default-character-set=utf8',
+            '--comments',
+        ];
+
+        if (force)
+            execArgs.push('--force');
+        if (!this.opts.docker) {
+            const iniPath = path.join('remotes', this.opts.iniFile);
+            execArgs.push(`--defaults-file=${iniPath}`);
+        }
+
+        let stdio;
+        const mysqlBin = 'mariadb';
+        if (this.opts.debug === true) {
+            const quotedArgs = execArgs
+                .map(x => /\s/g.test(x) ? `"${x}"` : x)
+                .join(' ');
+            console.debug('Command:', `${mysqlBin} ${quotedArgs} < ${file}`.yellow);
+
+            stdio = ['pipe', 'inherit', 'inherit'];
+        } else {
+            stdio = ['pipe', 'ignore', 'ignore'];
+        }
+        
+        const child = spawn(mysqlBin, execArgs, {stdio});
+        fs.createReadStream(file).pipe(child.stdin);
+
+        return await new Promise((resolve, reject) => {
+            child.on('exit', code => {
+                if (code !== 0)
+                    reject(new Error(`${mysqlBin} exit code ${code}`));
+                else
+                    resolve(code);
+            });
+        });
     }
 }
 

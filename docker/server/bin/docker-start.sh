@@ -9,4 +9,7 @@ if [[ ! -d /var/lib/mysql/mysql && -d /mysql-template ]]; then
 	cp -a /mysql-template/. /var/lib/mysql
 fi
 
+# echo -e "[safe]\n\tdirectory = /workspace" > ~/.gitconfig
+# git config --global safe.directory /workspace
+
 exec gosu mysql "$@"

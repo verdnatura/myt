@@ -57,9 +57,6 @@ class Run extends Command {
 
         // Build server image
 
-        if (opts.baseImage)
-            
-
         await docker.build(__dirname, {
             tag: 'myt/server',
             file: path.join(serverDir, 'Dockerfile'),

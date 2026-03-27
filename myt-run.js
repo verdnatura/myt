@@ -1,12 +1,7 @@
 const Myt = require('./myt');
 const Command = require('./lib/command');
-const Push = require('./myt-push');
 const docker = require('./lib/docker');
-const fs = require('fs-extra');
-const path = require('path');
 const Server = require('./lib/server');
-const connExt = require('./lib/conn');
-const SqlString = require('sqlstring');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the image
@@ -59,55 +54,12 @@ class Run extends Command {
     };
 
     async run(myt, opts) {
-        const dumpDir = opts.dumpDir;
-        const dumpDataDir = path.join(dumpDir, '.dump');
-        const serverDir = path.join(__dirname, 'server');
-
-        if (!await fs.pathExists(`${dumpDataDir}/structure.sql`))
-            throw new Error('To run local database you have to create a dump first');
-
-        // Build base image
-
-        this.emit('buildingImage');
-
-        let basePath = dumpDir;
-        let baseDockerfile = path.join(dumpDir, 'Dockerfile');
-
-        if (!await fs.pathExists(baseDockerfile)) {
-            basePath = serverDir;
-            baseDockerfile = path.join(serverDir, 'Dockerfile.base');
-        }
-
-        await docker.build(basePath, {
-            tag: 'myt/base',
-            file: baseDockerfile
-        }, opts.debug);
-
-        // Build server image
-
-        await docker.build(serverDir, {
-            tag: 'myt/server',
-            file: path.join(serverDir, 'Dockerfile.server')
-        }, opts.debug);
-
-        // Build dump image
-
-        const dumpContext = path.join(opts.mytDir, 'dump');
-        await docker.build(dumpContext, {
-            tag: opts.code,
-            file: path.join(serverDir, 'Dockerfile.dump')
-        }, opts.debug);
-
-        // Run container
-
         this.emit('runningContainer');
 
         const isRandom = opts.random;
         const dbConfig = opts.dbConfig;
 
-        let runOptions = {
-            env: `MYSQL_ROOT_PASSWORD=${opts.dbPassword}`
-        };
+        const runOptions = {};
 
         if (isRandom)
             Object.assign(runOptions, {publish: '3306'});
@@ -171,90 +123,12 @@ class Run extends Command {
 
             this.emit('waitingDb', dbConfig);
             await server.wait();
-            const conn = await myt.createConnection();
-
-            // Mock date functions
-
-            this.emit('mockingDate');
-            const mockDateScript = path.join(dumpDir, 'mockDate.sql');
-
-            if (opts.mockDate) {
-                if (!await fs.pathExists(mockDateScript))
-                    throw new Error(`Date mock enabled but mock script does not exist: ${mockDateScript}`);
-
-                let sql = await fs.readFile(mockDateScript, 'utf8');
-                sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
-                await connExt.multiQuery(conn, sql);
-            }
-
-            // Apply changes
-
-            const hasTriggers = await fs.exists(`${dumpDataDir}/triggers.sql`);
-
-            Object.assign(opts, {
-                triggers: !hasTriggers,
-                commit: true,
-                dbConfig
-            });
-            await myt.run(Push, opts);
-
-            // Apply fixtures
-
-            this.emit('applyingFixtures');
-            const fixturesFiles = [
-                'fixtures.before',
-                '.fixtures',
-                'fixtures.after',
-                'fixtures.local'
-            ]
-            for (const file of fixturesFiles) {
-                if (!await fs.exists(`${dumpDir}/${file}.sql`)) continue;
-                await execFile(`dump/${file}`)
-            }
-
-            // Apply realms
-
-            if(opts.realm) {
-                this.emit('applyingRealms');
-                const realmDir = `realms/${opts.realm}`;
-                let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
-                realmFiles = realmFiles.map(file => path.parse(file).name);
-                for (const file of realmFiles) {
-                    await execFile(`${realmDir}/${file}`)
-                }
-            }
-
-            // Create triggers
-
-            if (!hasTriggers) {
-                this.emit('creatingTriggers');
-
-                for (const schema of opts.schemas) {
-                    const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
-                    if (!await fs.pathExists(triggersPath))
-                        continue;
-
-                    const triggersDir = await fs.readdir(triggersPath);
-                    for (const triggerFile of triggersDir)
-                        await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
-                }
-            }
-
-            await conn.end();
             return server;
         } catch (err) {
             try {
                 if (!opts.keep) await ct.rm({force: true});
             } catch (e) {}
             throw err;
-        }
-
-        async function execFile(path){
-            await ct.exec(null, 'docker-import.sh',
-                [`/workspace/${path}` ],
-                'spawn',
-                true
-            );
         }
     }
 }

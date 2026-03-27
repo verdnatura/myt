@@ -185,9 +185,8 @@ class Push extends Command {
     }
 
     async cli(myt, opts) {
-        // Prevent push to production by mistake
-
-        if (opts.remote == 'production') {
+        const protectedRemotes = new Set(opts.protectedRemotes);
+        if (protectedRemotes.has(opts.remote)) {
             console.log(
                 '\n (   (       ) (                       (       )     ) '
                 + '\n )\\ ))\\ ) ( /( )\\ )          (        ))\\ ) ( /(  ( /( '
