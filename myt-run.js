@@ -224,19 +224,17 @@ class Run extends Command {
             // Create triggers
 
             if (!hasTriggers) {
-              this.emit("creatingTriggers");
+                this.emit('creatingTriggers');
 
-              for (const schema of opts.schemas) {
-                const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
-                if (!(await fs.pathExists(triggersPath))) continue;
+                for (const schema of opts.schemas) {
+                    const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
+                    if (!await fs.pathExists(triggersPath))
+                        continue;
 
-                const triggersDir = await fs.readdir(triggersPath);
-                for (const triggerFile of triggersDir)
-                  await connExt.queryFromFile(
-                    conn,
-                    `${triggersPath}/${triggerFile}`,
-                  );
-              }
+                    const triggersDir = await fs.readdir(triggersPath);
+                    for (const triggerFile of triggersDir)
+                        await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+                }
             }
 
             await conn.end();
