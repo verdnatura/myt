@@ -195,14 +195,6 @@ class Run extends Command {
             });
             await myt.run(Push, opts);
 
-            const [triggers] = await conn.query(`
-                SELECT TRIGGER_SCHEMA, TRIGGER_NAME 
-                    FROM information_schema.TRIGGERS 
-                    WHERE TRIGGER_SCHEMA = 'vn'
-            `);
-            for (const {TRIGGER_SCHEMA, TRIGGER_NAME} of triggers)
-                await conn.query(`DROP TRIGGER IF EXISTS \`${TRIGGER_SCHEMA}\`.\`${TRIGGER_NAME}\``);
-
             // Apply fixtures
 
             this.emit('applyingFixtures');
@@ -231,15 +223,20 @@ class Run extends Command {
 
             // Create triggers
 
-            this.emit('creatingTriggers');
+            if (!hasTriggers) {
+              this.emit("creatingTriggers");
 
-            for (const schema of opts.schemas) {
+              for (const schema of opts.schemas) {
                 const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
-                if (!await fs.pathExists(triggersPath))
-                    continue;
+                if (!(await fs.pathExists(triggersPath))) continue;
+
                 const triggersDir = await fs.readdir(triggersPath);
                 for (const triggerFile of triggersDir)
-                    await connExt.queryFromFile(conn, `${triggersPath}/${triggerFile}`);
+                  await connExt.queryFromFile(
+                    conn,
+                    `${triggersPath}/${triggerFile}`,
+                  );
+              }
             }
 
             await conn.end();
