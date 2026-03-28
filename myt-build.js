@@ -4,7 +4,7 @@ const docker = require('./lib/docker');
 const fs = require('fs-extra');
 const path = require('path');
 
-class Run extends Command {
+class Build extends Command {
     static usage = {
         description: 'Build local database server container',
     };
@@ -34,9 +34,7 @@ class Run extends Command {
 
         // Build base image
 
-        const buildArgs = [
-            `ROOT_PASS=${opts.rootPassword}`
-        ];
+        const buildArgs = [];
         const baseDockerfile = path.join(dumpDir, 'Dockerfile');
 
         if (await fs.pathExists(baseDockerfile)) {
@@ -70,13 +68,14 @@ class Run extends Command {
             tag: opts.tag || opts.code,
             file: path.join(serverDir, 'Dockerfile.dump'),
             buildArg: [
-                `MYT_DIR=${subdir}`
+                `MYT_DIR=${subdir}`,
+                `ROOT_PASS=${opts.rootPassword}`
             ]
         }, opts.debug);
     }
 }
 
-module.exports = Run;
+module.exports = Build;
 
 if (require.main === module)
-    new Myt().cli(Run);
+    new Myt().cli(Build);

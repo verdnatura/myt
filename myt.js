@@ -57,7 +57,7 @@ class Myt {
 
         if (opts.debug) {
             console.warn('Debug mode enabled.'.yellow);
-            console.log('Global options:'.magenta, opts);
+            console.debug('Global options:'.magenta, opts);
         }
 
         if (opts.version)
@@ -97,15 +97,12 @@ class Myt {
 
             const commandOpts = this.getopts(allOpts);
             if (opts.debug)
-                console.log('Command options:'.magenta, commandOpts);
+                console.debug('Command options:'.magenta, commandOpts);
             Object.assign(opts, commandOpts);
 
             const operandToOpt = Command.usage.operand;
             if (opts._.length >= 2 && operandToOpt)
                 opts[operandToOpt] = opts._[1];
-
-            if (opts.debug)
-                console.log('Final options:'.magenta, opts);
 
             if (opts.help) {
                 this.showHelp(Command.opts, Command.usage, commandName);

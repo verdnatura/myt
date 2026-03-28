@@ -7,7 +7,7 @@ const connExt = require('./lib/conn');
 const SqlString = require('sqlstring');
 const spawn = require('child_process').spawn;
 
-class Run extends Command {
+class Apply extends Command {
     static usage = {
         description: 'Initialize database',
         params: {
@@ -28,7 +28,10 @@ class Run extends Command {
             'docker',
             'structure',
             'changes'
-        ]
+        ],
+        default: {
+            remote: 'socket'
+        }
     };
 
     static reporter = {
@@ -39,12 +42,6 @@ class Run extends Command {
     };
 
     async run(myt, opts) {
-        if (opts.docker)
-            opts.dbConfig = {
-                user: 'mysql',
-                socketPath: '/run/mysqld/mysqld.sock'
-            };
-
         const dbConfig = opts.dbConfig;
         const dumpDir = opts.dumpDir;
 
@@ -135,46 +132,50 @@ class Run extends Command {
         if (!await fs.exists(file))
             return;
 
+        const {opts} = this;
+
+        const iniPath = path.join(opts.mytDir, 'remotes', opts.iniFile);
         const execArgs = [
+            `--defaults-file=${iniPath}`,
             '--default-character-set=utf8',
             '--comments',
         ];
 
         if (force)
             execArgs.push('--force');
-        if (!this.opts.docker) {
-            const iniPath = path.join('remotes', this.opts.iniFile);
-            execArgs.push(`--defaults-file=${iniPath}`);
-        }
 
-        let stdio;
-        const mysqlBin = 'mariadb';
-        if (this.opts.debug === true) {
-            const quotedArgs = execArgs
-                .map(x => /\s/g.test(x) ? `"${x}"` : x)
-                .join(' ');
-            console.debug('Command:', `${mysqlBin} ${quotedArgs} < ${file}`.yellow);
+        if (opts.docker) {
+            let stdio;
+            const mysqlBin = 'mariadb';
+            if (opts.debug === true) {
+                const quotedArgs = execArgs
+                    .map(x => /\s/g.test(x) ? `"${x}"` : x)
+                    .join(' ');
+                console.debug('Command:', `${mysqlBin} ${quotedArgs} < ${file}`.yellow);
 
-            stdio = ['pipe', 'inherit', 'inherit'];
-        } else {
-            stdio = ['pipe', 'ignore', 'ignore'];
-        }
-        
-        const child = spawn(mysqlBin, execArgs, {stdio});
-        fs.createReadStream(file).pipe(child.stdin);
+                stdio = ['pipe', 'inherit', 'inherit'];
+            } else {
+                stdio = ['pipe', 'ignore', 'ignore'];
+            }
+            
+            const child = spawn(mysqlBin, execArgs, {stdio});
+            fs.createReadStream(file).pipe(child.stdin);
 
-        return await new Promise((resolve, reject) => {
-            child.on('exit', code => {
-                if (code !== 0)
-                    reject(new Error(`${mysqlBin} exit code ${code}`));
-                else
-                    resolve(code);
+            return await new Promise((resolve, reject) => {
+                child.on('exit', code => {
+                    if (code !== 0)
+                        reject(new Error(`${mysqlBin} exit code ${code}`));
+                    else
+                        resolve(code);
+                });
             });
-        });
+        } else {
+            // TODO: Use container to run mysql client
+        }
     }
 }
 
-module.exports = Run;
+module.exports = Apply;
 
 if (require.main === module)
-    new Myt().cli(Run);
+    new Myt().cli(Apply);

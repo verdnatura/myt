@@ -2,6 +2,7 @@ FROM myt/server
 
 ARG MYT_DIR=.
 ARG ROOT_PASS
+ENV ROOT_PASS=${ROOT_PASS}
 
 RUN mkdir -p /mysql-template \
     && chown mysql:mysql /mysql-template \
@@ -10,6 +11,7 @@ RUN mkdir -p /mysql-template \
 WORKDIR /workspace
 
 COPY myt.config.yml ./
+COPY ${MYT_DIR}/remotes/socket.ini ${MYT_DIR}/remotes/
 
 COPY ${MYT_DIR}/dump/.dump ${MYT_DIR}/dump/.dump
 COPY ${MYT_DIR}/dump/dump.*.sql ${MYT_DIR}/dump/
