@@ -42,8 +42,11 @@ class Apply extends Command {
     };
 
     async run(myt, opts) {
-        const dbConfig = opts.dbConfig;
-        const dumpDir = opts.dumpDir;
+        const {
+            dbConfig,
+            dumpDir,
+            triggersImport
+        } = opts;
 
         if (opts.structure) {
             await this.importFile(`${dumpDir}/dump.before.sql`);
@@ -51,9 +54,13 @@ class Apply extends Command {
             const importFiles = [
                 'structure.sql',
                 'data.sql',
-                'triggers.sql',
-                'privileges.sql',
             ];
+
+            if (triggersImport == 'before')
+                importFiles.push('triggers.sql');
+
+            importFiles.push('privileges.sql');
+
             for (const file of importFiles)
                 await this.importFile(`${dumpDir}/.dump/${file}`, true);
 
@@ -79,10 +86,8 @@ class Apply extends Command {
 
             // Apply changes
 
-            const hasTriggers = await fs.exists(`${dumpDir}/.dump/triggers.sql`);
-
             Object.assign(opts, {
-                triggers: !hasTriggers,
+                triggers: triggersImport == 'after',
                 commit: true,
                 dbConfig
             });
@@ -110,7 +115,7 @@ class Apply extends Command {
 
             // Create triggers
 
-            if (!hasTriggers) {
+            if (triggersImport == 'after') {
                 this.emit('creatingTriggers');
 
                 for (const schema of opts.schemas) {

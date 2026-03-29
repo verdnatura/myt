@@ -34,6 +34,7 @@ privileges:
 baseImage: mariadb
 baseImageTag: 10.11.16-jammy
 rootPassword: root
+triggersImport: after
 schemas:
   - myt
 fixtures:

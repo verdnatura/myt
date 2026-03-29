@@ -8,8 +8,7 @@ class Dump extends Command {
     static usage = {
         description: 'Dumps structure and fixtures from remote',
         params: {
-            lock: 'Whether to lock tables on dump',
-            triggers: 'Whether to include triggers into dump'
+            lock: 'Whether to lock tables on dump'
         },
         operand: 'remote'
     };
@@ -19,12 +18,10 @@ class Dump extends Command {
             remote: 'production'
         },
         alias: {
-            lock: 'l',
-            triggers: 't'
+            lock: 'l'
         },
         boolean: [
-            'lock',
-            'triggers'
+            'lock'
         ]
     };
 
@@ -102,26 +99,24 @@ class Dump extends Command {
 
         // Triggers
 
-        if (opts.triggers) {
-            this.emit('dumpTriggers');
+        this.emit('dumpTriggers');
 
-            const dumper = new Dumper(opts);
-            await dumper.init(dumpDataDir, 'triggers');
+        dumper = new Dumper(opts);
+        await dumper.init(dumpDataDir, 'triggers');
 
-            let dumpArgs = [
-                '--default-character-set=utf8',
-                '--no-create-info',
-                '--no-data',
-                '--no-create-db',
-                '--skip-opt',
-                '--comments'
-            ].concat(baseArgs);
+        dumpArgs = [
+            '--default-character-set=utf8',
+            '--no-create-info',
+            '--no-data',
+            '--no-create-db',
+            '--skip-opt',
+            '--comments'
+        ].concat(baseArgs);
 
-            dumpArgs.push('--databases');
-            dumpArgs = dumpArgs.concat(opts.schemas);
-            await dumper.runDump('mysqldump', dumpArgs);
-            await dumper.end();
-        }
+        dumpArgs.push('--databases');
+        dumpArgs = dumpArgs.concat(opts.schemas);
+        await dumper.runDump('mysqldump', dumpArgs);
+        await dumper.end();
     }
 }
 
