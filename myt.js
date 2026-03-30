@@ -173,42 +173,56 @@ class Myt {
     }
 
     async init(opts) {
+        // Myt directory
+
+        let mytSubDir;
+        const configFile = 'myt.config.yml';
+
+        const checkDirs = ['.', 'myt', 'db'];
+        for (const dir of checkDirs) {
+            const cfgPath = path.join(opts.workspace, dir, configFile);
+            if (await fs.pathExists(cfgPath)) {
+                mytSubDir = dir;
+                break;
+            }
+        }
+
+        if (!mytSubDir)
+            throw new Error (`Cannot find Myt config file 'myt.config.yml': ${JSON.stringify(checkDirs)}`);
+
+        opts.mytSubDir = mytSubDir;
+        opts.mytDir = path.join(opts.workspace, mytSubDir);
+
         // Configuration file
 
         const defaultConfig = require(`${__dirname}/assets/myt.default.yml`);
         const config = Object.assign({}, defaultConfig);
 
-        const configFile = 'myt.config.yml';
-        const configPath = path.join(opts.workspace, configFile);
+        const configPath = path.join(opts.mytDir, configFile);
+        const mergeKeys = new Set([
+            'privileges'
+        ]);
 
-        if (await fs.pathExists(configPath)) {
-            const mergeKeys = new Set([
-                'privileges'
-            ]);
-
-            const wsConfig = require(configPath);
-            for (const key in wsConfig) {
-                if (!mergeKeys.has(key)) {
-                    config[key] = wsConfig[key];
-                } else {
-                    config[key] = Object.assign({},
-                        config[key],
-                        wsConfig[key]
-                    );
-                }
+        const wsConfig = require(configPath);
+        for (const key in wsConfig) {
+            if (!mergeKeys.has(key)) {
+                config[key] = wsConfig[key];
+            } else {
+                config[key] = Object.assign({},
+                    config[key],
+                    wsConfig[key]
+                );
             }
         }
 
         Object.assign(opts, config);
         opts.configFile = configFile;
 
-        const subdir = opts.subdir || '';
-        if (!opts.mytDir)
-            opts.mytDir = path.join(opts.workspace, subdir);
+        // Context configuration
 
-        const routinesBaseRegex = subdir
-            ? `${subdir}\/routines`
-            : 'routines';
+        const routinesBaseRegex = mytSubDir == '.'
+            ? 'routines'
+            : `${mytSubDir}\/routines`;
 
         Object.assign(opts, {
             routinesRegex: new RegExp(`^${routinesBaseRegex}\/(.+)\.sql$`),
@@ -384,14 +398,17 @@ class Myt {
                     continue;
             }
 
+            const matchRegex = !!match;
             const logInfo = versionLog.get(file);
             const apply = !logInfo || logInfo.hasError;
+            const push = apply && matchRegex;
             if (apply) applyVersion = true;
 
             scripts.push({
                 file,
-                matchRegex: !!match,
-                apply
+                matchRegex,
+                apply,
+                push
             });
         }
 

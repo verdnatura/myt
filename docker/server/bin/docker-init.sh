@@ -1,9 +1,8 @@
 #!/bin/bash
 set -e
-
 . /usr/local/bin/docker-env.sh
 
-ARGS=(mariadbd --datadir=/mysql-template)
+ARGS=(mariadbd --datadir=/mysql-tmpfs)
 
 export MARIADB_MYSQL_LOCALHOST_USER='yes'
 
@@ -20,4 +19,9 @@ MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root \
     -e "GRANT ALL PRIVILEGES ON *.* TO mysql@localhost WITH GRANT OPTION"
 
 docker_process_init_files /docker-entrypoint-initdb.d/*
+
+myt apply --docker --remote socket --debug --structure --changes
+
 docker_temp_server_stop
+
+cp -a /mysql-tmpfs/. /mysql-template

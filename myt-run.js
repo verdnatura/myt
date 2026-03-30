@@ -59,7 +59,9 @@ class Run extends Command {
         const isRandom = opts.random;
         const dbConfig = opts.dbConfig;
 
-        const runOptions = {};
+        const runOptions = {
+            volume: `${opts.workspace}:/workspace`
+        };
 
         if (isRandom)
             Object.assign(runOptions, {publish: '3306'});
@@ -83,7 +85,7 @@ class Run extends Command {
         Object.assign(runOptions, null, {
             detach: true
         });
-        const ct = await docker.run(opts.code, null, runOptions);
+        const ct = await docker.run(opts.code, null, runOptions, opts.debug);
 
         try {
             const server = new Server(ct, dbConfig);

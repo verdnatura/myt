@@ -89,6 +89,7 @@ class Apply extends Command {
             Object.assign(opts, {
                 triggers: triggersImport == 'after',
                 commit: true,
+                committed: true,
                 dbConfig
             });
             await myt.run(Push, opts);

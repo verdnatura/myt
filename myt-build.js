@@ -63,12 +63,10 @@ class Build extends Command {
 
         // Build dump image
 
-        const subdir = opts.subdir ?? '.';
         await docker.build(opts.workspace, {
             tag: opts.tag || opts.code,
             file: path.join(serverDir, 'Dockerfile.dump'),
             buildArg: [
-                `MYT_DIR=${subdir}`,
                 `ROOT_PASS=${opts.rootPassword}`
             ]
         }, opts.debug);

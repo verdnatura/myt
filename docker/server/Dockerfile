@@ -45,4 +45,4 @@ ENTRYPOINT ["docker-start.sh"]
 CMD ["mariadbd"]
 
 HEALTHCHECK --interval=2s --timeout=10s --retries=200 \
-    CMD gosu mysql mysqladmin ping || exit 1
+    CMD gosu mysql mariadb-admin ping || exit 1

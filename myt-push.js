@@ -17,7 +17,8 @@ class Push extends Command {
             force: 'Answer yes to all questions',
             commit: 'Whether to save the commit SHA into database',
             sums: 'Save SHA sums of pushed objects',
-            triggers: 'Whether to exclude triggers, used to generate local DB'
+            triggers: 'Whether to exclude triggers, used to generate local DB',
+            committed: 'Whether to push only committed routines'
         },
         operand: 'remote'
     };
@@ -27,13 +28,15 @@ class Push extends Command {
             force: 'f',
             commit: 'c',
             sums: 's',
-            triggers: 't'
+            triggers: 't',
+            committed: 'm'
         },
         boolean: [
             'force',
             'commit',
             'sums',
-            'triggers'
+            'triggers',
+            'committed'
         ]
     };
 
@@ -82,8 +85,37 @@ class Push extends Command {
                 actionMsg = '[+]'.green;
             else
                 actionMsg = '[I]'.blue;
+            
+            const msg = ` ${actionMsg.bold} ${script.file}`;
 
-            console.log(' ', actionMsg.bold, script.file);
+            if (script.push)
+                process.stdout.write(msg);
+            else
+                console.log(msg)
+        },
+        logScriptEnd(script, time) {
+            const ms = (time % 1000);
+            time = (time - ms) / 1000;
+            const s = time % 60;
+            time = (time - s) / 60;
+            const m = time % 60;
+            time = (time - m) / 60;
+            const h = time % 60;
+            
+            const parts = [];
+            if (h)
+                parts.push(`${h}h`);
+            if (m)
+                parts.push(`${m}m`);
+
+            if (h || m || s) {
+                const msFormat = String(ms).padStart(3, '0');
+                parts.push(h || m ? `${s}s` : `${s}.${msFormat}s`);
+            } else 
+                parts.push(`${ms}ms`);
+
+            const timeMsg = parts.join(' ');
+            console.log(` # ${timeMsg}`);
         },
         change(status, ignore, change) {
             let actionMsg;
@@ -268,8 +300,9 @@ class Push extends Command {
 
                 for (const script of version.scripts) {
                     this.emit('logScript', script);
-                    if (!script.apply || !script.matchRegex) continue;
+                    if (!script.push) continue;
 
+                    const ini = performance.now();
                     let err;
                     try {
                         await connExt.queryFromFile(pushConn,
@@ -277,6 +310,8 @@ class Push extends Command {
                     } catch (e) {
                         err = e;
                     }
+                    const end = performance.now();
+                    this.emit('logScriptEnd', script, Math.floor(end - ini));
 
                     await conn.query(
                         `INSERT INTO versionLog
@@ -523,8 +558,10 @@ class Push extends Command {
             await pushChanges(diff);
         }
 
-        await pushChanges(await repoExt.getUnstaged(repo));
-        await pushChanges(await repoExt.getStaged(repo));
+        if (!opts.committed) {
+            await pushChanges(await repoExt.getUnstaged(repo));
+            await pushChanges(await repoExt.getStaged(repo));
+        }
 
         const routines = [];
         for (const change of changes)

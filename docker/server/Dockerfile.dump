@@ -1,26 +1,14 @@
 FROM myt/server
 
-ARG MYT_DIR=.
 ARG ROOT_PASS
 ENV ROOT_PASS=${ROOT_PASS}
 
 RUN mkdir -p /mysql-template \
-    && chown mysql:mysql /mysql-template \
-    && gosu mysql docker-init.sh
+    && chown mysql:mysql /mysql-template
 
 WORKDIR /workspace
-
-COPY myt.config.yml ./
-COPY ${MYT_DIR}/remotes/socket.ini ${MYT_DIR}/remotes/
-
-COPY ${MYT_DIR}/dump/.dump ${MYT_DIR}/dump/.dump
-COPY ${MYT_DIR}/dump/dump.*.sql ${MYT_DIR}/dump/
-RUN --mount=type=tmpfs,target=/mysql-tmpfs \
-    chown mysql:mysql /mysql-tmpfs \
-    && gosu mysql docker-apply.sh --structure \
-    && rm -rf dump
 
 RUN --mount=type=tmpfs,target=/mysql-tmpfs \
     --mount=type=bind,source=.,target=/workspace \
     chown mysql:mysql /mysql-tmpfs \
-    && gosu mysql docker-apply.sh --changes
+    && gosu mysql docker-init.sh

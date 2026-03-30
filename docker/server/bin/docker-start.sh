@@ -7,9 +7,13 @@ set -e
 if [[ ! -d /var/lib/mysql/mysql && -d /mysql-template ]]; then
 	chown mysql:mysql /var/lib/mysql
 	cp -a /mysql-template/. /var/lib/mysql
+
+	echo -e "[safe]\n\tdirectory = /workspace" \
+		> /var/lib/mysql/.gitconfig
 fi
 
-# echo -e "[safe]\n\tdirectory = /workspace" > ~/.gitconfig
-# git config --global safe.directory /workspace
+if [[ "$1" == "mariadbd" && -f /workspace/package.json ]]; then
+	gosu mysql docker-push.sh
+fi
 
 exec gosu mysql "$@"
