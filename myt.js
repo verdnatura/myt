@@ -322,10 +322,10 @@ class Myt {
                 await conn.query(structure);
             }
 
-            const [[realm]] = await conn.query(
+            const [[versionConfig]] = await conn.query(
                 `SELECT realm FROM versionConfig`
             );
-            this.realm = realm;
+            this.realm = versionConfig?.realm;
         }
 
         return this.conn;
