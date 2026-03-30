@@ -17,6 +17,7 @@ docker_process_init_files /docker-entrypoint-initdb.d/*
 docker-import.sh dump/dump.before
 docker-import.sh dump/.dump/structure
 docker-import.sh dump/.dump/data
+docker-import.sh dump/.dump/triggers
 docker-import.sh dump/.dump/privileges
 docker-import.sh dump/dump.after
 
