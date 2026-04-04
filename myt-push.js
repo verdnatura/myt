@@ -4,8 +4,8 @@ const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
 const connExt = require('./lib/conn');
-const repoExt = require('./lib/repo');
 const SqlString = require('sqlstring');
+const path = require('path');
 
 /**
  * Pushes changes to remote.
@@ -18,7 +18,8 @@ class Push extends Command {
             commit: 'Whether to save the commit SHA into database',
             sums: 'Save SHA sums of pushed objects',
             triggers: 'Whether to exclude triggers, used to generate local DB',
-            committed: 'Whether to push only committed routines'
+            tracked: 'Whether to push only git tracked objects',
+            load: 'Load commit and changed routines from passed args'
         },
         operand: 'remote'
     };
@@ -29,14 +30,18 @@ class Push extends Command {
             commit: 'c',
             sums: 's',
             triggers: 't',
-            committed: 'm'
+            tracked: 'k',
+            load: 'l'
         },
         boolean: [
             'force',
             'commit',
             'sums',
             'triggers',
-            'committed'
+            'tracked'
+        ],
+        string: [
+            'load'
         ]
     };
 
@@ -86,7 +91,7 @@ class Push extends Command {
             else
                 actionMsg = '[I]'.blue;
             
-            const msg = ` ${actionMsg.bold} ${script.file}`;
+            const msg = `  ${actionMsg.bold} ${script.file}`;
 
             if (script.push)
                 process.stdout.write(msg);
@@ -352,7 +357,15 @@ class Push extends Command {
         this.emit('applyingRoutines');
 
         let nRoutines = 0;
-        const changes = await this.changedRoutines(dbVersion.gitCommit);
+
+        let diff;
+        if (opts.load) {
+            const changesFile = path.join(opts.dumpDir, '.changes.json');
+            diff = JSON.parse(await fs.readFile(changesFile, 'utf8'));
+        } else
+            diff = await myt.getChanges(dbVersion.gitCommit, opts.committed);
+
+        const changes = await this.changedRoutines(diff);
 
         const routines = [];
         for (const change of changes)
@@ -473,13 +486,22 @@ class Push extends Command {
 
         this.emit('routinesApplied', nRoutines);
 
-        const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
-        if (gitExists && opts.commit) {
-            const repo = await nodegit.Repository.open(this.opts.workspace);
-            const head = await repo.getHeadCommit();
+        if (opts.commit) {
+            let commitSha;
 
-            if (head && dbVersion.gitCommit !== head.sha())
-                await this.updateVersion('gitCommit', head.sha());
+            if (opts.load) {
+                commitSha = opts.load;
+            } else {
+                const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
+                if (gitExists) {
+                    const repo = await nodegit.Repository.open(opts.workspace);
+                    const head = await repo.getHeadCommit();
+                    commitSha = head?.sha();
+                }
+            }
+
+            if (commitSha && dbVersion.gitCommit !== commitSha)
+                await this.updateVersion('gitCommit', commitSha);
         }
 
         // End
@@ -504,67 +526,9 @@ class Push extends Command {
         );
     }
 
-    async changedRoutines(commitSha) {
-        const repo = await this.myt.openRepo();
-        const changes = [];
-        const changesMap = new Map();
-
-        const {opts} = this;
-        async function pushChanges(diff) {
-            if (!diff) return;
-            const patches = await diff.patches();
-
-            for (const patch of patches) {
-                const path = patch.newFile().path();
-                const match = path.match(opts.routinesRegex);
-                if (!match) continue;
-
-                let change = changesMap.get(match[1]);
-                if (!change) {
-                    change = {path: match[1]};
-                    changes.push(change);
-                    changesMap.set(match[1], change);
-                }
-                change.mark = patch.isDeleted() ? '-' : '+';
-            }
-        }
-
-        const head = await repo.getHeadCommit();
-
-        if (head && commitSha) {
-            let commit;
-            let notFound;
-
-            try {
-                commit = await repo.getCommit(commitSha);
-                notFound = false;
-            } catch (err) {
-                if (err.errorFunction == 'Commit.lookup')
-                    notFound = true;
-                else
-                    throw err;
-            }
-
-            if (notFound) {
-                console.warn(`Database commit not found, trying git fetch`.yellow);
-                await repo.fetchAll();
-                commit = await repo.getCommit(commitSha);
-            }
-
-            const commitTree = await commit.getTree();
-
-            const headTree = await head.getTree();
-            const diff = await headTree.diff(commitTree);
-            await pushChanges(diff);
-        }
-
-        if (!opts.committed) {
-            await pushChanges(await repoExt.getUnstaged(repo));
-            await pushChanges(await repoExt.getStaged(repo));
-        }
-
+    async changedRoutines(diff) {
         const routines = [];
-        for (const change of changes)
+        for (const change of diff)
             routines.push(new Routine(change));
 
         return routines.sort((a, b) => {

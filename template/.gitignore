@@ -5,3 +5,4 @@ remotes/*.ini
 !remotes/docker.ini
 !remotes/socket.ini
 dump/fixtures.local.sql
+dump/.changes.json

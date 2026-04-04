@@ -35,6 +35,7 @@ baseImage: mariadb
 baseImageTag: 10.11.16-jammy
 rootPassword: root
 triggersImport: after
+gitShortLen: 12
 schemas:
   - myt
 fixtures:

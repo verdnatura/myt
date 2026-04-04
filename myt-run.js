@@ -2,6 +2,7 @@ const Myt = require('./myt');
 const Command = require('./lib/command');
 const docker = require('./lib/docker');
 const Server = require('./lib/server');
+const Build = require('./myt-build');
 
 /**
  * Builds the database image and runs a container. It only rebuilds the image
@@ -18,7 +19,8 @@ class Run extends Command {
             persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
             realm: 'Name of fixture realm to use',
-            ip: 'Bind to container IP instead of localhost'
+            ip: 'Bind to container IP instead of localhost',
+            push: 'Push changes before start database service'
         },
         operand: 'realm'
     };
@@ -30,14 +32,16 @@ class Run extends Command {
             persist: 'p',
             keep: 'k',
             realm: 'm',
-            ip: 'i'
+            ip: 'i',
+            push: 'u'
         },
         boolean: [
             'ci',
             'random',
             'persist',
             'keep',
-            'ip'
+            'ip',
+            'push'
         ]
     };
 
@@ -54,14 +58,14 @@ class Run extends Command {
     };
 
     async run(myt, opts) {
+        const tag = await myt.run(Build, opts);
+
         this.emit('runningContainer');
 
         const isRandom = opts.random;
         const dbConfig = opts.dbConfig;
 
-        const runOptions = {
-            volume: `${opts.workspace}:/workspace`
-        };
+        const runOptions = {};
 
         if (isRandom)
             Object.assign(runOptions, {publish: '3306'});
@@ -79,13 +83,21 @@ class Run extends Command {
         const {network} = opts;
         if (opts.network)
             runOptions.network = network;
+
         if (!opts.persist)
             runOptions.tmpfs = '/var/lib/mysql';
 
-        Object.assign(runOptions, null, {
+        if (opts.push)
+            Object.assign(runOptions, {
+                volume: `${opts.workspace}:/workspace`,
+                env: `MYT_PUSH=true`
+            });
+
+        Object.assign(runOptions, {
             detach: true
         });
-        const ct = await docker.run(opts.code, null, runOptions, opts.debug);
+
+        const ct = await docker.run(tag, null, runOptions, opts.debug);
 
         try {
             const server = new Server(ct, dbConfig);

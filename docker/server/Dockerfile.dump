@@ -1,4 +1,6 @@
-FROM myt/server
+ARG BASE_IMAGE=myt/server
+
+FROM ${BASE_IMAGE}
 
 ARG ROOT_PASS
 ENV ROOT_PASS=${ROOT_PASS}
@@ -8,7 +10,8 @@ RUN mkdir -p /mysql-template \
 
 WORKDIR /workspace
 
+ARG MYT_COMMIT
+COPY . .
 RUN --mount=type=tmpfs,target=/mysql-tmpfs \
-    --mount=type=bind,source=.,target=/workspace \
     chown mysql:mysql /mysql-tmpfs \
     && gosu mysql docker-init.sh

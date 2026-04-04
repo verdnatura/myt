@@ -11,8 +11,10 @@ class Apply extends Command {
     static usage = {
         description: 'Initialize database',
         params: {
+            structure: 'Apply only structure',
+            changes: 'Apply only changes',
             realm: 'Name of fixture realm to use',
-            docker: 'Whether apply is running inside docker database container'
+            load: 'Load commit and changed routines from passed args'
         },
         operand: 'realm'
     };
@@ -22,10 +24,13 @@ class Apply extends Command {
             structure: 's',
             changes: 'c',
             realm: 'm',
-            docker: 'd'
+            load: 'l'
         },
+        string: [
+            'realm',
+            'load'
+        ],
         boolean: [
-            'docker',
             'structure',
             'changes'
         ],
@@ -47,6 +52,10 @@ class Apply extends Command {
             dumpDir,
             triggersImport
         } = opts;
+
+        const protectedRemotes = new Set(opts.protectedRemotes);
+        if (protectedRemotes.has(opts.remote))
+            throw new Error('Cannot apply to protected remote');
 
         if (opts.structure) {
             await this.importFile(`${dumpDir}/dump.before.sql`);
@@ -88,8 +97,9 @@ class Apply extends Command {
 
             Object.assign(opts, {
                 triggers: triggersImport == 'after',
+                load: opts.load,
                 commit: true,
-                committed: true,
+                tracked: true,
                 dbConfig
             });
             await myt.run(Push, opts);
@@ -104,7 +114,7 @@ class Apply extends Command {
 
             // Apply realms
 
-            if(opts.realm) {
+            if (opts.realm) {
                 this.emit('applyingRealms');
                 const realmDir = `realms/${opts.realm}`;
                 let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
@@ -150,34 +160,30 @@ class Apply extends Command {
         if (force)
             execArgs.push('--force');
 
-        if (opts.docker) {
-            let stdio;
-            const mysqlBin = 'mariadb';
-            if (opts.debug === true) {
-                const quotedArgs = execArgs
-                    .map(x => /\s/g.test(x) ? `"${x}"` : x)
-                    .join(' ');
-                console.debug('Command:', `${mysqlBin} ${quotedArgs} < ${file}`.yellow);
+        let stdio;
+        const mysqlBin = 'mariadb';
+        if (opts.debug === true) {
+            const quotedArgs = execArgs
+                .map(x => /\s/g.test(x) ? `"${x}"` : x)
+                .join(' ');
+            console.debug('Command:', `${mysqlBin} ${quotedArgs} < ${file}`.yellow);
 
-                stdio = ['pipe', 'inherit', 'inherit'];
-            } else {
-                stdio = ['pipe', 'ignore', 'ignore'];
-            }
-            
-            const child = spawn(mysqlBin, execArgs, {stdio});
-            fs.createReadStream(file).pipe(child.stdin);
-
-            return await new Promise((resolve, reject) => {
-                child.on('exit', code => {
-                    if (code !== 0)
-                        reject(new Error(`${mysqlBin} exit code ${code}`));
-                    else
-                        resolve(code);
-                });
-            });
+            stdio = ['pipe', 'inherit', 'inherit'];
         } else {
-            // TODO: Use container to run mysql client
+            stdio = ['pipe', 'ignore', 'ignore'];
         }
+        
+        const child = spawn(mysqlBin, execArgs, {stdio});
+        fs.createReadStream(file).pipe(child.stdin);
+
+        return await new Promise((resolve, reject) => {
+            child.on('exit', code => {
+                if (code !== 0)
+                    reject(new Error(`${mysqlBin} exit code ${code}`));
+                else
+                    resolve(code);
+            });
+        });
     }
 }
 

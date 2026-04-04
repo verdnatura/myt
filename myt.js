@@ -10,6 +10,7 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const nodegit = require('nodegit');
 const camelToSnake = require('./lib/util').camelToSnake;
+const repoExt = require('./lib/repo');
 
 const scriptRegex = /^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(\.undo)?\.sql$/;
 
@@ -163,6 +164,36 @@ class Myt {
         process.exit();
     }
 
+    showHelp(opts, usage, command) {
+        const prefix = `${'Usage:'.gray} [npx] myt`;
+
+        if (command) {
+            let log = [prefix, command.blue];
+            if (usage.operand) log.push(`[<${usage.operand}>]`);
+            if (opts) log.push('[<options>]');
+            console.log(log.join(' '))
+        } else
+            console.log(`${prefix} [<options>] ${'<command>'.blue} [<args>]`);
+
+        if (usage.description)
+            console.log(`${'Description:'.gray} ${usage.description}`);
+
+        if (opts && opts.alias) {
+            const alias = opts.alias;
+            const boolean = opts.boolean || [];
+
+            console.log('Options:'.gray);
+            for (const opt in alias) {
+                const paramDescription = usage.params[opt] || '';
+                let longOpt = opt;
+                if (boolean.indexOf(longOpt) === -1)
+                    longOpt += ` <string>`;
+                longOpt = camelToSnake(longOpt).padEnd(22, ' ')
+                console.log(`  -${alias[opt]}, --${longOpt} ${paramDescription}`);
+            }
+        }
+    }
+
     async run(Command, opts) {
         if (!opts) opts = this.opts;
         const command = new Command(this, opts);
@@ -173,25 +204,27 @@ class Myt {
     }
 
     async init(opts) {
+        opts.version = packageJson.version;
+
         // Myt directory
 
-        let mytSubDir;
+        let subdir;
         const configFile = 'myt.config.yml';
 
         const checkDirs = ['.', 'myt', 'db'];
         for (const dir of checkDirs) {
             const cfgPath = path.join(opts.workspace, dir, configFile);
             if (await fs.pathExists(cfgPath)) {
-                mytSubDir = dir;
+                subdir = dir;
                 break;
             }
         }
 
-        if (!mytSubDir)
+        if (!subdir)
             throw new Error (`Cannot find Myt config file 'myt.config.yml': ${JSON.stringify(checkDirs)}`);
 
-        opts.mytSubDir = mytSubDir;
-        opts.mytDir = path.join(opts.workspace, mytSubDir);
+        opts.subdir = subdir;
+        opts.mytDir = path.join(opts.workspace, subdir);
 
         // Configuration file
 
@@ -220,9 +253,9 @@ class Myt {
 
         // Context configuration
 
-        const routinesBaseRegex = mytSubDir == '.'
+        const routinesBaseRegex = subdir == '.'
             ? 'routines'
-            : `${mytSubDir}\/routines`;
+            : `${subdir}\/routines`;
 
         Object.assign(opts, {
             routinesRegex: new RegExp(`^${routinesBaseRegex}\/(.+)\.sql$`),
@@ -429,34 +462,66 @@ class Myt {
         return await nodegit.Repository.open(opts.workspace);
     }
 
-    showHelp(opts, usage, command) {
-        const prefix = `${'Usage:'.gray} [npx] myt`;
+    async getChanges(commitSha, committed) {
+        const repo = await this.openRepo();
+        const changes = [];
+        const changesMap = new Map();
 
-        if (command) {
-            let log = [prefix, command.blue];
-            if (usage.operand) log.push(`[<${usage.operand}>]`);
-            if (opts) log.push('[<options>]');
-            console.log(log.join(' '))
-        } else
-            console.log(`${prefix} [<options>] ${'<command>'.blue} [<args>]`);
+        const {opts} = this;
+        async function pushChanges(diff) {
+            if (!diff) return;
+            const patches = await diff.patches();
 
-        if (usage.description)
-            console.log(`${'Description:'.gray} ${usage.description}`);
+            for (const patch of patches) {
+                const path = patch.newFile().path();
+                const match = path.match(opts.routinesRegex);
+                if (!match) continue;
 
-        if (opts && opts.alias) {
-            const alias = opts.alias;
-            const boolean = opts.boolean || [];
-
-            console.log('Options:'.gray);
-            for (const opt in alias) {
-                const paramDescription = usage.params[opt] || '';
-                let longOpt = opt;
-                if (boolean.indexOf(longOpt) === -1)
-                    longOpt += ` <string>`;
-                longOpt = camelToSnake(longOpt).padEnd(22, ' ')
-                console.log(`  -${alias[opt]}, --${longOpt} ${paramDescription}`);
+                let change = changesMap.get(match[1]);
+                if (!change) {
+                    change = {path: match[1]};
+                    changes.push(change);
+                    changesMap.set(match[1], change);
+                }
+                change.mark = patch.isDeleted() ? '-' : '+';
             }
         }
+
+        const head = await repo.getHeadCommit();
+
+        if (head && commitSha) {
+            let commit;
+            let notFound;
+
+            try {
+                commit = await repo.getCommit(commitSha);
+                notFound = false;
+            } catch (err) {
+                if (err.errorFunction == 'Commit.lookup')
+                    notFound = true;
+                else
+                    throw err;
+            }
+
+            if (notFound) {
+                console.warn(`Database commit not found, trying git fetch`.yellow);
+                await repo.fetchAll();
+                commit = await repo.getCommit(commitSha);
+            }
+
+            const commitTree = await commit.getTree();
+
+            const headTree = await head.getTree();
+            const diff = await headTree.diff(commitTree);
+            await pushChanges(diff);
+        }
+
+        if (!committed) {
+            await pushChanges(await repoExt.getUnstaged(repo));
+            await pushChanges(await repoExt.getStaged(repo));
+        }
+
+        return changes;
     }
 }
 

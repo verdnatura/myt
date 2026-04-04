@@ -10,7 +10,10 @@ RUN apt-get update \
         build-essential
 
 WORKDIR /myt
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch --prod --frozen-lockfile
+
+COPY package.json ./
 RUN pnpm install --prod --frozen-lockfile
 
 FROM ${BASE_IMAGE}:${BASE_TAG}
@@ -38,7 +41,6 @@ RUN npm install -g /myt
 
 ARG SERVER_DIR=docker/server
 COPY ${SERVER_DIR}/docker.cnf /etc/mysql/conf.d/
-COPY ${SERVER_DIR}/.gitconfig /var/lib/mysql/
 COPY ${SERVER_DIR}/bin /usr/local/bin/
 
 ENTRYPOINT ["docker-start.sh"]

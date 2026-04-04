@@ -117,6 +117,15 @@ class Dump extends Command {
         dumpArgs = dumpArgs.concat(opts.schemas);
         await dumper.runDump('mysqldump', dumpArgs);
         await dumper.end();
+        
+        // Info
+
+        await myt.dbConnect();
+        const version = await myt.fetchDbVersion();
+        await fs.writeFile(
+            path.join(dumpDataDir, 'version.json'),
+            JSON.stringify(version, null, 1)
+        );
     }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "@verdnatura/myt",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "author": "Verdnatura Levante SL",
   "description": "MySQL version control",
   "license": "GPL-3.0",
@@ -19,6 +19,7 @@
     "@sqltools/formatter": "^1.2.5",
     "colors": "^1.4.0",
     "ejs": "^3.1.9",
+    "folder-hash": "^4.1.2",
     "fs-extra": "^11.1.1",
     "getopts": "^2.3.0",
     "ini": "^4.1.1",

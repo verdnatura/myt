@@ -12,7 +12,7 @@ if [[ ! -d /var/lib/mysql/mysql && -d /mysql-template ]]; then
 		> /var/lib/mysql/.gitconfig
 fi
 
-if [[ "$1" == "mariadbd" && -f /workspace/package.json ]]; then
+if [[ "$MYT_PUSH" = "true" && -f /workspace/package.json ]]; then
 	gosu mysql docker-push.sh
 fi
 

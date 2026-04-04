@@ -17,6 +17,9 @@ importers:
       ejs:
         specifier: ^3.1.9
         version: 3.1.10
+      folder-hash:
+        specifier: ^4.1.2
+        version: 4.1.2
       fs-extra:
         specifier: ^11.1.1
         version: 11.3.4
@@ -232,6 +235,15 @@ packages:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
 
+  debug@4.4.0:
+    resolution: {integrity: sha512-6WTZ/IxCY/T6BALoZHaE4ctp9xm+Z5kY/pzYaCHRFeyVhojxlrm+46y68HA6hr0TcwEssoxNiDEUJQjfPZ/RYA==}
+    engines: {node: '>=6.0'}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -320,6 +332,11 @@ packages:
 
   filelist@1.0.6:
     resolution: {integrity: sha512-5giy2PkLYY1cP39p17Ech+2xlpTRL9HLspOfEgm0L6CwBXBTgsK5ou0JtzYuepxkaQ/tvhCFIJ5uXo0OrM2DxA==}
+
+  folder-hash@4.1.2:
+    resolution: {integrity: sha512-rjdiHw3ShVonhMZZXvD/I28boUkbJFT/RBsg5MbQQd8e61PhevIwFwmL218/AscBEsW/blH4BC4A+kFeIqHVfw==}
+    engines: {node: '>=10.10.0'}
+    hasBin: true
 
   for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
@@ -521,6 +538,10 @@ packages:
 
   minimatch@5.1.9:
     resolution: {integrity: sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==}
+    engines: {node: '>=10'}
+
+  minimatch@7.4.9:
+    resolution: {integrity: sha512-Brg/fp/iAVDOQoHxkuN5bEYhyQlZhxddI78yWsCbeEwTHXQjlNLtiJDUsp1GIptVqMI7/gkJMz4vVAc01mpoBw==}
     engines: {node: '>=10'}
 
   minimatch@9.0.9:
@@ -1022,6 +1043,10 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
+  debug@4.4.0:
+    dependencies:
+      ms: 2.1.3
+
   debug@4.4.3:
     dependencies:
       ms: 2.1.3
@@ -1094,6 +1119,13 @@ snapshots:
   filelist@1.0.6:
     dependencies:
       minimatch: 5.1.9
+
+  folder-hash@4.1.2:
+    dependencies:
+      debug: 4.4.0
+      minimatch: 7.4.9
+    transitivePeerDependencies:
+      - supports-color
 
   for-each@0.3.5:
     dependencies:
@@ -1314,6 +1346,10 @@ snapshots:
   mimic-response@4.0.0: {}
 
   minimatch@5.1.9:
+    dependencies:
+      brace-expansion: 2.0.2
+
+  minimatch@7.4.9:
     dependencies:
       brace-expansion: 2.0.2
 

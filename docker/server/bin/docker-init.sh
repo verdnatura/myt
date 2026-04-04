@@ -20,8 +20,12 @@ MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root \
 
 docker_process_init_files /docker-entrypoint-initdb.d/*
 
-myt apply --docker --remote socket --debug --structure --changes
+myt apply \
+    --debug \
+    --structure \
+    --changes \
+    --remote socket \
+    --load $MYT_COMMIT
 
 docker_temp_server_stop
-
 cp -a /mysql-tmpfs/. /mysql-template
