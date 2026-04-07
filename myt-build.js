@@ -40,7 +40,7 @@ class Build extends Command {
     };
 
     async run(myt, opts) {
-        const {dumpDir} = opts;
+        const {dumpDir, version} = opts;
         const dumpDataDir = path.join(dumpDir, '.dump');
         const serverDir = path.join(__dirname, 'docker/server');
 
@@ -49,7 +49,7 @@ class Build extends Command {
 
         // Initialize
 
-        const imageLabels = [];
+        const imageLabels = [`myt.version=${version}`];
         const tagHash = createHash('sha1');
         const repo = await myt.openRepo();
 
@@ -88,7 +88,7 @@ class Build extends Command {
 
         let changesSha;
         if (gitChanges.size) {
-            const hash = await hashElement(opts.subdir, {
+            const {hash} = await hashElement(opts.subdir, {
                 algo: 'sha1',
                 encoding: 'hex',
                 folders: {
@@ -103,7 +103,7 @@ class Build extends Command {
                 }
             });
 
-            changesSha = hash.hash;
+            changesSha = hash;
             tagHash.update(changesSha);
             imageLabels.push(`myt.changes-sha=${changesSha}`);
         }
@@ -130,6 +130,7 @@ class Build extends Command {
         }
 
         const useCache = !opts.force
+            && labels['myt.version'] == version
             && labels['myt.commit-sha'] == commitSha
             && (
                 (!changesSha && !labels['myt.changes-sha'])
@@ -139,27 +140,44 @@ class Build extends Command {
 
         // Build base server image
 
-        const serverTag = `myt/server:${opts.version}`;
-        let serverId;
+        const serverTag = `myt/server:${version}`;
+        let serverLabels;
         try {
-            serverId = await docker.inspect(serverTag,
-                {format: '{{json .Id}}'}
+            serverLabels = await docker.inspect(serverTag,
+                {format: '{{json .Config.Labels}}'}
             );
         } catch (err) {
             if (err.code !== 1) throw err;
         }
 
-        if (!serverId || opts.force) {
+        let buildServer = !serverLabels;
+
+        const buildServerLabels = [];
+        const baseDockerfile = path.join(dumpDir, 'Dockerfile');
+        const baseDockerExists = await fs.pathExists(baseDockerfile);
+
+        if (!buildServer && baseDockerExists) {
+            const {hash} = await hashElement(dumpDir, {
+                algo: 'sha1',
+                encoding: 'hex',
+            });
+
+            buildServer = serverLabels['myt.server-sha'] != hash;
+            buildServerLabels.push(`myt.server-sha=${hash}`);
+        }
+
+        if (buildServer || opts.force) {
             this.emit('buildingServerImage');
 
             const buildArgs = [];
-            const baseDockerfile = path.join(dumpDir, 'Dockerfile');
 
-            if (await fs.pathExists(baseDockerfile)) {
+            if (baseDockerExists) {
                 await docker.build(dumpDir, {
-                    tag: 'myt/base',
-                    file: baseDockerfile
+                    tag: `myt/base:${version}`,
+                    file: baseDockerfile,
+                    label: buildServerLabels,
                 }, opts.debug);
+
                 buildArgs.push(
                     `BASE_IMAGE=myt/base`,
                     `BASE_TAG=latest`
@@ -174,7 +192,8 @@ class Build extends Command {
             await docker.build(__dirname, {
                 tag: serverTag,
                 file: path.join(serverDir, 'Dockerfile'),
-                buildArg: buildArgs
+                buildArg: buildArgs,
+                label: buildServerLabels,
             }, opts.debug);
         }
 
@@ -183,9 +202,9 @@ class Build extends Command {
         this.emit('buildingDumpImage');
 
         const versionFile = path.join(dumpDataDir, 'version.json');
-        const version = JSON.parse(await fs.readFile(versionFile, 'utf8'));
+        const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
 
-        const changes = await myt.getChanges(version.gitCommit);
+        const changes = await myt.getChanges(dbVersion.gitCommit);
         await fs.writeFile(
             path.join(dumpDir, '.changes.json'),
             JSON.stringify(changes, null, 1)
