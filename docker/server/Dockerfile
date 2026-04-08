@@ -1,47 +1,26 @@
-ARG BASE_IMAGE=mariadb
-ARG BASE_TAG=10.11.16-jammy
+ARG MYT_TAG=myt/app
+ARG BASE_TAG=myt/base
 
-FROM registry.verdnatura.es/verdnatura/node:22.22.0-vn2 AS build
+FROM ${MYT_TAG} AS dump
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libkrb5-dev \
-        libssl-dev \
-        build-essential
+ARG ROOT_PASS
+ENV ROOT_PASS=${ROOT_PASS}
 
-WORKDIR /myt
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm fetch --prod --frozen-lockfile
+RUN mkdir -p /mysql-template \
+    && chown mysql:mysql /mysql-template
 
-COPY package.json ./
-RUN pnpm install --prod --frozen-lockfile
+WORKDIR /workspace
+COPY . .
 
-FROM ${BASE_IMAGE}:${BASE_TAG}
+ARG MYT_COMMIT
+RUN --mount=type=tmpfs,target=/var/lib/mysql \
+    chown mysql:mysql /var/lib/mysql \
+    && gosu mysql docker-init.sh
 
-# Myt
+FROM ${BASE_TAG}
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-        gnupg2 \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g corepack@0.34.6 \
-    && corepack enable \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /myt /myt
-WORKDIR /myt
-COPY . ./
-RUN npm install -g /myt
-
-# Database
-
-ARG SERVER_DIR=docker/server
-COPY ${SERVER_DIR}/docker.cnf /etc/mysql/conf.d/
-COPY ${SERVER_DIR}/bin /usr/local/bin/
+COPY --from=dump --chown=mysql:mysql \
+    /mysql-template /mysql-template
 
 ENTRYPOINT ["docker-start.sh"]
 CMD ["mariadbd"]

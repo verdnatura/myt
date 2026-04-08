@@ -1,10 +1,13 @@
 #!/bin/bash
 set -e
-. /usr/local/bin/docker-env.sh
 
-ARGS=(mariadbd --datadir=/mysql-tmpfs)
-
+export MYSQL_ROOT_PASSWORD="$ROOT_PASS"
+export MYSQL_ALLOW_EMPTY_PASSWORD='true'
 export MARIADB_MYSQL_LOCALHOST_USER='yes'
+
+. /usr/local/bin/docker-entrypoint.sh
+
+ARGS=(mariadbd --datadir=/var/lib/mysql)
 
 mysql_check_config ${ARGS[@]}
 docker_setup_env ${ARGS[@]}
@@ -28,4 +31,4 @@ myt apply \
     --load $MYT_COMMIT
 
 docker_temp_server_stop
-cp -a /mysql-tmpfs/. /mysql-template
+cp -a /var/lib/mysql/. /mysql-template

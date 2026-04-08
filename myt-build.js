@@ -140,60 +140,65 @@ class Build extends Command {
 
         // Build base server image
 
-        const serverTag = `myt/server:${version}`;
-        let serverLabels;
+        const baseTag = `myt/base:${version}`;
+        const mytTag = `myt/app:${version}`;
+
+        let baseLabels;
         try {
-            serverLabels = await docker.inspect(serverTag,
+            baseLabels = await docker.inspect(baseTag,
                 {format: '{{json .Config.Labels}}'}
             );
         } catch (err) {
             if (err.code !== 1) throw err;
         }
 
-        let buildServer = !serverLabels;
+        let buildBase = !baseLabels;
 
-        const buildServerLabels = [];
-        const baseDockerfile = path.join(dumpDir, 'Dockerfile');
-        const baseDockerExists = await fs.pathExists(baseDockerfile);
+        const buildBaseLabels = [];
+        const dbDockerfile = path.join(dumpDir, 'Dockerfile');
+        const dbDockerExists = await fs.pathExists(dbDockerfile);
 
-        if (!buildServer && baseDockerExists) {
+        if (!buildBase && dbDockerExists) {
             const {hash} = await hashElement(dumpDir, {
                 algo: 'sha1',
                 encoding: 'hex',
             });
 
-            buildServer = serverLabels['myt.server-sha'] != hash;
-            buildServerLabels.push(`myt.server-sha=${hash}`);
+            buildBase = baseLabels['myt.server-sha'] != hash;
+            buildBaseLabels.push(`myt.server-sha=${hash}`);
         }
 
-        if (buildServer || opts.force) {
+        if (buildBase || opts.force) {
             this.emit('buildingServerImage');
 
-            const buildArgs = [];
-
-            if (baseDockerExists) {
+            let dbTag;
+            if (dbDockerExists) {
+                dbTag = `myt/db:${version}`;
                 await docker.build(dumpDir, {
-                    tag: `myt/base:${version}`,
-                    file: baseDockerfile,
-                    label: buildServerLabels,
+                    tag: dbTag,
+                    file: dbDockerfile,
+                    label: buildBaseLabels,
                 }, opts.debug);
-
-                buildArgs.push(
-                    `BASE_IMAGE=myt/base`,
-                    `BASE_TAG=latest`
-                );
             } else {
-                if (opts.baseImage)
-                    buildArgs.push(`BASE_IMAGE=${opts.baseImage}`);
-                if (opts.baseImageTag)
-                    buildArgs.push(`BASE_TAG=${opts.baseImageTag}`);
+                dbTag = opts.dbImageTag;
             }
 
+            const buildArgs = [];
+            if (dbTag)
+                buildArgs.push(`DB_TAG=${dbTag}`);
+
             await docker.build(__dirname, {
-                tag: serverTag,
-                file: path.join(serverDir, 'Dockerfile'),
+                tag: baseTag,
+                file: path.join(serverDir, 'Dockerfile.base'),
                 buildArg: buildArgs,
-                label: buildServerLabels,
+                label: buildBaseLabels,
+            }, opts.debug);
+
+            await docker.build(__dirname, {
+                tag: mytTag,
+                file: path.join(serverDir, 'Dockerfile.myt'),
+                buildArg: `BASE_TAG=${baseTag}`,
+                label: buildBaseLabels,
             }, opts.debug);
         }
 
@@ -212,11 +217,12 @@ class Build extends Command {
 
         await docker.build(opts.mytDir, {
             tag: [tag, imageName],
-            file: path.join(serverDir, 'Dockerfile.dump'),
+            file: path.join(serverDir, 'Dockerfile'),
             label: imageLabels,
             buildArg: [
                 `ROOT_PASS=${opts.rootPassword}`,
-                `BASE_IMAGE=${serverTag}`,
+                `BASE_TAG=${baseTag}`,
+                `MYT_TAG=${mytTag}`,
                 `MYT_COMMIT=${commitSha}`
             ]
         }, opts.debug);

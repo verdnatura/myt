@@ -31,8 +31,7 @@ privileges:
     - procs_priv
   where: >-
     `Host` = ''
-baseImage: mariadb
-baseImageTag: 10.11.16-jammy
+dbImageTag: mariadb:10.11.16-jammy
 rootPassword: root
 triggersImport: after
 gitShortLen: 12
