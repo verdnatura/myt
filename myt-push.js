@@ -163,11 +163,11 @@ class Push extends Command {
         }
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
         const conn = await myt.dbConnect();
         this.conn = conn;
 
-        if (opts.remote == 'local')
+        if (cfg.remote == 'local')
             opts.commit = true;
 
         // Obtain exclusive lock
@@ -208,7 +208,7 @@ class Push extends Command {
         }
 
         try {
-            await this.push(myt, opts, conn);
+            await this.push(conn);
         } catch(err) {
             try {
                 await releaseLock();
@@ -221,9 +221,10 @@ class Push extends Command {
         await releaseLock();
     }
 
-    async cli(myt, opts) {
-        const protectedRemotes = new Set(opts.protectedRemotes);
-        if (protectedRemotes.has(opts.remote)) {
+    async cli() {
+        const {ctx, opts} = this;
+
+        if (ctx.isProtectedRemote) {
             console.log(
                 '\n (   (       ) (                       (       )     ) '
                 + '\n )\\ ))\\ ) ( /( )\\ )          (        ))\\ ) ( /(  ( /( '
@@ -252,10 +253,12 @@ class Push extends Command {
             }
         }
 
-        await super.cli(myt, opts);
+        await super.cli();
     }
 
-    async push(myt, opts, conn) {
+    async push(conn) {
+        const {myt, ctx, cfg, opts} = this;
+
         const pushConn = await myt.createConnection();
 
         // Get database version
@@ -264,7 +267,7 @@ class Push extends Command {
         this.emit('dbInfo', dbVersion);
 
         if (!dbVersion.number)
-            dbVersion.number = String('0').padStart(opts.versionDigits, '0');
+            dbVersion.number = String('0').padStart(cfg.versionDigits, '0');
         if (!/^[0-9]*$/.test(dbVersion.number))
             throw new Error('Wrong database version');
 
@@ -275,7 +278,7 @@ class Push extends Command {
         let nVersions = 0;
         let nChanges = 0;
         let showLog = false;
-        const versionsDir = opts.versionsDir;
+        const versionsDir = ctx.versionsDir;
 
         const skipFiles = new Set([
             'README.md',
@@ -333,7 +336,7 @@ class Push extends Command {
                                 errorNumber = VALUES(errorNumber),
                                 errorMessage = VALUES(errorMessage)`,
                         [
-                            opts.code,
+                            cfg.code,
                             version.number,
                             script.file,
                             err && err.errno,
@@ -360,10 +363,10 @@ class Push extends Command {
 
         let diff;
         if (opts.load) {
-            const changesFile = path.join(opts.dumpDir, '.changes.json');
+            const changesFile = path.join(ctx.dockerDir, '.changes.json');
             diff = JSON.parse(await fs.readFile(changesFile, 'utf8'));
         } else
-            diff = await myt.getChanges(dbVersion.gitCommit, opts.committed);
+            diff = await myt.getChanges(dbVersion.gitCommit);
 
         const changes = await this.changedRoutines(diff);
 
@@ -389,7 +392,7 @@ class Push extends Command {
             );
         }
 
-        const engine = new ExporterEngine(conn, opts);
+        const engine = new ExporterEngine(conn, myt);
         await engine.init();
 
         async function finalize() {
@@ -401,9 +404,8 @@ class Push extends Command {
             }
         }
 
-        const localRemote = opts.remote == null
-            || opts.localRemotes?.indexOf(opts.remote) !== -1;
-        let mockFunctions = localRemote && opts.mockDate && opts.mockFunctions;
+        const localRemote = cfg.remote == null || ctx.isLocalRemote;
+        let mockFunctions = localRemote && cfg.mockDate && cfg.mockFunctions;
         mockFunctions = new Set(mockFunctions || []);
 
         for (const change of changes)
@@ -414,7 +416,7 @@ class Push extends Command {
             const schema = change.schema;
             const name = change.name;
             const type = change.type.name.toLowerCase();
-            const fullPath = `${opts.routinesDir}/${change.path}.sql`;
+            const fullPath = `${ctx.routinesDir}/${change.path}.sql`;
             const exists = await fs.pathExists(fullPath);
 
             let newSql;
@@ -424,7 +426,7 @@ class Push extends Command {
             const oldSum = engine.getShaSum(type, schema, name);
 
             const isMockFn = type == 'function'
-                && schema == opts.versionSchema
+                && schema == cfg.versionSchema
                 && mockFunctions.has(name);
             const ignore = newSql == oldSql || isMockFn;
 
@@ -458,7 +460,7 @@ class Push extends Command {
                         );
                     }
 
-                    if (opts.sums || oldSum || (opts.sumViews && type === 'view'))
+                    if (opts.sums || oldSum || (cfg.sumViews && type === 'view'))
                         await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =
@@ -492,9 +494,9 @@ class Push extends Command {
             if (opts.load) {
                 commitSha = opts.load;
             } else {
-                const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
+                const gitExists = await fs.pathExists(`${cfg.workspace}/.git`);
                 if (gitExists) {
-                    const repo = await nodegit.Repository.open(opts.workspace);
+                    const repo = await nodegit.Repository.open(cfg.workspace);
                     const head = await repo.getHeadCommit();
                     commitSha = head?.sha();
                 }
@@ -520,7 +522,7 @@ class Push extends Command {
                     ${column} = VALUES(${column}),
                     updated = VALUES(updated)`,
             [
-                this.opts.code,
+                this.cfg.code,
                 value
             ]
         );

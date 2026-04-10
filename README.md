@@ -57,6 +57,8 @@ Local server management commands:
 
  * **dump**: Export database structure and fixtures.
  * **fixtures**: Export local database fixtures.
+ * **build**: Builds local database server image.
+ * **apply**: Applies structure, fixtures and changes to database.
  * **run**: Build and start local database server container.
  * **start**: Start local database server container.
 
@@ -143,38 +145,6 @@ Don't place your PL/SQL objects here, use the routines folder!
      `- 00-sameNumbers.sql
 ```
 
-### Environment-Specific Versioning with Realms
-
-#### Overview
-
-We have introduced a new feature that allows users to apply version-specific changes based on their configured environment, or "realm". This ensures that certain changes are only applied when the user is operating within a specific realm, providing an additional layer of customization and control.
-
-#### Configuration
-
-To make use of this feature, you need to configure your realm in the `versionConfig` table. Set your realm by inserting or updating a record in this table. The `realm` field should contain the identifier of your environment.
-
-#### File Naming Convention
-
-To designate a file as realm-specific, include a `.your_realm.` segment before the file extension. For example, if your realm is set to 'ab', the file should be named like this: `filename.ab.sql`.
-
-#### How It Works
-
-1. **Set your Realm**: Configure your realm in the `versionConfig` table.
-  
-2. **Add Files**: Place your realm-specific files in the `versions` folder. Make sure to follow the naming convention.
-
-3. **Version Order**: Files are applied in the existing version order. In addition to that, the realm is validated.
-
-4. **Apply Changes**: Run the usual versioning commands. The realm-specific files will only be applied if your configured realm matches the realm in the file name.
-
-#### Important Notes
-
-- If no realm is configured, realm-specific files will be ignored.
-  
-- If you have a realm configured but the realm-specific files belong to a different realm, those files will also be ignored.
-
-This feature allows for greater flexibility when working in different environments, making it easier to manage realm-specific changes in a shared repository.
-
 ### Local server
 
 The local server is created as a MariaDB Docker container using the base dump 
@@ -185,28 +155,45 @@ routines.
 
 You can create your local fixture and structure files.
 
-* *dump/dump.before.sql*
-* *dump/dump.after.sql*
-* *dump/fixtures.before.sql*
-* *dump/fixtures.after.sql*
-* *dump/fixtures.local.sql*
+* *structure/before.sql*
+* *structure/after.sql*
+* *fixtures/before.sql*
+* *fixtures/after.sql*
+* *fixtures/local.sql*
 
 ### Realms
 
-You can create your local realms folders.
+Realms allows users to apply version-specific changes based on their configured
+environment, or "realm". This ensures that certain changes are only applied
+when the user is operating within a specific realm, providing an additional
+layer of customization and control.
+
+Realm folders structure.
 
 ```text
-   dump
-   `- realms
-      |- marvel
-      |  `- 00-spiderman.sql
-      |  `- 01-hulk.sql
-      `- dc
-         `- 00-superman.sql
-         `- 01-batman.sql
-         `- 02-wonder_woman.sql
-         `- 03-flash.sql
+   realms
+   |- marvel
+   |  `- 00-spiderman.sql
+   |  `- 01-hulk.sql
+   `- dc
+      `- 00-superman.sql
+      `- 01-batman.sql
+      `- 02-wonder_woman.sql
+      `- 03-flash.sql
 ```
+
+#### Configuration
+
+To make use of this feature, you need to configure your realm in the
+`versionConfig` table. Set your realm by inserting or updating a record in
+this table. The `realm` field should contain the identifier of your
+environment.
+
+#### Realm-specific version files
+
+To designate a version file as realm-specific, include a `.your_realm.` segment
+before the file extension. For example, if your realm is set to 'foo', the file 
+should be named like this: `filename.foo.sql`.
 
 ## Versioning commands
 
@@ -290,13 +277,31 @@ specified *local* is used.
 $ myt fixtures [<remote>]
 ```
 
+### build
+
+Builds local database server image. It only rebuilds the image when sources
+have been modified.
+
+```text
+$ myt build [-n|--name] [-t|--tag] [-f|--force] [-m|--realm <string>]
+```
+
+### apply
+
+Applies structure, fixtures and changes to database. Primarily used by the
+build command to rebuild the local database.
+
+```text
+$ myt apply [-s|--structure] [-c|--changes] [-m|--realm <string>] [-l|--load <string>]
+```
+
 ### run
 
 Builds and starts local database server container. It only rebuilds the image
 when dump have been modified.
 
 ```text
-$ myt run [<realm>|-m|--realm <string>] [-c|--ci] [-r|--random] [-p|--persist] [-n|--network <string>] [-i|--ip]
+$ myt run [<realm>|-m|--realm <string>] [-c|--ci] [-r|--random] [-p|--persist] [-k|--keep] [-n|--network <string>] [-i|--ip]
 ```
 
 ### start

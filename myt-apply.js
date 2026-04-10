@@ -42,23 +42,24 @@ class Apply extends Command {
     static reporter = {
         mockingDate: 'Mocking date functions.',
         applyingFixtures: 'Applying fixtures.',
-        applyingRealms: 'Applying realm fixtures.',
+        applyingRealm: 'Applying realm fixtures.',
         creatingTriggers: 'Creating triggers.',
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
         const {
-            dbConfig,
+            structureDir,
             dumpDir,
-            triggersImport
-        } = opts;
+            fixturesDir
+        } = ctx;
 
-        const protectedRemotes = new Set(opts.protectedRemotes);
-        if (protectedRemotes.has(opts.remote))
+        const {triggersImport} = cfg;
+
+        if (ctx.isProtectedRemote)
             throw new Error('Cannot apply to protected remote');
 
         if (opts.structure) {
-            await this.importFile(`${dumpDir}/dump.before.sql`);
+            await this.importFile(path.join(structureDir, 'before.sql'));
 
             const importFiles = [
                 'structure.sql',
@@ -71,9 +72,9 @@ class Apply extends Command {
             importFiles.push('privileges.sql');
 
             for (const file of importFiles)
-                await this.importFile(`${dumpDir}/.dump/${file}`, true);
+                await this.importFile(path.join(dumpDir, file), true);
 
-            await this.importFile(`${dumpDir}/dump.after.sql`);
+            await this.importFile(path.join(structureDir, 'after.sql'));
         }
 
         if (opts.changes) {
@@ -82,45 +83,47 @@ class Apply extends Command {
             // Mock date functions
 
             this.emit('mockingDate');
-            const mockDateScript = path.join(dumpDir, 'mockDate.sql');
+            const mockDateScript = path.join(fixturesDir, 'mock-date.sql');
 
-            if (opts.mockDate) {
+            if (cfg.mockDate) {
                 if (!await fs.pathExists(mockDateScript))
                     throw new Error(`Date mock enabled but mock script does not exist: ${mockDateScript}`);
 
                 let sql = await fs.readFile(mockDateScript, 'utf8');
-                sql = sql.replace(/@mockDate/g, SqlString.escape(opts.mockDate));
+                sql = sql.replace(/@mockDate/g, SqlString.escape(cfg.mockDate));
                 await connExt.multiQuery(conn, sql);
             }
 
             // Apply changes
 
-            Object.assign(opts, {
+            await myt.run(Push, {
                 triggers: triggersImport == 'after',
                 load: opts.load,
                 commit: true,
-                tracked: true,
-                dbConfig
+                tracked: true
             });
-            await myt.run(Push, opts);
 
             // Apply fixtures
 
             this.emit('applyingFixtures');
-            await this.importFile(`${dumpDir}/fixtures.before.sql`);
-            await this.importFile(`${dumpDir}/.fixtures.sql`, true);
-            await this.importFile(`${dumpDir}/fixtures.after.sql`);
-            await this.importFile(`${dumpDir}/fixtures.local.sql`);
+            const fixturesFiles = [
+                ['before.sql'],
+                ['.dump.sql', true],
+                ['after.sql'],
+                ['local.sql'],
+            ];
+            for (const [file, force] of fixturesFiles)
+                await this.importFile(path.join(fixturesDir, file), force);
 
             // Apply realms
 
             if (opts.realm) {
-                this.emit('applyingRealms');
+                this.emit('applyingRealm');
                 const realmDir = `realms/${opts.realm}`;
-                let realmFiles =  await fs.readdir(`${dumpDir}/${realmDir}`);
+                let realmFiles =  await fs.readdir(realmDir);
                 realmFiles = realmFiles.map(file => path.parse(file).name);
                 for (const file of realmFiles) {
-                    await this.importFile(`${realmDir}/${file}.sql`);
+                    await this.importFile(path.join(realmDir, `${file}.sql`));
                 }
             }
 
@@ -129,8 +132,8 @@ class Apply extends Command {
             if (triggersImport == 'after') {
                 this.emit('creatingTriggers');
 
-                for (const schema of opts.schemas) {
-                    const triggersPath = `${opts.routinesDir}/${schema}/triggers`;
+                for (const schema of cfg.schemas) {
+                    const triggersPath = `${ctx.routinesDir}/${schema}/triggers`;
                     if (!await fs.pathExists(triggersPath))
                         continue;
 
@@ -145,12 +148,15 @@ class Apply extends Command {
     }
 
     async importFile(file, force) {
-        if (!await fs.exists(file))
+        const {cfg, ctx} = this;
+
+        if (!await fs.exists(file)) {
+            if (cfg.debug)
+                console.debug('Import:', `${file} does not exist, ignoring`);
             return;
+        }
 
-        const {opts} = this;
-
-        const iniPath = path.join(opts.mytDir, 'remotes', opts.iniFile);
+        const iniPath = path.join(ctx.mytDir, 'remotes', ctx.iniFile);
         const execArgs = [
             `--defaults-file=${iniPath}`,
             '--default-character-set=utf8',
@@ -162,7 +168,7 @@ class Apply extends Command {
 
         let stdio;
         const mysqlBin = 'mariadb';
-        if (opts.debug === true) {
+        if (cfg.debug === true) {
             const quotedArgs = execArgs
                 .map(x => /\s/g.test(x) ? `"${x}"` : x)
                 .join(' ');

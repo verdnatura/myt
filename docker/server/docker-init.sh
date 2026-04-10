@@ -28,7 +28,8 @@ myt apply \
     --structure \
     --changes \
     --remote socket \
-    --load $MYT_COMMIT
+    --load "$MYT_COMMIT" \
+    --realm "$MYT_REALM"
 
 docker_temp_server_stop
 cp -a /var/lib/mysql/. /mysql-template

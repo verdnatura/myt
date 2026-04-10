@@ -12,8 +12,10 @@ class Build extends Command {
         params: {
             name: 'Built image name',
             tag: 'Built image tag',
-            force: 'Whether to force build'
+            force: 'Whether to force build',
+            realm: 'Name of fixture realm to use'
         },
+        operand: 'realm'
     };
 
     static opts = {
@@ -21,10 +23,12 @@ class Build extends Command {
             name: 'n',
             tag: 't',
             force: 'f',
+            realm: 'm'
         },
         string: [
             'name',
-            'tag'
+            'tag',
+            'realm'
         ],
         boolean: [
             'force'
@@ -32,19 +36,29 @@ class Build extends Command {
     };
 
     static reporter = {
+        buildingBaseImages: 'Building base images.',
         buildingServerImage: 'Building server image.',
-        buildingDumpImage: 'Building dump image.',
-        dumpImageBuilt: function(tag) {
-            console.log(tag);
+        serverImageTag: function(tag) {
+            console.log('Image:', tag);
         }
     };
 
-    async run(myt, opts) {
-        const {dumpDir, version} = opts;
-        const dumpDataDir = path.join(dumpDir, '.dump');
+    async _run(myt, ctx, cfg, opts) {
+        const {
+            dumpDir,
+            dockerDir,
+            version,
+            subdir
+        } = ctx;
+
+        const {
+            realm,
+            force
+        } = opts;
+
         const serverDir = path.join(__dirname, 'docker/server');
 
-        if (!await fs.pathExists(`${dumpDataDir}/structure.sql`))
+        if (!await fs.pathExists(`${dumpDir}/structure.sql`))
             throw new Error('Dump file not found');
 
         // Initialize
@@ -61,7 +75,7 @@ class Build extends Command {
         // Get changed files hash
 
         const repoExt = require('./lib/repo');
-        const regex = opts.subdir && new RegExp(`^${opts.subdir}\/(.+)`);
+        const regex = subdir && new RegExp(`^${subdir}\/(.+)`);
         const gitChanges = new Set();
         const dirnames = new Set();
         const {sep} = path;
@@ -88,7 +102,7 @@ class Build extends Command {
 
         let changesSha;
         if (gitChanges.size) {
-            const {hash} = await hashElement(opts.subdir, {
+            const {hash} = await hashElement(subdir, {
                 algo: 'sha1',
                 encoding: 'hex',
                 folders: {
@@ -108,13 +122,23 @@ class Build extends Command {
             imageLabels.push(`myt.changes-sha=${changesSha}`);
         }
 
+        if (realm)
+            imageLabels.push(`myt.realm=${realm}`);
+
         // Get image tag
 
         const tagSha = tagHash.digest('hex');
-        const shortSha = tagSha.substring(0, opts.gitShortLen);
+        const shortSha = tagSha.substring(0, cfg.gitShortLen);
 
-        const imageName = opts.name || opts.code;
-        const imageTag = opts.tag || shortSha || 'latest';
+        let imageTag = 'latest';
+        if (opts.tag) {
+            imageTag = opts.tag;
+        } else if (shortSha) {
+            imageTag = shortSha;
+            if (realm) imageTag += `-${realm}`;
+        }
+
+        const imageName = opts.name || cfg.code;
         const tag = `${imageName}:${imageTag}`;
 
         // Check for existent image
@@ -129,106 +153,115 @@ class Build extends Command {
             labels = {};
         }
 
-        const useCache = !opts.force
+        const useCache = !force
             && labels['myt.version'] == version
             && labels['myt.commit-sha'] == commitSha
             && (
                 (!changesSha && !labels['myt.changes-sha'])
                 || (labels['myt.changes-sha'] == changesSha)
+            )
+            && (
+                (!realm && !labels['myt.realm'])
+                || (labels['myt.realm'] == realm)
             );
-        if (useCache) return tag;
 
-        // Build base server image
+        if (!useCache) {
+            // Build base server image
 
-        const baseTag = `myt/base:${version}`;
-        const mytTag = `myt/app:${version}`;
+            const baseTag = `myt/base:${version}`;
+            const mytTag = `myt/app:${version}`;
 
-        let baseLabels;
-        try {
-            baseLabels = await docker.inspect(baseTag,
-                {format: '{{json .Config.Labels}}'}
-            );
-        } catch (err) {
-            if (err.code !== 1) throw err;
-        }
-
-        let buildBase = !baseLabels;
-
-        const buildBaseLabels = [];
-        const dbDockerfile = path.join(dumpDir, 'Dockerfile');
-        const dbDockerExists = await fs.pathExists(dbDockerfile);
-
-        if (!buildBase && dbDockerExists) {
-            const {hash} = await hashElement(dumpDir, {
-                algo: 'sha1',
-                encoding: 'hex',
-            });
-
-            buildBase = baseLabels['myt.server-sha'] != hash;
-            buildBaseLabels.push(`myt.server-sha=${hash}`);
-        }
-
-        if (buildBase || opts.force) {
-            this.emit('buildingServerImage');
-
-            let dbTag;
-            if (dbDockerExists) {
-                dbTag = `myt/db:${version}`;
-                await docker.build(dumpDir, {
-                    tag: dbTag,
-                    file: dbDockerfile,
-                    label: buildBaseLabels,
-                }, opts.debug);
-            } else {
-                dbTag = opts.dbImageTag;
+            let baseLabels;
+            try {
+                baseLabels = await docker.inspect(baseTag,
+                    {format: '{{json .Config.Labels}}'}
+                );
+            } catch (err) {
+                if (err.code !== 1) throw err;
             }
 
-            const buildArgs = [];
-            if (dbTag)
-                buildArgs.push(`DB_TAG=${dbTag}`);
+            let buildBase = !baseLabels;
 
-            await docker.build(__dirname, {
-                tag: baseTag,
-                file: path.join(serverDir, 'Dockerfile.base'),
-                buildArg: buildArgs,
-                label: buildBaseLabels,
-            }, opts.debug);
+            const buildBaseLabels = [];
+            const dbDockerfile = path.join(dockerDir, 'Dockerfile');
+            const dbDockerExists = await fs.pathExists(dbDockerfile);
 
-            await docker.build(__dirname, {
-                tag: mytTag,
-                file: path.join(serverDir, 'Dockerfile.myt'),
-                buildArg: `BASE_TAG=${baseTag}`,
-                label: buildBaseLabels,
-            }, opts.debug);
-        }
+            if (!buildBase && dbDockerExists) {
+                const {hash} = await hashElement(dockerDir, {
+                    algo: 'sha1',
+                    encoding: 'hex',
+                });
 
-        // Build dump image
+                buildBase = baseLabels['myt.server-sha'] != hash;
+                buildBaseLabels.push(`myt.server-sha=${hash}`);
+            }
 
-        this.emit('buildingDumpImage');
+            if (buildBase || force) {
+                this.emit('buildingBaseImages');
 
-        const versionFile = path.join(dumpDataDir, 'version.json');
-        const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
+                let dbTag;
+                if (dbDockerExists) {
+                    dbTag = `myt/db:${version}`;
+                    await docker.build(dockerDir, {
+                        tag: dbTag,
+                        file: dbDockerfile,
+                        label: buildBaseLabels,
+                    }, cfg.debug);
+                } else {
+                    dbTag = cfg.dbImageTag;
+                }
 
-        const changes = await myt.getChanges(dbVersion.gitCommit);
-        await fs.writeFile(
-            path.join(dumpDir, '.changes.json'),
-            JSON.stringify(changes, null, 1)
-        );
+                const buildArgs = [];
+                if (dbTag)
+                    buildArgs.push(`DB_TAG=${dbTag}`);
 
-        await docker.build(opts.mytDir, {
-            tag: [tag, imageName],
-            file: path.join(serverDir, 'Dockerfile'),
-            label: imageLabels,
-            buildArg: [
-                `ROOT_PASS=${opts.rootPassword}`,
+                await docker.build(__dirname, {
+                    tag: baseTag,
+                    file: path.join(serverDir, 'Dockerfile.base'),
+                    buildArg: buildArgs,
+                    label: buildBaseLabels,
+                }, cfg.debug);
+
+                await docker.build(__dirname, {
+                    tag: mytTag,
+                    file: path.join(serverDir, 'Dockerfile.myt'),
+                    buildArg: `BASE_TAG=${baseTag}`,
+                    label: buildBaseLabels,
+                }, cfg.debug);
+            }
+
+            // Build dump image
+
+            this.emit('buildingServerImage');
+
+            const versionFile = path.join(dumpDir, 'version.json');
+            const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
+
+            const changes = await myt.getChanges(dbVersion.gitCommit);
+            await fs.writeFile(
+                path.join(dockerDir, '.changes.json'),
+                JSON.stringify(changes, null, 1)
+            );
+
+            const buildArgs = [
+                `ROOT_PASS=${cfg.rootPassword}`,
                 `BASE_TAG=${baseTag}`,
                 `MYT_TAG=${mytTag}`,
                 `MYT_COMMIT=${commitSha}`
-            ]
-        }, opts.debug);
+            ];
 
-        this.emit('dumpImageBuilt', tag);
+            if (realm)
+                buildArgs.push(`MYT_REALM=${realm}`);
 
+            await docker.build(ctx.mytDir, {
+                tag: [tag, imageName],
+                file: path.join(serverDir, 'Dockerfile'),
+                label: imageLabels,
+                buildArg: buildArgs
+            }, cfg.debug);
+        }
+
+        this.emit('serverImageTag', tag);
         return tag;
     }
 }

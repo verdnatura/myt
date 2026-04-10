@@ -19,8 +19,7 @@ class Run extends Command {
             persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
             realm: 'Name of fixture realm to use',
-            ip: 'Bind to container IP instead of localhost',
-            push: 'Push changes before start database service'
+            ip: 'Bind to container IP instead of localhost'
         },
         operand: 'realm'
     };
@@ -32,38 +31,38 @@ class Run extends Command {
             persist: 'p',
             keep: 'k',
             realm: 'm',
-            ip: 'i',
-            push: 'u'
+            ip: 'i'
         },
+        string: [
+            'network',
+            'realm'
+        ],
         boolean: [
             'ci',
             'random',
             'persist',
             'keep',
-            'ip',
-            'push'
+            'ip'
         ]
     };
 
     static reporter = {
         buildingImage: 'Building container image.',
         runningContainer: 'Running container.',
-        mockingDate: 'Mocking date functions.',
-        applyingFixtures: 'Applying fixtures.',
-        applyingRealms: 'Applying realm fixtures.',
-        creatingTriggers: 'Creating triggers.',
         waitingDb: function(dbConfig) {
             console.log(`Waiting for database: ${dbConfig.host}:${dbConfig.port}`);
         }
     };
 
-    async run(myt, opts) {
-        const tag = await myt.run(Build, opts);
+    async _run(myt, ctx, cfg, opts) {
+        const tag = await myt.run(Build, {
+            realm: opts.realm
+        });
 
         this.emit('runningContainer');
 
         const isRandom = opts.random;
-        const dbConfig = opts.dbConfig;
+        const dbConfig = ctx.dbConfig;
 
         const runOptions = {};
 
@@ -71,11 +70,11 @@ class Run extends Command {
             Object.assign(runOptions, {publish: '3306'});
         else {
             Object.assign(runOptions, {
-                name: opts.code,
+                name: cfg.code,
                 publish: `3306:${dbConfig.port}`
             });
             try {
-                const server = new Server(new docker.Container(opts.code));
+                const server = new Server(new docker.Container(cfg.code));
                 await server.rm();
             } catch (e) {}
         }
@@ -87,17 +86,11 @@ class Run extends Command {
         if (!opts.persist)
             runOptions.tmpfs = '/var/lib/mysql';
 
-        if (opts.push)
-            Object.assign(runOptions, {
-                volume: `${opts.workspace}:/workspace`,
-                env: `MYT_PUSH=true`
-            });
-
         Object.assign(runOptions, {
             detach: true
         });
 
-        const ct = await docker.run(tag, null, runOptions, opts.debug);
+        const ct = await docker.run(tag, null, runOptions, cfg.debug);
 
         try {
             const server = new Server(ct, dbConfig);

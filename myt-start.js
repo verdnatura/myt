@@ -19,8 +19,8 @@ class Start extends Command {
         startingContainer: 'Starting container.'
     };
 
-    async run(myt, opts) {
-        const ct = new Container(opts.code);
+    async _run(myt, ctx, cfg, opts) {
+        const ct = new Container(cfg.code);
         let status;
         let exists;
         let server;
@@ -31,7 +31,7 @@ class Start extends Command {
             });
             exists = true;
         } catch (err) {
-            server = await myt.run(Run, opts);
+            server = await myt.run(Run);
         }
 
         if (exists) {
@@ -41,7 +41,7 @@ class Start extends Command {
             case 'exited':
                 this.emit('startingContainer');
                 await ct.start();
-                server = new Server(ct, opts.dbConfig);
+                server = new Server(ct, ctx.dbConfig);
                 await server.wait();
                 break;
             default:

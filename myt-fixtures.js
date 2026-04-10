@@ -14,10 +14,10 @@ class Fixtures extends Command {
         }
     };
 
-    async run(myt, opts) {
-        const dumper = new Dumper(opts);
-        await dumper.init(opts.dumpDir, '.fixtures');
-        await dumper.dumpFixtures(opts.localFixtures, false);
+    async _run(myt, ctx, cfg, opts) {
+        const dumper = new Dumper(myt);
+        await dumper.init(ctx.fixturesDir, '.dump');
+        await dumper.dumpFixtures(cfg.localFixtures, false);
         await dumper.end();
     }
 }

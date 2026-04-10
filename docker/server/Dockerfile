@@ -12,6 +12,7 @@ RUN mkdir -p /mysql-template \
 WORKDIR /workspace
 COPY . .
 
+ARG MYT_REALM
 ARG MYT_COMMIT
 RUN --mount=type=tmpfs,target=/var/lib/mysql \
     chown mysql:mysql /var/lib/mysql \
