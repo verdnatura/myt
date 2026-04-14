@@ -24,7 +24,7 @@ class Push extends Command {
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         alias: {
             force: 'f',
             commit: 'c',

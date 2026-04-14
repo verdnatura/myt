@@ -16,7 +16,7 @@ class Version extends Command {
         operand: 'name'
     };
 
-    static opts = {
+    static args = {
         alias: {
             name: 'n',
             deprecate: 'p'

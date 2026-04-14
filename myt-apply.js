@@ -19,7 +19,7 @@ class Apply extends Command {
         operand: 'realm'
     };
 
-    static opts = {
+    static args = {
         alias: {
             structure: 's',
             changes: 'c',

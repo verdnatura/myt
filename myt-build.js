@@ -18,7 +18,7 @@ class Build extends Command {
         operand: 'realm'
     };
 
-    static opts = {
+    static args = {
         alias: {
             name: 'n',
             tag: 't',

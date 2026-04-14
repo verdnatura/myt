@@ -17,7 +17,7 @@ class Pull extends Command {
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         alias: {
             force: 'f',
             checkout: 'c',

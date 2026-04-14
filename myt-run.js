@@ -24,7 +24,7 @@ class Run extends Command {
         operand: 'realm'
     };
 
-    static opts = {
+    static args = {
         alias: {
             network: 'n',
             random: 'r',
@@ -90,7 +90,7 @@ class Run extends Command {
             detach: true
         });
 
-        const ct = await docker.run(tag, null, runOptions, cfg.debug);
+        const ct = await docker.run(tag, null, runOptions, undefined, cfg.debug);
 
         try {
             const server = new Server(ct, dbConfig);

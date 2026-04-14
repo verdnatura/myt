@@ -26,7 +26,7 @@ class Myt {
         }
     };
 
-    static opts = {
+    static args = {
         alias: {
             remote: 'r',
             workspace: 'w',
@@ -58,16 +58,17 @@ class Myt {
         );
         this.packageJson = packageJson;
 
-        let baseOpts = Object.assign({}, this.constructor.opts);
-        baseOpts.default = Object.assign(baseOpts.default || {}, {
+        const args = Object.assign({}, this.constructor.args);
+        args.default = Object.assign(args.default || {}, {
             workspace: process.cwd()
         });
-        const opts = this.getopts(baseOpts);
+        const argv = process.argv.slice(2);
 
-        if (opts.debug) {
+        // Temporal until args is merged with command args
+        let opts = getopts(argv, args);
+
+        if (opts.debug)
             console.warn('Debug mode enabled.'.yellow);
-            console.debug('Global options:'.magenta, opts);
-        }
 
         if (opts.version)
             process.exit(0);
@@ -86,28 +87,48 @@ class Myt {
             }
 
             if (!Command) {
-                this.showHelp(baseOpts, this.constructor.usage);
+                this.showHelp(args, this.constructor.usage);
                 process.exit(0);
             }
 
-            let copts = {};
-            if (Command.opts) {
-                copts = this.getopts(Command.opts);
-                if (opts.debug)
-                    console.debug('Command options:'.magenta, copts);
+            const allArgs = Object.assign({}, args);
 
-                const operandToOpt = Command.usage.operand;
-                if (copts._.length >= 2 && operandToOpt)
-                    copts[operandToOpt] = opts._[1];
+            if (Command.args)
+            for (const key in Command.args) {
+                const baseValue = args[key];
+                const cmdValue = Command.args[key];
+                if (Array.isArray(baseValue))
+                    allArgs[key] = baseValue.concat(cmdValue);
+                else if (typeof baseValue == 'object')
+                    allArgs[key] = Object.assign({}, baseValue, cmdValue);
+                else
+                    allArgs[key] = cmdValue;
+            }
 
-                for (const opt in copts)
-                    if (opt != '_' && Object.hasOwn(opts, opt))
-                        opts[opt] = copts[opt];
+            const allOpts = getopts(argv, allArgs);
 
-                if (opts.help) {
-                    this.showHelp(Command.opts, Command.usage, commandName);
-                    process.exit(0);
-                }
+            const operandToOpt = Command.usage.operand;
+            if (allOpts._.length >= 2 && operandToOpt)
+                allOpts[operandToOpt] = allOpts._[1];
+
+            function fetchOpts(Class) {
+                const opts = {};
+                for (const param in Class.usage.params)
+                    if (allOpts[param]) opts[param] = allOpts[param];
+                return opts;
+            }
+
+            opts = fetchOpts(this.constructor);
+            const copts = fetchOpts(Command);
+
+            if (opts.debug) {
+                console.debug('Global options:'.magenta, opts);
+                console.debug('Command options:'.magenta, copts);
+            }
+
+            if (opts.help) {
+                this.showHelp(Command.opts, Command.usage, commandName);
+                process.exit(0);
             }
 
             // Check version
@@ -355,16 +376,6 @@ class Myt {
                 console.log(`  -${alias[opt]}, --${longOpt} ${paramDescription}`);
             }
         }
-    }
-
-    getopts(opts) {
-        const argv = process.argv.slice(2);
-        const values = getopts(argv, opts);
-        const cleanValues = {};
-        for (const opt in values)
-            if (opt.length > 1 || opt == '_')
-                cleanValues[opt] = values[opt];
-        return cleanValues;
     }
 
     async dbConnect() {

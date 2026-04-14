@@ -8,7 +8,7 @@ class Fixtures extends Command {
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         default: {
             remote: 'docker'
         }

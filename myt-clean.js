@@ -14,7 +14,7 @@ class Clean extends Command {
         }
     };
 
-    static opts = {
+    static args = {
         alias: {
             purge: 'p'
         },

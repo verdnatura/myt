@@ -13,7 +13,7 @@ class Create extends Command {
         operand: 'name'
     };
 
-    static opts = {
+    static args = {
         alias: {
             type: 't',
             name: 'n'
