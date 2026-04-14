@@ -14,7 +14,8 @@ class Apply extends Command {
             structure: 'Apply only structure',
             changes: 'Apply only changes',
             realm: 'Name of fixture realm to use',
-            load: 'Load commit and changed routines from passed args'
+            docker: 'Whether to load git changes from file',
+            load: 'Commit SHA to save'
         },
         operand: 'realm'
     };
@@ -24,15 +25,17 @@ class Apply extends Command {
             structure: 's',
             changes: 'c',
             realm: 'm',
+            docker: 'k',
             load: 'l'
         },
+        boolean: [
+            'structure',
+            'changes',
+            'docker'
+        ],
         string: [
             'realm',
             'load'
-        ],
-        boolean: [
-            'structure',
-            'changes'
         ],
         default: {
             remote: 'socket'
@@ -98,9 +101,9 @@ class Apply extends Command {
 
             await myt.run(Push, {
                 triggers: triggersImport == 'after',
+                docker: true,
                 load: opts.load,
-                commit: true,
-                tracked: true
+                commit: true
             });
 
             // Apply fixtures

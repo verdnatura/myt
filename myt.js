@@ -114,7 +114,7 @@ class Myt {
             function fetchOpts(Class) {
                 const opts = {};
                 for (const param in Class.usage.params)
-                    if (allOpts[param]) opts[param] = allOpts[param];
+                    opts[param] = allOpts[param];
                 return opts;
             }
 
@@ -162,7 +162,7 @@ class Myt {
 
             // Load method
 
-            await this.init(opts);
+            await this.init(opts, !Command.skipConf);
 
             parameter('Workspace:', this.cfg.workspace);
             parameter('Remote:', this.cfg.remote || 'local');
@@ -204,7 +204,7 @@ class Myt {
      * Initialize myt, should be called before running any command.
      * @param {Object} opts Myt options
      */
-    async init(opts) {
+    async init(opts, loadConf) {
         const ctx = {version: packageJson.version};
 
         // Myt directory
@@ -212,17 +212,21 @@ class Myt {
         let subdir;
         const configFile = 'myt.config.yml';
 
-        const checkDirs = ['.', 'myt', 'db'];
-        for (const dir of checkDirs) {
-            const cfgPath = path.join(opts.workspace, dir, configFile);
-            if (await fs.pathExists(cfgPath)) {
-                subdir = dir;
-                break;
+        if (loadConf) {
+            const checkDirs = ['.', 'myt', 'db'];
+            for (const dir of checkDirs) {
+                const cfgPath = path.join(opts.workspace, dir, configFile);
+                if (await fs.pathExists(cfgPath)) {
+                    subdir = dir;
+                    break;
+                }
             }
-        }
 
-        if (!subdir)
-            throw new Error (`Cannot find Myt config file '${configFile}': ${JSON.stringify(checkDirs)}`);
+            if (!subdir)
+                throw new Error (`Cannot find Myt config file '${configFile}': ${JSON.stringify(checkDirs)}`);
+        } else {
+            subdir = '.';
+        }
 
         ctx.subdir = subdir;
         const mytDir = ctx.mytDir = path.join(opts.workspace, subdir);

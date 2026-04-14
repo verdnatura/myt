@@ -18,8 +18,8 @@ class Push extends Command {
             commit: 'Whether to save the commit SHA into database',
             sums: 'Save SHA sums of pushed objects',
             triggers: 'Whether to exclude triggers, used to generate local DB',
-            tracked: 'Whether to push only git tracked objects',
-            load: 'Load commit and changed routines from passed args'
+            docker: 'Whether to load git changes from file',
+            load: 'Commit SHA to save'
         },
         operand: 'remote'
     };
@@ -30,7 +30,7 @@ class Push extends Command {
             commit: 'c',
             sums: 's',
             triggers: 't',
-            tracked: 'k',
+            docker: 'k',
             load: 'l'
         },
         boolean: [
@@ -38,7 +38,7 @@ class Push extends Command {
             'commit',
             'sums',
             'triggers',
-            'tracked'
+            'docker'
         ],
         string: [
             'load'
@@ -362,9 +362,11 @@ class Push extends Command {
         let nRoutines = 0;
 
         let diff;
-        if (opts.load) {
+        if (opts.docker) {
             const changesFile = path.join(ctx.dockerDir, '.changes.json');
-            diff = JSON.parse(await fs.readFile(changesFile, 'utf8'));
+            diff = await fs.exists(changesFile)
+                ? JSON.parse(await fs.readFile(changesFile, 'utf8'))
+                : [];
         } else
             diff = await myt.getChanges(dbVersion.gitCommit);
 
@@ -491,7 +493,7 @@ class Push extends Command {
         if (opts.commit) {
             let commitSha;
 
-            if (opts.load) {
+            if (opts.docker) {
                 commitSha = opts.load;
             } else {
                 const gitExists = await fs.pathExists(`${cfg.workspace}/.git`);

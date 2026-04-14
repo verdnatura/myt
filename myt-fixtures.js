@@ -10,7 +10,7 @@ class Fixtures extends Command {
 
     static args = {
         default: {
-            remote: 'docker'
+            remote: 'local'
         }
     };
 

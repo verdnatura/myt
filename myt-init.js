@@ -8,6 +8,8 @@ class Init extends Command {
         description: 'Initialize an empty workspace'
     };
 
+    static skipConf = true;
+
     async _run(myt, ctx, cfg, opts) {
         const packageFile = path.join(ctx.mytDir, 'package.json');
         const packageExists = await fs.pathExists(packageFile);

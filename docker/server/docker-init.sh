@@ -28,6 +28,7 @@ myt apply \
     --structure \
     --changes \
     --remote socket \
+    --docker \
     --load "$MYT_COMMIT" \
     --realm "$MYT_REALM"
 

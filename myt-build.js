@@ -68,7 +68,7 @@ class Build extends Command {
         const repo = await myt.openRepo();
 
         const commit = await repo.getHeadCommit();
-        const commitSha = commit.sha();
+        const commitSha = commit?.sha() || '';
         tagHash.update(commitSha);
         imageLabels.push(`myt.commit-sha=${commitSha}`);
 
@@ -235,13 +235,18 @@ class Build extends Command {
             this.emit('buildingServerImage');
 
             const versionFile = path.join(dumpDir, 'version.json');
-            const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
+            if (await fs.exists(versionFile)) {
+                const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
+                const dbCommit = dbVersion.gitCommit;
 
-            const changes = await myt.getChanges(dbVersion.gitCommit);
-            await fs.writeFile(
-                path.join(dockerDir, '.changes.json'),
-                JSON.stringify(changes, null, 1)
-            );
+                if (dbCommit) {
+                    const changes = await myt.getChanges(dbCommit);
+                    await fs.writeFile(
+                        path.join(dockerDir, '.changes.json'),
+                        JSON.stringify(changes, null, 1)
+                    );
+                }
+            }
 
             const buildArgs = [
                 `ROOT_PASS=${cfg.rootPassword}`,
