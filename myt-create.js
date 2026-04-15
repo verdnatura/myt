@@ -68,7 +68,7 @@ class Create extends Command {
 
         const routineDir = `${ctx.routinesDir}/${schema}/${type}s`;
         if (!await fs.pathExists(routineDir))
-            await fs.mkdir(routineDir);
+            await fs.mkdir(routineDir, {recursive: true});
 
         const routineFile = `${routineDir}/${name}.sql`;
 
