@@ -4,6 +4,6 @@ remotes/*.ini
 !remotes/local.ini
 !remotes/docker.ini
 !remotes/socket.ini
-docker/.changes.json
+routines/.changes.json
 fixtures/local.sql
 myt.local.yml

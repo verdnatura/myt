@@ -234,7 +234,10 @@ class Build extends Command {
 
             this.emit('buildingServerImage');
 
+            let changesCreated;
+            const changesFile = path.join(ctx.routinesDir, '.changes.json');
             const versionFile = path.join(dumpDir, 'version.json');
+
             if (await fs.exists(versionFile)) {
                 const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
                 const dbCommit = dbVersion.gitCommit;
@@ -242,9 +245,10 @@ class Build extends Command {
                 if (dbCommit) {
                     const changes = await myt.getChanges(dbCommit);
                     await fs.writeFile(
-                        path.join(dockerDir, '.changes.json'),
+                        changesFile,
                         JSON.stringify(changes, null, 1)
                     );
+                    changesCreated = true;
                 }
             }
 
@@ -264,6 +268,13 @@ class Build extends Command {
                 label: imageLabels,
                 buildArg: buildArgs
             }, cfg.debug);
+
+            try {
+                if (changesCreated)
+                    await fs.unlink(changesFile);
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         this.emit('serverImageTag', tag);

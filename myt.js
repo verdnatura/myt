@@ -8,9 +8,7 @@ const fs = require('fs-extra');
 const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const nodegit = require('nodegit');
 const camelToSnake = require('./lib/util').camelToSnake;
-const repoExt = require('./lib/repo');
 
 const scriptRegex = /^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(\.undo)?\.sql$/;
 
@@ -162,7 +160,7 @@ class Myt {
 
             // Load method
 
-            await this.init(opts, !Command.skipConf);
+            await this.init(opts, Command.skipConf);
 
             parameter('Workspace:', this.cfg.workspace);
             parameter('Remote:', this.cfg.remote || 'local');
@@ -203,8 +201,9 @@ class Myt {
     /**
      * Initialize myt, should be called before running any command.
      * @param {Object} opts Myt options
+     * @param {boolean} skipConf Whether to skip configuration file loading
      */
-    async init(opts, loadConf) {
+    async init(opts, skipConf) {
         const ctx = {version: packageJson.version};
 
         // Myt directory
@@ -212,8 +211,8 @@ class Myt {
         let subdir;
         const configFile = 'myt.config.yml';
 
-        if (loadConf) {
-            const checkDirs = ['.', 'myt', 'db'];
+        if (!skipConf) {
+            const checkDirs = ['', 'myt', 'db'];
             for (const dir of checkDirs) {
                 const cfgPath = path.join(opts.workspace, dir, configFile);
                 if (await fs.pathExists(cfgPath)) {
@@ -222,10 +221,10 @@ class Myt {
                 }
             }
 
-            if (!subdir)
+            if (subdir == null)
                 throw new Error (`Cannot find Myt config file '${configFile}': ${JSON.stringify(checkDirs)}`);
         } else {
-            subdir = '.';
+            subdir = '';
         }
 
         ctx.subdir = subdir;
@@ -319,9 +318,9 @@ class Myt {
 
         // Context configuration
 
-        const routinesBaseRegex = subdir == '.'
-            ? 'routines'
-            : `${subdir}\/routines`;
+        const routinesBaseRegex = subdir
+            ? `${subdir}\/routines`
+            : 'routines';
 
         Object.assign(ctx, {
             iniFile,
@@ -502,6 +501,7 @@ class Myt {
         if (!await fs.pathExists(`${cfg.workspace}/.git`))
             throw new Error ('Git not initialized');
 
+        const nodegit = require('nodegit');
         return await nodegit.Repository.open(cfg.workspace);
     }
 
@@ -560,6 +560,7 @@ class Myt {
         }
 
         if (!committed) {
+            const repoExt = require('./lib/repo');
             await pushChanges(await repoExt.getUnstaged(repo));
             await pushChanges(await repoExt.getStaged(repo));
         }

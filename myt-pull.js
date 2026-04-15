@@ -3,7 +3,6 @@ const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
-const repoExt = require('./lib/repo');
 
 class Pull extends Command {
     static usage = {
@@ -56,6 +55,8 @@ class Pull extends Command {
 
                 return false;
             }
+
+            const repoExt = require('./lib/repo');
 
             // Check for unstaged changes
 

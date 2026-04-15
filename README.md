@@ -1,6 +1,6 @@
-# Myt - MySQL version control
+# Myt - MariaDB and MySQL version control
 
-Utilities to ease the maintenance of MySQL or MariaDB database versioning using
+Utilities to ease the maintenance of MariaDB or MySQL database versioning using
 a Git repository.
 
 This project is just to bring an idea to life and is still in an early stage of
@@ -63,6 +63,29 @@ Local server management commands:
  * **start**: Start local database server container.
 
 Each command can have its own specific commandline options.
+
+### Usage as library
+
+It is also possible to use myt as a JavaScript library, not only from the
+command line. Below is a reference example.
+
+```js
+const Myt = require('@verdnatura/myt/myt');
+const Run = require('@verdnatura/myt/myt-run');
+
+async function main() {
+   const myt = new Myt();
+   await myt.init({
+      workspace: path.join(__dirname, '..')
+   });
+   const server = await myt.run(Run, {
+      random: true,
+      persist: process.platform != 'linux'
+   });
+   console.log(server.dbConfig);
+   await myt.deinit();
+}
+```
 
 ## Basic information
 

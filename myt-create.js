@@ -50,10 +50,12 @@ class Create extends Command {
 
         switch (type) {
             case 'event':
-            case 'function':
             case 'procedure':
             case 'trigger':
-                params.body = "BEGIN\n-- Your code goes here\nEND";
+                params.body = "BEGIN\n\t-- Your code goes here\nEND";
+                break;
+            case 'function':
+                params.body = "BEGIN\n\tRETURN 1;\nEND";
                 break;
             case 'view':
                 params.definition = "SELECT TRUE"
@@ -69,6 +71,10 @@ class Create extends Command {
             await fs.mkdir(routineDir);
 
         const routineFile = `${routineDir}/${name}.sql`;
+
+        if (await fs.exists(routineFile))
+            throw new Error('Routine already exists');
+        
         await fs.writeFile(routineFile, sql);
     }
 }

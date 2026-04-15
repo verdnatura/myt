@@ -58,10 +58,13 @@ class Apply extends Command {
 
         const {triggersImport} = cfg;
 
+        const conn = await myt.createConnection();
+        const applyAll = !(opts.structure || opts.changes);
+
         if (ctx.isProtectedRemote)
             throw new Error('Cannot apply to protected remote');
 
-        if (opts.structure) {
+        if (applyAll || opts.structure) {
             await this.importFile(path.join(structureDir, 'before.sql'));
 
             const importFiles = [
@@ -78,15 +81,11 @@ class Apply extends Command {
                 await this.importFile(path.join(dumpDir, file), true);
 
             await this.importFile(path.join(structureDir, 'after.sql'));
-        }
-
-        if (opts.changes) {
-            const conn = await myt.createConnection();
 
             // Mock date functions
 
             this.emit('mockingDate');
-            const mockDateScript = path.join(fixturesDir, 'mock-date.sql');
+            const mockDateScript = path.join(structureDir, 'mock-date.sql');
 
             if (cfg.mockDate) {
                 if (!await fs.pathExists(mockDateScript))
@@ -96,7 +95,9 @@ class Apply extends Command {
                 sql = sql.replace(/@mockDate/g, SqlString.escape(cfg.mockDate));
                 await connExt.multiQuery(conn, sql);
             }
+        }
 
+        if (applyAll || opts.changes) {
             // Apply changes
 
             await myt.run(Push, {

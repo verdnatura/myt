@@ -1,7 +1,6 @@
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
-const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
 const connExt = require('./lib/conn');
 const SqlString = require('sqlstring');
@@ -167,7 +166,7 @@ class Push extends Command {
         const conn = await myt.dbConnect();
         this.conn = conn;
 
-        if (cfg.remote == 'local')
+        if (ctx.isLocalRemote)
             opts.commit = true;
 
         // Obtain exclusive lock
@@ -363,7 +362,7 @@ class Push extends Command {
 
         let diff;
         if (opts.docker) {
-            const changesFile = path.join(ctx.dockerDir, '.changes.json');
+            const changesFile = path.join(ctx.routinesDir, '.changes.json');
             diff = await fs.exists(changesFile)
                 ? JSON.parse(await fs.readFile(changesFile, 'utf8'))
                 : [];
@@ -498,6 +497,7 @@ class Push extends Command {
             } else {
                 const gitExists = await fs.pathExists(`${cfg.workspace}/.git`);
                 if (gitExists) {
+                    const nodegit = require('nodegit');
                     const repo = await nodegit.Repository.open(cfg.workspace);
                     const head = await repo.getHeadCommit();
                     commitSha = head?.sha();

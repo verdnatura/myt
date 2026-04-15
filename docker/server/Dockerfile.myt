@@ -15,19 +15,19 @@ RUN apt-get update \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libkrb5-dev \
-        libssl-dev \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update \
+#     && apt-get install -y --no-install-recommends \
+#         libkrb5-dev \
+#         libssl-dev \
+#         build-essential \
+#     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /myt
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm fetch --prod --frozen-lockfile
+COPY pnpm-lock.yaml ./
+RUN pnpm fetch --prod --frozen-lockfile --ignore-scripts
 
 COPY package.json ./
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 COPY . ./
 RUN npm install -g /myt

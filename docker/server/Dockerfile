@@ -10,7 +10,14 @@ RUN mkdir -p /mysql-template \
     && chown mysql:mysql /mysql-template
 
 WORKDIR /workspace
-COPY . .
+
+COPY myt.config.yml .
+COPY remotes/socket.ini ./remotes/
+COPY structure structure
+COPY fixtures fixtures
+COPY versions versions
+COPY routines routines
+COPY realms realms
 
 ARG MYT_REALM
 ARG MYT_COMMIT
