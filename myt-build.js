@@ -100,6 +100,9 @@ class Build extends Command {
         await pushChanges(await repoExt.getUnstaged(repo));
         await pushChanges(await repoExt.getStaged(repo));
 
+        if (cfg.debug)
+            console.debug('Uncommited:'.magenta, gitChanges);
+
         let changesSha;
         if (gitChanges.size) {
             const {hash} = await hashElement(subdir, {
@@ -234,46 +237,39 @@ class Build extends Command {
 
             this.emit('buildingServerImage');
 
-            let changesCreated;
-            const changesFile = path.join(ctx.routinesDir, '.changes.json');
+            let dbCommit;
             const versionFile = path.join(dumpDir, 'version.json');
-
             if (await fs.exists(versionFile)) {
                 const dbVersion = JSON.parse(await fs.readFile(versionFile, 'utf8'));
-                const dbCommit = dbVersion.gitCommit;
-
-                if (dbCommit) {
-                    const changes = await myt.getChanges(dbCommit);
-                    await fs.writeFile(
-                        changesFile,
-                        JSON.stringify(changes, null, 1)
-                    );
-                    changesCreated = true;
-                }
+                dbCommit = dbVersion.gitCommit;
             }
+            const changes = await myt.getChanges(dbCommit);
 
-            const buildArgs = [
-                `ROOT_PASS=${cfg.rootPassword}`,
-                `BASE_TAG=${baseTag}`,
-                `MYT_TAG=${mytTag}`,
-                `MYT_COMMIT=${commitSha}`
-            ];
-
-            if (realm)
-                buildArgs.push(`MYT_REALM=${realm}`);
-
-            await docker.build(ctx.mytDir, {
-                tag: [tag, imageName],
-                file: path.join(serverDir, 'Dockerfile'),
-                label: imageLabels,
-                buildArg: buildArgs
-            }, cfg.debug);
+            const changesFile = path.join(ctx.routinesDir, '.changes.json');
+            await fs.writeFile(
+                changesFile,
+                JSON.stringify(changes, null, 1)
+            );
 
             try {
-                if (changesCreated)
-                    await fs.unlink(changesFile);
-            } catch (err) {
-                console.error(err);
+                const buildArgs = [
+                    `ROOT_PASS=${cfg.rootPassword}`,
+                    `BASE_TAG=${baseTag}`,
+                    `MYT_TAG=${mytTag}`,
+                    `MYT_COMMIT=${commitSha}`
+                ];
+
+                if (realm)
+                    buildArgs.push(`MYT_REALM=${realm}`);
+
+                await docker.build(ctx.mytDir, {
+                    tag: [tag, imageName],
+                    file: path.join(serverDir, 'Dockerfile'),
+                    label: imageLabels,
+                    buildArg: buildArgs
+                }, cfg.debug);
+            } finally {
+                await fs.unlink(changesFile);
             }
         }
 
