@@ -131,29 +131,41 @@ class Myt {
 
             // Check version
 
-            let depVersion;
+            let matchVersion;
             const versionRegex = /^[^~]?([0-9]+)\.([0-9]+).([0-9]+)$/;
             const wsPackageFile = path.join(opts.workspace, 'package.json');
 
             if (await fs.pathExists(wsPackageFile)) {
+                let depVersion;
+                const depName = packageJson.name;
                 const wsPackageJson = require(wsPackageFile);
+
                 try {
-                    depVersion = wsPackageJson
-                        .dependencies[packageJson.name]
-                        .match(versionRegex);
+                    const {
+                        dependencies,
+                        devDependencies
+                    } = wsPackageJson;
+
+                    if (dependencies)
+                        depVersion = dependencies[depName];
+                    if (!depVersion && devDependencies)
+                        depVersion = devDependencies[depName];
                 } catch (e) {}
+
+                if (typeof depVersion == 'string')
+                    matchVersion = depVersion.match(versionRegex);
             }
 
-            if (depVersion) {
+            if (matchVersion) {
                 const myVersion = packageJson.version.match(versionRegex);
 
                 const isSameVersion =
-                    depVersion[1] === myVersion[1] &&
-                    depVersion[2] === myVersion[2];
+                    matchVersion[1] === myVersion[1] &&
+                    matchVersion[2] === myVersion[2];
                 if (!isSameVersion)
                     throw new Error(`Myt version differs a lot from package.json, please run 'npm i' first to install the proper version.`);
 
-                const isSameMinor = depVersion[3] === myVersion[3];
+                const isSameMinor = matchVersion[3] === myVersion[3];
                 if (!isSameMinor)
                     console.warn(`Warning! Myt minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version.`.yellow);
             }
