@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:11.11-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -8,7 +8,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY \
-    server/docker-dump.sh \
-    server/docker-fixtures.sh \
+    docker-dump.sh \
+    docker-fixtures.sh \
     /usr/local/bin/
 WORKDIR /workspace

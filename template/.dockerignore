@@ -1,0 +1,5 @@
+.git
+node_modules
+remotes
+!remotes/socket.ini
+docker

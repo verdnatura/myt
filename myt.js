@@ -8,7 +8,6 @@ const fs = require('fs-extra');
 const ini = require('ini');
 const path = require('path');
 const mysql = require('mysql2/promise');
-const nodegit = require('nodegit');
 const camelToSnake = require('./lib/util').camelToSnake;
 
 const scriptRegex = /^[0-9]{2}-[a-zA-Z0-9_]+(?:\.(?!undo)([a-zA-Z0-9_]+))?(\.undo)?\.sql$/;
@@ -25,7 +24,7 @@ class Myt {
         }
     };
 
-    static opts = {
+    static args = {
         alias: {
             remote: 'r',
             workspace: 'w',
@@ -33,6 +32,10 @@ class Myt {
             version: 'v',
             help: 'h'
         },
+        string: [
+            'remote',
+            'workspace'
+        ],
         boolean: [
             'debug',
             'version',
@@ -40,6 +43,10 @@ class Myt {
         ]
     };
 
+    /**
+     * Run myt command from CLI.
+     * @param {Command} Command class reference
+     */
     async cli(Command) {
         this.cliMode = true;
 
@@ -49,16 +56,17 @@ class Myt {
         );
         this.packageJson = packageJson;
 
-        let baseOpts = this.constructor.opts;
-        baseOpts.default = Object.assign(baseOpts.default || {}, {
+        const args = Object.assign({}, this.constructor.args);
+        args.default = Object.assign(args.default || {}, {
             workspace: process.cwd()
         });
-        const opts = this.getopts(baseOpts);
+        const argv = process.argv.slice(2);
 
-        if (opts.debug) {
+        // Temporal until args is merged with command args
+        let opts = getopts(argv, args);
+
+        if (opts.debug)
             console.warn('Debug mode enabled.'.yellow);
-            console.log('Global options:'.magenta, opts);
-        }
 
         if (opts.version)
             process.exit(0);
@@ -77,35 +85,44 @@ class Myt {
             }
 
             if (!Command) {
-                this.showHelp(baseOpts, this.constructor.usage);
+                this.showHelp(args, this.constructor.usage);
                 process.exit(0);
             }
 
-            const allOpts = Object.assign({}, baseOpts);
+            const allArgs = Object.assign({}, args);
 
-            if (Command.opts)
-            for (const key in Command.opts) {
-                const baseValue = baseOpts[key];
-                const cmdValue = Command.opts[key];
+            if (Command.args)
+            for (const key in Command.args) {
+                const baseValue = args[key];
+                const cmdValue = Command.args[key];
                 if (Array.isArray(baseValue))
-                    allOpts[key] = baseValue.concat(cmdValue);
+                    allArgs[key] = baseValue.concat(cmdValue);
                 else if (typeof baseValue == 'object')
-                    allOpts[key] = Object.assign({}, baseValue, cmdValue);
+                    allArgs[key] = Object.assign({}, baseValue, cmdValue);
                 else
-                    allOpts[key] = cmdValue;
+                    allArgs[key] = cmdValue;
             }
 
-            const commandOpts = this.getopts(allOpts);
-            if (opts.debug)
-                console.log('Command options:'.magenta, commandOpts);
-            Object.assign(opts, commandOpts);
+            const allOpts = getopts(argv, allArgs);
 
             const operandToOpt = Command.usage.operand;
-            if (opts._.length >= 2 && operandToOpt)
-                opts[operandToOpt] = opts._[1];
+            if (allOpts._.length >= 2 && operandToOpt)
+                allOpts[operandToOpt] = allOpts._[1];
 
-            if (opts.debug)
-                console.log('Final options:'.magenta, opts);
+            function fetchOpts(Class) {
+                const opts = {};
+                for (const param in Class.usage.params)
+                    opts[param] = allOpts[param];
+                return opts;
+            }
+
+            opts = fetchOpts(this.constructor);
+            const copts = fetchOpts(Command);
+
+            if (opts.debug) {
+                console.debug('Global options:'.magenta, opts);
+                console.debug('Command options:'.magenta, copts);
+            }
 
             if (opts.help) {
                 this.showHelp(Command.opts, Command.usage, commandName);
@@ -114,40 +131,53 @@ class Myt {
 
             // Check version
 
-            let depVersion;
+            let matchVersion;
             const versionRegex = /^[^~]?([0-9]+)\.([0-9]+).([0-9]+)$/;
             const wsPackageFile = path.join(opts.workspace, 'package.json');
 
             if (await fs.pathExists(wsPackageFile)) {
+                let depVersion;
+                const depName = packageJson.name;
                 const wsPackageJson = require(wsPackageFile);
+
                 try {
-                    depVersion = wsPackageJson
-                        .dependencies[packageJson.name]
-                        .match(versionRegex);
+                    const {
+                        dependencies,
+                        devDependencies
+                    } = wsPackageJson;
+
+                    if (dependencies)
+                        depVersion = dependencies[depName];
+                    if (!depVersion && devDependencies)
+                        depVersion = devDependencies[depName];
                 } catch (e) {}
+
+                if (typeof depVersion == 'string')
+                    matchVersion = depVersion.match(versionRegex);
             }
 
-            if (depVersion) {
+            if (matchVersion) {
                 const myVersion = packageJson.version.match(versionRegex);
 
                 const isSameVersion =
-                    depVersion[1] === myVersion[1] &&
-                    depVersion[2] === myVersion[2];
+                    matchVersion[1] === myVersion[1] &&
+                    matchVersion[2] === myVersion[2];
                 if (!isSameVersion)
                     throw new Error(`Myt version differs a lot from package.json, please run 'npm i' first to install the proper version.`);
 
-                const isSameMinor = depVersion[3] === myVersion[3];
+                const isSameMinor = matchVersion[3] === myVersion[3];
                 if (!isSameMinor)
                     console.warn(`Warning! Myt minor version differs from package.json, maybe you shoud run 'npm i' to install the proper version.`.yellow);
             }
 
             // Load method
 
-            parameter('Workspace:', opts.workspace);
-            parameter('Remote:', opts.remote || 'local');
+            await this.init(opts, Command.skipConf);
 
-            await this.init(opts);
-            await this.run(Command, opts);
+            parameter('Workspace:', this.cfg.workspace);
+            parameter('Remote:', this.cfg.remote || 'local');
+
+            await this.run(Command, copts);
             await this.deinit();
         } catch (err) {
             if (err.name == 'Error' && !opts.debug) {
@@ -166,68 +196,93 @@ class Myt {
         process.exit();
     }
 
+    /**
+     * Run myt command.
+     * @param {Command} Command class reference
+     * @param {Object} opts Command options
+     * @returns Command execution result
+     */
     async run(Command, opts) {
-        if (!opts) opts = this.opts;
         const command = new Command(this, opts);
         if (this.cliMode)
-            return await command.cli(this, opts);
+            return await command.cli();
         else
-            return await command.run(this, opts);
+            return await command.run();
     }
 
-    async init(opts) {
+    /**
+     * Initialize myt, should be called before running any command.
+     * @param {Object} opts Myt options
+     * @param {boolean} skipConf Whether to skip configuration file loading
+     */
+    async init(opts, skipConf) {
+        const ctx = {version: packageJson.version};
+
+        // Myt directory
+
+        let subdir;
+        const configFile = 'myt.config.yml';
+
+        if (!skipConf) {
+            const checkDirs = ['', 'myt', 'db'];
+            for (const dir of checkDirs) {
+                const cfgPath = path.join(opts.workspace, dir, configFile);
+                if (await fs.pathExists(cfgPath)) {
+                    subdir = dir;
+                    break;
+                }
+            }
+
+            if (subdir == null)
+                throw new Error (`Cannot find Myt config file '${configFile}': ${JSON.stringify(checkDirs)}`);
+        } else {
+            subdir = '';
+        }
+
+        ctx.subdir = subdir;
+        const mytDir = ctx.mytDir = path.join(opts.workspace, subdir);
+
         // Configuration file
 
         const defaultConfig = require(`${__dirname}/assets/myt.default.yml`);
-        const config = Object.assign({}, defaultConfig);
+        const cfg = Object.assign({}, defaultConfig);
 
-        const configFile = 'myt.config.yml';
-        const configPath = path.join(opts.workspace, configFile);
+        const configFiles = [
+            configFile,
+            'myt.local.yml'
+        ];
+        const mergeKeys = new Set([
+            'privileges'
+        ]);
 
-        if (await fs.pathExists(configPath)) {
-            const mergeKeys = new Set([
-                'privileges'
-            ]);
+        for (const file of configFiles) {
+            const configPath = path.join(mytDir, file);
+            if (!await fs.pathExists(configPath)) continue;
 
             const wsConfig = require(configPath);
             for (const key in wsConfig) {
                 if (!mergeKeys.has(key)) {
-                    config[key] = wsConfig[key];
+                    cfg[key] = wsConfig[key];
                 } else {
-                    config[key] = Object.assign({},
-                        config[key],
+                    cfg[key] = Object.assign({},
+                        cfg[key],
                         wsConfig[key]
                     );
                 }
             }
         }
 
-        Object.assign(opts, config);
-        opts.configFile = configFile;
-
-        const subdir = opts.subdir || '';
-        if (!opts.mytDir)
-            opts.mytDir = path.join(opts.workspace, subdir);
-
-        const routinesBaseRegex = subdir
-            ? `${subdir}\/routines`
-            : 'routines';
-
-        Object.assign(opts, {
-            routinesRegex: new RegExp(`^${routinesBaseRegex}\/(.+)\.sql$`),
-            routinesDir: path.join(opts.mytDir, 'routines'),
-            versionsDir: path.join(opts.mytDir, 'versions'),
-            dumpDir: path.join(opts.mytDir, 'dump')
-        });
+        Object.assign(cfg, opts);
+        ctx.configFile = configFile;
 
         // Database configuration
 
         let iniDir = path.join(__dirname, 'assets');
         let iniFile = 'db.ini';
 
-        if (opts.remote) {
-            iniDir = `${opts.mytDir}/remotes`;
-            iniFile = `${opts.remote}.ini`;
+        if (cfg.remote) {
+            iniDir = `${mytDir}/remotes`;
+            iniFile = `${cfg.remote}.ini`;
         }
         const iniPath = path.join(iniDir, iniFile);
 
@@ -244,12 +299,13 @@ class Myt {
                 iniConfig[newKey] = value !== undefined ? value : true;
             }
             dbConfig = {
-                host: iniConfig.host,
-                port: iniConfig.port,
-                user: iniConfig.user,
-                password: iniConfig.password,
                 multipleStatements: true
             };
+            const params = ['host', 'port', 'user', 'password'];
+            for (const param of params) {
+                if (iniConfig[param])
+                    dbConfig[param] = iniConfig[param];
+            }
             if (iniConfig.enable_cleartext_plugin) {
                 dbConfig.authPlugins = {
                     mysql_clear_password() {
@@ -259,7 +315,7 @@ class Myt {
             }
             if (iniConfig.ssl_ca) {
                 dbConfig.ssl = {
-                    ca: await fs.readFile(`${opts.mytDir}/${iniConfig.ssl_ca}`),
+                    ca: await fs.readFile(`${mytDir}/${iniConfig.ssl_ca}`),
                     rejectUnauthorized: iniConfig.ssl_verify_server_cert != undefined
                 }
             }
@@ -272,146 +328,39 @@ class Myt {
             throw newErr;
         }
 
-        Object.assign(opts, {
+        // Context configuration
+
+        const routinesBaseRegex = subdir
+            ? `${subdir}\/routines`
+            : 'routines';
+
+        Object.assign(ctx, {
             iniFile,
-            dbConfig
+            routinesRegex: new RegExp(`^${routinesBaseRegex}\/(.+)\.sql$`),
+            routinesDir: path.join(mytDir, 'routines'),
+            versionsDir: path.join(mytDir, 'versions'),
+            structureDir: path.join(mytDir, 'structure'),
+            dumpDir: path.join(mytDir, 'structure', '.dump'),
+            fixturesDir: path.join(mytDir, 'fixtures'),
+            realmsDir: path.join(mytDir, 'realms'),
+            dockerDir: path.join(mytDir, 'docker'),
+            isProtectedRemote: cfg.protectedRemotes?.includes(cfg.remote),
+            isLocalRemote: cfg.localRemotes?.includes(cfg.remote)
         });
-        this.opts = opts;
+
+        if (cfg.debug)
+            console.debug('Context:'.magenta, ctx);
+
+        // Don't print sensitive data when debugging
+        Object.assign(ctx, {dbConfig});
+
+        this.ctx = ctx;
+        this.cfg = cfg;
     }
 
     async deinit() {
         if (this.conn)
             await this.conn.end();
-    }
-
-    getopts(opts) {
-        const argv = process.argv.slice(2);
-        const values = getopts(argv, opts);
-        const cleanValues = {};
-        for (const opt in values)
-            if (opt.length > 1 || opt == '_')
-                cleanValues[opt] = values[opt];
-        return cleanValues;
-    }
-
-    async dbConnect() {
-        const {opts} = this;
-
-        if (!this.conn) {
-            const conn = this.conn = await this.createConnection();
-
-            const [[schema]] = await conn.query(
-                `SHOW DATABASES LIKE ?`, [opts.versionSchema]
-            );
-
-            if (!schema)
-                await conn.query(`CREATE DATABASE ??`, [opts.versionSchema]);
-            await conn.query(`USE ??`, [opts.versionSchema]);
-
-            const [[res]] = await conn.query(
-                `SELECT COUNT(*) > 0 tableExists
-                    FROM information_schema.tables
-                    WHERE TABLE_SCHEMA = ?
-                        AND TABLE_NAME = 'version'`,
-                [opts.versionSchema]
-            );
-
-            if (!res.tableExists) {
-                const structure = await fs.readFile(
-                    `${__dirname}/assets/structure.sql`, 'utf8');
-                await conn.query(structure);
-            }
-
-            const [[versionConfig]] = await conn.query(
-                `SELECT realm FROM versionConfig`
-            );
-            this.realm = versionConfig?.realm;
-        }
-
-        return this.conn;
-    }
-
-    async createConnection() {
-        return await mysql.createConnection(this.opts.dbConfig);
-    }
-
-    async fetchDbVersion() {
-        const [[version]] = await this.conn.query(
-            `SELECT number, gitCommit
-                FROM version WHERE code = ?`,
-            [this.opts.code]
-        );
-        return version;
-    }
-
-    parseVersionDir(versionDir) {
-        const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
-        if (!match) return null;
-        return {
-            number: match[1],
-            name: match[2]
-        };
-    }
-
-    async loadVersion(versionDir) {
-        const {opts} = this;
-
-        const info = this.parseVersionDir(versionDir);
-        if (!info) return null;
-
-        const versionsDir = opts.versionsDir;
-        const scriptsDir = `${versionsDir}/${versionDir}`;
-        const scriptList = await fs.readdir(scriptsDir);
-
-        const [res] = await this.conn.query(
-            `SELECT file, errorNumber IS NOT NULL hasError
-                FROM versionLog
-                WHERE code = ?
-                    AND number = ?`,
-            [opts.code, info.number]
-        );
-        const versionLog = new Map();
-        res.map(x => versionLog.set(x.file, x));
-
-        let applyVersion = false;
-        const scripts = [];
-
-        for (const file of scriptList) {
-            const match = file.match(scriptRegex);
-            if (match) {
-                const scriptRealm = match[1];
-                const isUndo = !!match[2];
-
-                if ((scriptRealm && scriptRealm !== this.realm) || isUndo)
-                    continue;
-            }
-
-            const logInfo = versionLog.get(file);
-            const apply = !logInfo || logInfo.hasError;
-            if (apply) applyVersion = true;
-
-            scripts.push({
-                file,
-                matchRegex: !!match,
-                apply
-            });
-        }
-
-        return {
-            number: info.number,
-            name: info.name,
-            scripts,
-            apply: applyVersion
-        };
-    }
-
-    async openRepo() {
-        const {opts} = this;
-
-        if (!await fs.pathExists(`${opts.workspace}/.git`))
-            throw new Error ('Git not initialized');
-
-        return await nodegit.Repository.open(opts.workspace);
     }
 
     showHelp(opts, usage, command) {
@@ -442,6 +391,193 @@ class Myt {
                 console.log(`  -${alias[opt]}, --${longOpt} ${paramDescription}`);
             }
         }
+    }
+
+    async dbConnect() {
+        if (this.conn)
+            return this.conn;
+
+        const {versionSchema} = this.cfg;
+        const conn = this.conn = await this.createConnection();
+
+        const [[schema]] = await conn.query(
+            `SHOW DATABASES LIKE ?`, [versionSchema]
+        );
+
+        if (!schema)
+            await conn.query(`CREATE DATABASE ??`, [versionSchema]);
+        await conn.query(`USE ??`, [versionSchema]);
+
+        const [[res]] = await conn.query(
+            `SELECT COUNT(*) > 0 tableExists
+                FROM information_schema.tables
+                WHERE TABLE_SCHEMA = ?
+                    AND TABLE_NAME = 'version'`,
+            [versionSchema]
+        );
+
+        if (!res.tableExists) {
+            const structure = await fs.readFile(
+                `${__dirname}/assets/structure.sql`, 'utf8');
+            await conn.query(structure);
+        }
+
+        const [[versionConfig]] = await conn.query(
+            `SELECT realm FROM versionConfig`
+        );
+        this.realm = versionConfig?.realm;
+
+        return this.conn;
+    }
+
+    async createConnection() {
+        return await mysql.createConnection(this.ctx.dbConfig);
+    }
+
+    async fetchDbVersion() {
+        const [[version]] = await this.conn.query(
+            `SELECT number, gitCommit
+                FROM version WHERE code = ?`,
+            [this.cfg.code]
+        );
+        return version;
+    }
+
+    parseVersionDir(versionDir) {
+        const match = versionDir.match(/^([0-9]+)-([a-zA-Z0-9]+)?$/);
+        if (!match) return null;
+        return {
+            number: match[1],
+            name: match[2]
+        };
+    }
+
+    async loadVersion(versionDir) {
+        const {cfg, ctx} = this;
+
+        const info = this.parseVersionDir(versionDir);
+        if (!info) return null;
+
+        const versionsDir = ctx.versionsDir;
+        const scriptsDir = `${versionsDir}/${versionDir}`;
+        const scriptList = await fs.readdir(scriptsDir);
+
+        const [res] = await this.conn.query(
+            `SELECT file, errorNumber IS NOT NULL hasError
+                FROM versionLog
+                WHERE code = ?
+                    AND number = ?`,
+            [cfg.code, info.number]
+        );
+        const versionLog = new Map();
+        res.map(x => versionLog.set(x.file, x));
+
+        let applyVersion = false;
+        const scripts = [];
+
+        for (const file of scriptList) {
+            const match = file.match(scriptRegex);
+            if (match) {
+                const scriptRealm = match[1];
+                const isUndo = !!match[2];
+
+                if ((scriptRealm && scriptRealm !== this.realm) || isUndo)
+                    continue;
+            }
+
+            const matchRegex = !!match;
+            const logInfo = versionLog.get(file);
+            const apply = !logInfo || logInfo.hasError;
+            const push = apply && matchRegex;
+            if (apply) applyVersion = true;
+
+            scripts.push({
+                file,
+                matchRegex,
+                apply,
+                push
+            });
+        }
+
+        return {
+            number: info.number,
+            name: info.name,
+            scripts,
+            apply: applyVersion
+        };
+    }
+
+    async openRepo() {
+        const {cfg} = this;
+
+        if (!await fs.pathExists(`${cfg.workspace}/.git`))
+            throw new Error ('Git not initialized');
+
+        const nodegit = require('nodegit');
+        return await nodegit.Repository.open(cfg.workspace);
+    }
+
+    async getChanges(commitSha, committed) {
+        const repo = await this.openRepo();
+        const changes = [];
+        const changesMap = new Map();
+
+        const {ctx} = this;
+        async function pushChanges(diff) {
+            if (!diff) return;
+            const patches = await diff.patches();
+
+            for (const patch of patches) {
+                const path = patch.newFile().path();
+                const match = path.match(ctx.routinesRegex);
+                if (!match) continue;
+
+                let change = changesMap.get(match[1]);
+                if (!change) {
+                    change = {path: match[1]};
+                    changes.push(change);
+                    changesMap.set(match[1], change);
+                }
+                change.mark = patch.isDeleted() ? '-' : '+';
+            }
+        }
+
+        const head = await repo.getHeadCommit();
+
+        if (head && commitSha) {
+            let commit;
+            let notFound;
+
+            try {
+                commit = await repo.getCommit(commitSha);
+                notFound = false;
+            } catch (err) {
+                if (err.errorFunction == 'Commit.lookup')
+                    notFound = true;
+                else
+                    throw err;
+            }
+
+            if (notFound) {
+                console.warn(`Database commit not found, trying git fetch`.yellow);
+                await repo.fetchAll();
+                commit = await repo.getCommit(commitSha);
+            }
+
+            const commitTree = await commit.getTree();
+
+            const headTree = await head.getTree();
+            const diff = await headTree.diff(commitTree);
+            await pushChanges(diff);
+        }
+
+        if (!committed) {
+            const repoExt = require('./lib/repo');
+            await pushChanges(await repoExt.getUnstaged(repo));
+            await pushChanges(await repoExt.getStaged(repo));
+        }
+
+        return changes;
     }
 }
 

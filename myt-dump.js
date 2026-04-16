@@ -8,23 +8,20 @@ class Dump extends Command {
     static usage = {
         description: 'Dumps structure and fixtures from remote',
         params: {
-            lock: 'Whether to lock tables on dump',
-            triggers: 'Whether to include triggers into dump'
+            lock: 'Whether to lock tables on dump'
         },
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         default: {
             remote: 'production'
         },
         alias: {
-            lock: 'l',
-            triggers: 't'
+            lock: 'l'
         },
         boolean: [
-            'lock',
-            'triggers'
+            'lock'
         ]
     };
 
@@ -35,21 +32,22 @@ class Dump extends Command {
         dumpTriggers: 'Dumping triggers.'
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
+        const {dumpDir} = ctx;
+
         let dumper;
-        const dumpDataDir = path.join(opts.dumpDir, '.dump');
         const baseArgs = [
             `--lock-tables=${opts.lock ? 'true' : 'false'}`
         ];
 
-        await fs.remove(dumpDataDir);
+        await fs.remove(dumpDir);
 
         // Structure
 
         this.emit('dumpStructure');
 
-        dumper = new Dumper(opts);
-        await dumper.init(dumpDataDir, 'structure');
+        dumper = new Dumper(myt);
+        await dumper.init(dumpDir, 'structure');
         let dumpArgs = [
             '--default-character-set=utf8',
             '--no-data',
@@ -60,7 +58,7 @@ class Dump extends Command {
         ].concat(baseArgs);
 
         dumpArgs.push('--databases');
-        dumpArgs = dumpArgs.concat(opts.schemas);
+        dumpArgs = dumpArgs.concat(cfg.schemas);
         await dumper.runDump('docker-dump.sh', dumpArgs);
         await dumper.end();
 
@@ -68,19 +66,19 @@ class Dump extends Command {
 
         this.emit('dumpData');
 
-        dumper = new Dumper(opts);
-        await dumper.init(dumpDataDir, 'data');
-        await dumper.dumpFixtures(opts.fixtures, false, baseArgs);
+        dumper = new Dumper(myt);
+        await dumper.init(dumpDir, 'data');
+        await dumper.dumpFixtures(cfg.fixtures, false, baseArgs);
         await dumper.end();
 
         // Privileges
 
-        const privs = opts.privileges;
+        const privs = cfg.privileges;
         if (privs) {
             this.emit('dumpPrivileges');
 
-            dumper = new Dumper(opts);
-            await dumper.init(dumpDataDir, 'privileges');
+            dumper = new Dumper(myt);
+            await dumper.init(dumpDir, 'privileges');
 
             const {tables, userTable, where} = privs;
 
@@ -102,26 +100,33 @@ class Dump extends Command {
 
         // Triggers
 
-        if (opts.triggers) {
-            this.emit('dumpTriggers');
+        this.emit('dumpTriggers');
 
-            const dumper = new Dumper(opts);
-            await dumper.init(dumpDataDir, 'triggers');
+        dumper = new Dumper(myt);
+        await dumper.init(dumpDir, 'triggers');
 
-            let dumpArgs = [
-                '--default-character-set=utf8',
-                '--no-create-info',
-                '--no-data',
-                '--no-create-db',
-                '--skip-opt',
-                '--comments'
-            ].concat(baseArgs);
+        dumpArgs = [
+            '--default-character-set=utf8',
+            '--no-create-info',
+            '--no-data',
+            '--no-create-db',
+            '--skip-opt',
+            '--comments'
+        ].concat(baseArgs);
 
-            dumpArgs.push('--databases');
-            dumpArgs = dumpArgs.concat(opts.schemas);
-            await dumper.runDump('mysqldump', dumpArgs);
-            await dumper.end();
-        }
+        dumpArgs.push('--databases');
+        dumpArgs = dumpArgs.concat(cfg.schemas);
+        await dumper.runDump('mysqldump', dumpArgs);
+        await dumper.end();
+        
+        // Info
+
+        await myt.dbConnect();
+        const version = await myt.fetchDbVersion();
+        await fs.writeFile(
+            path.join(dumpDir, 'version.json'),
+            JSON.stringify(version, null, 1)
+        );
     }
 }
 

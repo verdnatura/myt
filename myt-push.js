@@ -1,11 +1,10 @@
 const Myt = require('./myt');
 const Command = require('./lib/command');
 const fs = require('fs-extra');
-const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
 const connExt = require('./lib/conn');
-const repoExt = require('./lib/repo');
 const SqlString = require('sqlstring');
+const path = require('path');
 
 /**
  * Pushes changes to remote.
@@ -17,23 +16,31 @@ class Push extends Command {
             force: 'Answer yes to all questions',
             commit: 'Whether to save the commit SHA into database',
             sums: 'Save SHA sums of pushed objects',
-            triggers: 'Whether to exclude triggers, used to generate local DB'
+            triggers: 'Whether to exclude triggers, used to generate local DB',
+            docker: 'Whether to load git changes from file',
+            load: 'Commit SHA to save'
         },
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         alias: {
             force: 'f',
             commit: 'c',
             sums: 's',
-            triggers: 't'
+            triggers: 't',
+            docker: 'k',
+            load: 'l'
         },
         boolean: [
             'force',
             'commit',
             'sums',
-            'triggers'
+            'triggers',
+            'docker'
+        ],
+        string: [
+            'load'
         ]
     };
 
@@ -82,8 +89,37 @@ class Push extends Command {
                 actionMsg = '[+]'.green;
             else
                 actionMsg = '[I]'.blue;
+            
+            const msg = `  ${actionMsg.bold} ${script.file}`;
 
-            console.log(' ', actionMsg.bold, script.file);
+            if (script.push)
+                process.stdout.write(msg);
+            else
+                console.log(msg)
+        },
+        logScriptEnd(script, time) {
+            const ms = (time % 1000);
+            time = (time - ms) / 1000;
+            const s = time % 60;
+            time = (time - s) / 60;
+            const m = time % 60;
+            time = (time - m) / 60;
+            const h = time % 60;
+            
+            const parts = [];
+            if (h)
+                parts.push(`${h}h`);
+            if (m)
+                parts.push(`${m}m`);
+
+            if (h || m || s) {
+                const msFormat = String(ms).padStart(3, '0');
+                parts.push(h || m ? `${s}s` : `${s}.${msFormat}s`);
+            } else 
+                parts.push(`${ms}ms`);
+
+            const timeMsg = parts.join(' ');
+            console.log(` # ${timeMsg}`);
         },
         change(status, ignore, change) {
             let actionMsg;
@@ -126,11 +162,11 @@ class Push extends Command {
         }
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
         const conn = await myt.dbConnect();
         this.conn = conn;
 
-        if (opts.remote == 'local')
+        if (ctx.isLocalRemote)
             opts.commit = true;
 
         // Obtain exclusive lock
@@ -171,7 +207,7 @@ class Push extends Command {
         }
 
         try {
-            await this.push(myt, opts, conn);
+            await this.push(conn);
         } catch(err) {
             try {
                 await releaseLock();
@@ -184,10 +220,10 @@ class Push extends Command {
         await releaseLock();
     }
 
-    async cli(myt, opts) {
-        // Prevent push to production by mistake
+    async cli() {
+        const {ctx, opts} = this;
 
-        if (opts.remote == 'production') {
+        if (ctx.isProtectedRemote) {
             console.log(
                 '\n (   (       ) (                       (       )     ) '
                 + '\n )\\ ))\\ ) ( /( )\\ )          (        ))\\ ) ( /(  ( /( '
@@ -216,10 +252,12 @@ class Push extends Command {
             }
         }
 
-        await super.cli(myt, opts);
+        await super.cli();
     }
 
-    async push(myt, opts, conn) {
+    async push(conn) {
+        const {myt, ctx, cfg, opts} = this;
+
         const pushConn = await myt.createConnection();
 
         // Get database version
@@ -228,7 +266,7 @@ class Push extends Command {
         this.emit('dbInfo', dbVersion);
 
         if (!dbVersion.number)
-            dbVersion.number = String('0').padStart(opts.versionDigits, '0');
+            dbVersion.number = String('0').padStart(cfg.versionDigits, '0');
         if (!/^[0-9]*$/.test(dbVersion.number))
             throw new Error('Wrong database version');
 
@@ -239,7 +277,7 @@ class Push extends Command {
         let nVersions = 0;
         let nChanges = 0;
         let showLog = false;
-        const versionsDir = opts.versionsDir;
+        const versionsDir = ctx.versionsDir;
 
         const skipFiles = new Set([
             'README.md',
@@ -269,8 +307,9 @@ class Push extends Command {
 
                 for (const script of version.scripts) {
                     this.emit('logScript', script);
-                    if (!script.apply || !script.matchRegex) continue;
+                    if (!script.push) continue;
 
+                    const ini = performance.now();
                     let err;
                     try {
                         await connExt.queryFromFile(pushConn,
@@ -278,6 +317,8 @@ class Push extends Command {
                     } catch (e) {
                         err = e;
                     }
+                    const end = performance.now();
+                    this.emit('logScriptEnd', script, Math.floor(end - ini));
 
                     await conn.query(
                         `INSERT INTO versionLog
@@ -294,7 +335,7 @@ class Push extends Command {
                                 errorNumber = VALUES(errorNumber),
                                 errorMessage = VALUES(errorMessage)`,
                         [
-                            opts.code,
+                            cfg.code,
                             version.number,
                             script.file,
                             err && err.errno,
@@ -318,7 +359,17 @@ class Push extends Command {
         this.emit('applyingRoutines');
 
         let nRoutines = 0;
-        const changes = await this.changedRoutines(dbVersion.gitCommit);
+
+        let diff;
+        if (opts.docker) {
+            const changesFile = path.join(ctx.routinesDir, '.changes.json');
+            diff = await fs.exists(changesFile)
+                ? JSON.parse(await fs.readFile(changesFile, 'utf8'))
+                : [];
+        } else
+            diff = await myt.getChanges(dbVersion.gitCommit);
+
+        const changes = await this.changedRoutines(diff);
 
         const routines = [];
         for (const change of changes)
@@ -342,7 +393,7 @@ class Push extends Command {
             );
         }
 
-        const engine = new ExporterEngine(conn, opts);
+        const engine = new ExporterEngine(conn, myt);
         await engine.init();
 
         async function finalize() {
@@ -354,6 +405,10 @@ class Push extends Command {
             }
         }
 
+        const localRemote = cfg.remote == null || ctx.isLocalRemote;
+        let mockFunctions = localRemote && cfg.mockDate && cfg.mockFunctions;
+        mockFunctions = new Set(mockFunctions || []);
+
         for (const change of changes)
         try {
             if (opts.triggers && change.type.name === 'TRIGGER')
@@ -362,7 +417,7 @@ class Push extends Command {
             const schema = change.schema;
             const name = change.name;
             const type = change.type.name.toLowerCase();
-            const fullPath = `${opts.routinesDir}/${change.path}.sql`;
+            const fullPath = `${ctx.routinesDir}/${change.path}.sql`;
             const exists = await fs.pathExists(fullPath);
 
             let newSql;
@@ -371,15 +426,9 @@ class Push extends Command {
             const oldSql = await engine.fetchRoutine(type, schema, name);
             const oldSum = engine.getShaSum(type, schema, name);
 
-            const localRemote = opts.remote == null
-                || opts.localRemotes?.indexOf(opts.remote) !== -1;
-
             const isMockFn = type == 'function'
-                && schema == opts.versionSchema
-                && localRemote
-                && opts.mockDate
-                && opts.mockFunctions
-                && opts.mockFunctions.indexOf(name) !== -1;
+                && schema == cfg.versionSchema
+                && mockFunctions.has(name);
             const ignore = newSql == oldSql || isMockFn;
 
             let status;
@@ -412,7 +461,7 @@ class Push extends Command {
                         );
                     }
 
-                    if (opts.sums || oldSum || (opts.sumViews && type === 'view'))
+                    if (opts.sums || oldSum || (cfg.sumViews && type === 'view'))
                         await engine.fetchShaSum(type, schema, name);
                 } else {
                     const escapedName =
@@ -440,13 +489,23 @@ class Push extends Command {
 
         this.emit('routinesApplied', nRoutines);
 
-        const gitExists = await fs.pathExists(`${opts.workspace}/.git`);
-        if (gitExists && opts.commit) {
-            const repo = await nodegit.Repository.open(this.opts.workspace);
-            const head = await repo.getHeadCommit();
+        if (opts.commit) {
+            let commitSha;
 
-            if (head && dbVersion.gitCommit !== head.sha())
-                await this.updateVersion('gitCommit', head.sha());
+            if (opts.docker) {
+                commitSha = opts.load;
+            } else {
+                const gitExists = await fs.pathExists(`${cfg.workspace}/.git`);
+                if (gitExists) {
+                    const nodegit = require('nodegit');
+                    const repo = await nodegit.Repository.open(cfg.workspace);
+                    const head = await repo.getHeadCommit();
+                    commitSha = head?.sha();
+                }
+            }
+
+            if (commitSha && dbVersion.gitCommit !== commitSha)
+                await this.updateVersion('gitCommit', commitSha);
         }
 
         // End
@@ -465,71 +524,15 @@ class Push extends Command {
                     ${column} = VALUES(${column}),
                     updated = VALUES(updated)`,
             [
-                this.opts.code,
+                this.cfg.code,
                 value
             ]
         );
     }
 
-    async changedRoutines(commitSha) {
-        const repo = await this.myt.openRepo();
-        const changes = [];
-        const changesMap = new Map();
-
-        const {opts} = this;
-        async function pushChanges(diff) {
-            if (!diff) return;
-            const patches = await diff.patches();
-
-            for (const patch of patches) {
-                const path = patch.newFile().path();
-                const match = path.match(opts.routinesRegex);
-                if (!match) continue;
-
-                let change = changesMap.get(match[1]);
-                if (!change) {
-                    change = {path: match[1]};
-                    changes.push(change);
-                    changesMap.set(match[1], change);
-                }
-                change.mark = patch.isDeleted() ? '-' : '+';
-            }
-        }
-
-        const head = await repo.getHeadCommit();
-
-        if (head && commitSha) {
-            let commit;
-            let notFound;
-
-            try {
-                commit = await repo.getCommit(commitSha);
-                notFound = false;
-            } catch (err) {
-                if (err.errorFunction == 'Commit.lookup')
-                    notFound = true;
-                else
-                    throw err;
-            }
-
-            if (notFound) {
-                console.warn(`Database commit not found, trying git fetch`.yellow);
-                await repo.fetchAll();
-                commit = await repo.getCommit(commitSha);
-            }
-
-            const commitTree = await commit.getTree();
-
-            const headTree = await head.getTree();
-            const diff = await headTree.diff(commitTree);
-            await pushChanges(diff);
-        }
-
-        await pushChanges(await repoExt.getUnstaged(repo));
-        await pushChanges(await repoExt.getStaged(repo));
-
+    async changedRoutines(diff) {
         const routines = [];
-        for (const change of changes)
+        for (const change of diff)
             routines.push(new Routine(change));
 
         return routines.sort((a, b) => {

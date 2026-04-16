@@ -13,7 +13,7 @@ class Create extends Command {
         operand: 'name'
     };
 
-    static opts = {
+    static args = {
         alias: {
             type: 't',
             name: 'n'
@@ -27,12 +27,14 @@ class Create extends Command {
         }
     };
 
-    async cli(myt, opts) {
-        await super.cli(myt, opts);
+    async cli() {
+        await super.cli();
         console.log('Routine created.');
     }
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
+        const {type} = opts;
+
         const match = opts.name.match(/^(\w+)\.(\w+)$/);
         if (!match)
             throw new Error('Invalid object name, should contain schema and routine name');
@@ -43,30 +45,36 @@ class Create extends Command {
         const params = {
             schema,
             name,
-            definer: opts.defaultDefiner
+            definer: cfg.defaultDefiner
         };
 
-        switch (opts.type) {
+        switch (type) {
             case 'event':
-            case 'function':
             case 'procedure':
             case 'trigger':
-                params.body = "BEGIN\n-- Your code goes here\nEND";
+                params.body = "BEGIN\n\t-- Your code goes here\nEND";
+                break;
+            case 'function':
+                params.body = "BEGIN\n\tRETURN 1;\nEND";
                 break;
             case 'view':
                 params.definition = "SELECT TRUE"
                 break;
         }
 
-        const exporter = new Exporter(opts.type, opts.replace);
+        const exporter = new Exporter(type, cfg.replace);
         await exporter.init();
         const sql = exporter.format(params);
 
-        const routineDir = `${opts.routinesDir}/${schema}/${opts.type}s`;
+        const routineDir = `${ctx.routinesDir}/${schema}/${type}s`;
         if (!await fs.pathExists(routineDir))
-            await fs.mkdir(routineDir);
+            await fs.mkdir(routineDir, {recursive: true});
 
         const routineFile = `${routineDir}/${name}.sql`;
+
+        if (await fs.exists(routineFile))
+            throw new Error('Routine already exists');
+        
         await fs.writeFile(routineFile, sql);
     }
 }

@@ -1,11 +1,8 @@
 code: my-db
 schemas:
   - myt
-  - my_db
 fixtures:
   myt:
     - version
     - versionLog
-  my_db:
-    - table1
-    - table2
+    - versionConfig

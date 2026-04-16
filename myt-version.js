@@ -16,7 +16,7 @@ class Version extends Command {
         operand: 'name'
     };
 
-    static opts = {
+    static args = {
         alias: {
             name: 'n',
             deprecate: 'p'
@@ -46,7 +46,7 @@ class Version extends Command {
         deprecate: 'Generating SQL for deprecated objects deletion.'
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
         let newVersionDir;
 
         // Fetch last version number
@@ -61,7 +61,7 @@ class Version extends Command {
                     FROM version
                     WHERE code = ?
                     FOR UPDATE`,
-                [opts.code]
+                [cfg.code]
             );
             const number = row && row.number;
             const lastNumber = row && row.lastNumber;
@@ -78,7 +78,7 @@ class Version extends Command {
 
             const versionDigits = number
                 ? number.length
-                : opts.versionDigits;
+                : cfg.versionDigits;
 
             newVersion = String(newVersion).padStart(versionDigits, '0');
 
@@ -87,7 +87,7 @@ class Version extends Command {
             let versionName = opts.name;
 
             const versionNames = new Set();
-            const versionDirs = await fs.readdir(opts.versionsDir);
+            const versionDirs = await fs.readdir(ctx.versionsDir);
             for (const versionDir of versionDirs) {
                 const version = myt.parseVersionDir(versionDir);
                 if (!version) continue;
@@ -117,7 +117,7 @@ class Version extends Command {
             // Create version
 
             const versionFolder = `${newVersion}-${versionName}`;
-            newVersionDir = `${opts.versionsDir}/${versionFolder}`;
+            newVersionDir = `${ctx.versionsDir}/${versionFolder}`;
 
             await conn.query(
                 `INSERT INTO version
@@ -125,13 +125,13 @@ class Version extends Command {
                         lastNumber = ?
                     ON DUPLICATE KEY UPDATE
                         lastNumber = VALUES(lastNumber)`,
-                [opts.code, newVersion]
+                [cfg.code, newVersion]
             );
             await fs.mkdir(newVersionDir);
 
             if (opts.deprecate) {
                 this.emit('deprecate');
-                await deprecate(conn, opts, newVersionDir);
+                await deprecate(conn, cfg, newVersionDir);
             } else
                 await fs.writeFile(
                     `${newVersionDir}/00-firstScript.sql`,
@@ -150,12 +150,12 @@ class Version extends Command {
     }
 }
 
-async function deprecate(conn, opts, newVersionDir) {
+async function deprecate(conn, cfg, newVersionDir) {
     const now = new Date();
-    const minDeprecDate = new Date(now.getTime() - opts.deprecRetentionPeriod * 24 * 60 * 60 * 1000);    
-    const deprecMarkRegex = opts.deprecMarkRegex;
-    const deprecCommentRegex = opts.deprecCommentRegex;
-    const deprecDateRegex = opts.deprecDateRegex;
+    const minDeprecDate = new Date(now.getTime() - cfg.deprecRetentionPeriod * 24 * 60 * 60 * 1000);    
+    const deprecMarkRegex = cfg.deprecMarkRegex;
+    const deprecCommentRegex = cfg.deprecCommentRegex;
+    const deprecDateRegex = cfg.deprecDateRegex;
     const filePath = `${newVersionDir}/00-deprecate.sql`;
 
     // Generate the drops of the primary keys

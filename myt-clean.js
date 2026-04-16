@@ -14,7 +14,7 @@ class Clean extends Command {
         }
     };
 
-    static opts = {
+    static args = {
         alias: {
             purge: 'p'
         },
@@ -41,15 +41,17 @@ class Clean extends Command {
         }
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
+        const {versionsDir} = ctx;
+
         const conn = await myt.dbConnect();
-        const archiveDir = path.join(opts.versionsDir, '.archive');
+        const archiveDir = path.join(versionsDir, '.archive');
 
         const dbVersion = await myt.fetchDbVersion() || {};
         const number = parseInt(dbVersion.number);
 
         const oldVersions = [];
-        const versionDirs = await fs.readdir(opts.versionsDir);
+        const versionDirs = await fs.readdir(versionsDir);
         for (const versionDir of versionDirs) {
             const version = await myt.loadVersion(versionDir);
             const shouldArchive = version
@@ -60,15 +62,17 @@ class Clean extends Command {
                 oldVersions.push(versionDir);
         }
 
-        if (opts.maxOldVersions
-        && oldVersions.length > opts.maxOldVersions) {
-            oldVersions.splice(-opts.maxOldVersions);
+        const {maxOldVersions} = cfg;
+
+        if (maxOldVersions
+        && oldVersions.length > maxOldVersions) {
+            oldVersions.splice(-maxOldVersions);
 
             if (!await fs.pathExists(archiveDir))
                 await fs.mkdir(archiveDir);
 
             for (const oldVersion of oldVersions) {
-                const srcDir = path.join(opts.versionsDir, oldVersion);
+                const srcDir = path.join(versionsDir, oldVersion);
                 const dstDir = path.join(archiveDir, oldVersion);
 
                 if (!await fs.pathExists(dstDir))
@@ -91,7 +95,7 @@ class Clean extends Command {
             this.emit('versionsArchived');
 
         if (opts.purge) {
-            const versionDb = new VersionDb(myt, opts.versionsDir);
+            const versionDb = new VersionDb(myt, versionsDir);
             versionDb.load();
 
             const archiveDb = new VersionDb(myt, archiveDir);
@@ -101,7 +105,7 @@ class Clean extends Command {
                 `SELECT number, file FROM versionLog
                     WHERE code = ?
                     ORDER BY number, file`,
-                [opts.code]
+                [cfg.code]
             );
 
             let nPurged = 0;
@@ -113,7 +117,7 @@ class Clean extends Command {
                     await conn.query(
                         `DELETE FROM versionLog
                             WHERE code = ? AND number = ? AND file = ?`,
-                        [opts.code, script.number, script.file]
+                        [cfg.code, script.number, script.file]
                     );
                     nPurged++;
                 }

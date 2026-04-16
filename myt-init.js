@@ -8,14 +8,16 @@ class Init extends Command {
         description: 'Initialize an empty workspace'
     };
 
-    async run(myt, opts) {
-        const packageFile = path.join(opts.mytDir, 'package.json');
+    static skipConf = true;
+
+    async _run(myt, ctx, cfg, opts) {
+        const packageFile = path.join(ctx.mytDir, 'package.json');
         const packageExists = await fs.pathExists(packageFile);
 
         const templateDir = path.join(__dirname, 'template');
         const templates = await fs.readdir(templateDir);
         for (let template of templates) {
-            const dst = path.join(opts.mytDir, template);
+            const dst = path.join(ctx.mytDir, template);
             if (!await fs.pathExists(dst))
                 await fs.copy(path.join(templateDir, template), dst);
         }

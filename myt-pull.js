@@ -3,7 +3,6 @@ const Command = require('./lib/command');
 const fs = require('fs-extra');
 const nodegit = require('nodegit');
 const ExporterEngine = require('./lib/exporter-engine');
-const repoExt = require('./lib/repo');
 
 class Pull extends Command {
     static usage = {
@@ -17,7 +16,7 @@ class Pull extends Command {
         operand: 'remote'
     };
 
-    static opts = {
+    static args = {
         alias: {
             force: 'f',
             checkout: 'c',
@@ -39,7 +38,7 @@ class Pull extends Command {
         routineChanges: 'Incorporating routine changes.'
     };
 
-    async run(myt, opts) {
+    async _run(myt, ctx, cfg, opts) {
         const conn = await myt.dbConnect();
         const repo = await myt.openRepo();
 
@@ -50,12 +49,14 @@ class Pull extends Command {
                     const match = patch
                         .newFile()
                         .path()
-                        .match(opts.routinesRegex);
+                        .match(ctx.routinesRegex);
                     if (match) return true;
                 }
 
                 return false;
             }
+
+            const repoExt = require('./lib/repo');
 
             // Check for unstaged changes
 
@@ -92,11 +93,11 @@ class Pull extends Command {
 
         this.emit('routineChanges');
 
-        const engine = new ExporterEngine(conn, opts);
+        const engine = new ExporterEngine(conn, myt);
         await engine.init();
         const shaSums = engine.shaSums;
 
-        const routinesDir = opts.routinesDir;
+        const {routinesDir} = ctx;
         if (!await fs.pathExists(routinesDir))
             await fs.mkdir(routinesDir);
 
@@ -104,7 +105,7 @@ class Pull extends Command {
 
         const schemas = await fs.readdir(routinesDir);
         for (const schema of schemas) {
-            if (opts.schemas.indexOf(schema) == -1)
+            if (cfg.schemas.indexOf(schema) == -1)
                 await fs.remove(`${routinesDir}/${schema}`);
         }
 
@@ -115,7 +116,7 @@ class Pull extends Command {
 
         // Export objects to SQL files
 
-        for (const schema of opts.schemas) {
+        for (const schema of cfg.schemas) {
             let schemaDir = `${routinesDir}/${schema}`;
             if (!await fs.pathExists(schemaDir))
                 await fs.mkdir(schemaDir);
@@ -129,14 +130,14 @@ class Pull extends Command {
     }
 
     async export(conn, engine, exporter, schema) {
-        const {opts} = this;
+        const {ctx, cfg, opts} = this;
 
         const res = await exporter.query(conn, schema);
         if (!res.length) return;
 
         const type = exporter.objectType;
 
-        const routineDir = `${opts.routinesDir}/${schema}/${type}s`;
+        const routineDir = `${ctx.routinesDir}/${schema}/${type}s`;
         if (!await fs.pathExists(routineDir))
             await fs.mkdir(routineDir);
 
@@ -162,7 +163,7 @@ class Pull extends Command {
             let update = opts.update;
 
             const oldSum = engine.getShaSum(type, schema, routineName);
-            if (oldSum || opts.sums || (opts.sumViews && type === 'view')) {
+            if (oldSum || opts.sums || (cfg.sumViews && type === 'view')) {
                 const shaSum = engine.shaSum(sql);
                 if (oldSum !== shaSum) {
                     engine.setShaSum(type, schema, routineName, shaSum);

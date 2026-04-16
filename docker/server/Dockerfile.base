@@ -1,0 +1,6 @@
+ARG DB_TAG=mariadb:10.11.16-jammy
+FROM ${DB_TAG}
+
+ARG SERVER_DIR=docker/server
+COPY ${SERVER_DIR}/docker.cnf /etc/mysql/conf.d/
+COPY ${SERVER_DIR}/docker-start.sh /usr/local/bin/
