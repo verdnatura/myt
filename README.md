@@ -9,7 +9,7 @@ development, so any help is welcomed! Feel free to contribute.
 ## Requirements
 
 * Git
-* Docker (Optional, used to manage local server)
+* Docker >= 23 with BuildKit (Optional, used to manage local server)
 
 ## Installation
 

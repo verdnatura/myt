@@ -133,13 +133,8 @@ class Build extends Command {
         const tagSha = tagHash.digest('hex');
         const shortSha = tagSha.substring(0, cfg.gitShortLen);
 
-        let imageTag = 'latest';
-        if (opts.tag) {
-            imageTag = opts.tag;
-        } else if (shortSha) {
-            imageTag = shortSha;
-            if (realm) imageTag += `-${realm}`;
-        }
+        let imageTag = shortSha;
+        if (realm) imageTag += `-${realm}`;
 
         const imageName = opts.name || cfg.code;
         const tag = `${imageName}:${imageTag}`;
@@ -262,8 +257,12 @@ class Build extends Command {
                 if (realm)
                     buildArgs.push(`MYT_REALM=${realm}`);
 
+                const tags = [tag, `${imageName}:latest`];
+                if (opts.tag)
+                    tags.push(`${imageName}:${opts.tag}`);
+
                 await docker.build(ctx.mytDir, {
-                    tag: [tag, imageName],
+                    tag: tags,
                     file: path.join(serverDir, 'Dockerfile'),
                     label: imageLabels,
                     buildArg: buildArgs

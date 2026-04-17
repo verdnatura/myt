@@ -23,11 +23,8 @@ RUN apt-get update \
 #     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /myt
-COPY pnpm-lock.yaml ./
-RUN pnpm fetch --prod --frozen-lockfile --ignore-scripts
-
 COPY package.json ./
-RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+RUN pnpm install --prod --ignore-scripts
 
 COPY . ./
 RUN npm install -g /myt
