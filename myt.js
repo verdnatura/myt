@@ -125,7 +125,7 @@ class Myt {
             }
 
             if (opts.help) {
-                this.showHelp(Command.opts, Command.usage, commandName);
+                this.showHelp(Command.args, Command.usage, commandName);
                 process.exit(0);
             }
 

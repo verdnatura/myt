@@ -62,7 +62,13 @@ Local server management commands:
  * **run**: Build and start local database server container.
  * **start**: Start local database server container.
 
-Each command can have its own specific commandline options.
+Each command can have its own specific commandline options, you can see them by
+running the command along with the _--help_ parameter, only the most commonly
+used ones are documented here.
+
+```text
+$ myt <command> [<args>] [-h|--help]
+```
 
 ### Usage as library
 
@@ -225,16 +231,15 @@ should be named like this: `filename.foo.sql`.
 Initializes an empty workspace.
 
 ```text
-$ myt init
+$ myt init [<args>]
 ```
-
 
 ### pull
 
 Incorporates database routine changes into workspace.
 
 ```text
-$ myt pull [remote] [-f|--force] [-c|--checkout] [-u|--update] [-s|--sums]
+$ myt pull [<args>] [-f|--force] [<remote>]
 ```
 
 When *--checkout* option is provided, it does the following before export:
@@ -247,7 +252,7 @@ When *--checkout* option is provided, it does the following before export:
 Applies versions and routine changes into database.
 
 ```text
-$ myt push [<remote>] [-f|--force] [-c|--commit] [-s|--sums] [-t|--triggers]
+$ myt push [<args>] [-f|--force] [-c|--commit] [<remote>]
 ```
 
 Commit is saved into database only if *--commit* option is provided, it
@@ -261,7 +266,7 @@ Creates a new version folder, when name is not specified it generates a random
 name mixing a color with a plant name.
 
 ```text
-$ myt version [<name>]
+$ myt version [<args>] [<name>]
 ```
 
 ### create
@@ -269,7 +274,7 @@ $ myt version [<name>]
 Creates a new routine file with a default template.
 
 ```text
-$ myt create [-t <type>] <schema>.<name>
+$ myt create [<args>] [-t <type>] <schema>.<name>
 ```
 
 ### clean
@@ -288,7 +293,7 @@ Exports database structure and fixtures from remote into hidden files located
 in *dump* folder. If no remote is specified *production* is used.
 
 ```text
-$ myt dump [<remote>] [-l|--lock] [-t|--triggers]
+$ myt dump [<args>] [-l|--lock] [<remote>]
 ```
 
 ### fixtures
@@ -297,7 +302,7 @@ Exports local database fixtures into *dump/fixtures.sql* files. If no remote is
 specified *local* is used.
 
 ```text
-$ myt fixtures [<remote>]
+$ myt fixtures [<args>] [<remote>]
 ```
 
 ### build
@@ -306,7 +311,7 @@ Builds local database server image. It only rebuilds the image when sources
 have been modified.
 
 ```text
-$ myt build [-n|--name] [-t|--tag] [-f|--force] [-m|--realm <string>]
+$ myt build [<args>] [-n|--name] [-t|--tag] [-f|--force] [<realm>]
 ```
 
 ### apply
@@ -315,7 +320,7 @@ Applies structure, fixtures and changes to database. Primarily used by the
 build command to rebuild the local database.
 
 ```text
-$ myt apply [-s|--structure] [-c|--changes] [-m|--realm <string>] [-l|--load <string>]
+$ myt apply [<args>] [<realm>]
 ```
 
 ### run
@@ -324,7 +329,7 @@ Builds and starts local database server container. It only rebuilds the image
 when dump have been modified.
 
 ```text
-$ myt run [<realm>|-m|--realm <string>] [-c|--ci] [-r|--random] [-p|--persist] [-k|--keep] [-n|--network <string>] [-i|--ip]
+$ myt run [<args>] [-c|--ci] [-r|--random] [<realm>]
 ```
 
 ### start
@@ -335,7 +340,7 @@ mind that when you do not rebuild the docker you may be using an outdated
 version of it.
 
 ```text
-$ myt start
+$ myt start [<args>]
 ```
 
 ## Why

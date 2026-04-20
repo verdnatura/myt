@@ -13,36 +13,46 @@ class Run extends Command {
     static usage = {
         description: 'Build and start local database server container',
         params: {
-            ci: 'Workaround for continuous integration system',
             network: 'Docker network to attach container to',
             random: 'Whether to use a random container name and port',
             persist: 'Whether to not use tmpfs mount for MySQL data',
             keep: 'Keep container on failure',
             realm: 'Name of fixture realm to use',
-            ip: 'Bind to container IP instead of localhost'
+            ip: 'Bind to container IP instead of localhost',
+            build: 'Whether to skip image build',
+            name: 'Built image name',
+            tag: 'Built image tag',
+            force: 'Whether to force build'
         },
         operand: 'realm'
     };
 
     static args = {
         alias: {
-            network: 'n',
+            network: 'e',
             random: 'r',
             persist: 'p',
             keep: 'k',
-            realm: 'm',
-            ip: 'i'
+            ip: 'i',
+            build: 'b',
+            name: 'n',
+            tag: 't',
+            force: 'f',
+            realm: 'm'
         },
         string: [
             'network',
+            'name',
+            'tag',
             'realm'
         ],
         boolean: [
-            'ci',
             'random',
             'persist',
             'keep',
-            'ip'
+            'ip',
+            'build',
+            'force'
         ]
     };
 
@@ -55,9 +65,21 @@ class Run extends Command {
     };
 
     async _run(myt, ctx, cfg, opts) {
-        const tag = await myt.run(Build, {
-            realm: opts.realm
-        });
+        let tag;
+
+        if (!opts.build) {
+            tag = await myt.run(Build, {
+                name: opts.name,
+                tag: opts.tag,
+                force: opts.force,
+                realm: opts.realm
+            });
+        } else {
+            if (!opts.name)
+                throw new Error('Build ommitted but no image passed');
+            tag = opts.name;
+            if (opts.tag) tag += `:${opts.tag}`;
+        }
 
         this.emit('runningContainer');
 
