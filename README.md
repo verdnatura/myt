@@ -67,7 +67,7 @@ running the command along with the _--help_ parameter, only the most commonly
 used ones are documented here.
 
 ```text
-$ myt <command> [<args>] [-h|--help]
+$ myt <command> [-h|--help]
 ```
 
 ### Usage as library
@@ -282,7 +282,7 @@ $ myt create [<args>] [-t <type>] <schema>.<name>
 Cleans all already applied versions older than  *maxOldVersions*.
 
 ```text
-$ myt clean [-p|--purge]
+$ myt clean [<args>] [-p|--purge]
 ```
 
 ## Local server commands

@@ -75,9 +75,7 @@ class Run extends Command {
                 realm: opts.realm
             });
         } else {
-            if (!opts.name)
-                throw new Error('Build ommitted but no image passed');
-            tag = opts.name;
+            tag = opts.name || cfg.code;
             if (opts.tag) tag += `:${opts.tag}`;
         }
 
