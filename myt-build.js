@@ -270,7 +270,8 @@ class Build extends Command {
             } finally {
                 await fs.unlink(changesFile);
             }
-        }
+        } else if (opts.tag)
+            await docker.tag(tag, `${imageName}:${opts.tag}`);
 
         this.emit('serverImageTag', tag);
         return tag;
