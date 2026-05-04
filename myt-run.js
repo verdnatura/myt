@@ -131,7 +131,7 @@ class Run extends Command {
                             : localhost;
                     } else {
                         host = netSettings.IPAddress
-                            ?? ctNetworks.bridge?.IPAddress;
+                            || ctNetworks.bridge?.IPAddress;
                     }
                     port = 3306;
                 } else {
